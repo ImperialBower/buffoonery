@@ -7,8 +7,10 @@
 
 # buffoonery
 
-A Balatro-style card engine and the foundation of a solver. It models jokers,
-editions, boards and scoring on top of [cardpack](https://crates.io/crates/cardpack),
+![buffoonery_card_stacked_172x248.gif](docs/images/grimaldi/buffoonery_card_stacked_172x248.gif)
+
+Foundation for a Balatro-style score calculator to help learn optimized play
+and math. It models jokers, editions, boards and scoring on top of [cardpack](https://crates.io/crates/cardpack),
 and it is growing a step-by-step score trace, boards you can write as YAML,
 and a WebAssembly (WIT) component so other programs, like a joker calculator
 in the browser, can use it. The engine started life as cardpack's `funky`
@@ -32,3 +34,7 @@ make ayce
 - **Security scan:** cargo-audit plus cargo-deny advisories, daily in CI — see [toolchain decisions](.okf/decisions/toolchain.md)
 - **Docs:** rustdoc with warnings as errors — see [toolchain decisions](.okf/decisions/toolchain.md)
 - **Toolchain:** Rust, MSRV pinned in one place per file — see [toolchain decisions](.okf/decisions/toolchain.md)
+
+![grimaldi_clown_214x261.gif](docs/images/grimaldi/grimaldi_clown_214x261.gif)
+
+- Image of [Joseph Grimaldi](https://publicdomainreview.org/essay/the-memoirs-of-joseph-grimaldi/) possibly by Piercy Roberts, 1822

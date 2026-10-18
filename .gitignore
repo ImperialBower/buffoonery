@@ -1,2 +1,4 @@
 /target
 .idea/
+# Re-include bin/: a global gitignore may exclude it, and bin/security-scan must be committed.
+!/bin/
