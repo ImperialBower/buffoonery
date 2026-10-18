@@ -27,7 +27,12 @@ wildcards = "warn"
 highlight = "all"
 allow = []
 deny = []
-skip = []
+# cardpack 0.11.1 depends on getrandom 0.3 (for its wasm_js feature) while
+# rand 0.10 uses getrandom 0.4. Drop these when cardpack moves to 0.4.
+skip = [
+    { crate = "getrandom@0.3.4", reason = "cardpack 0.11.1 pins getrandom 0.3; rand 0.10 uses 0.4" },
+    { crate = "r-efi@5.3.0", reason = "transitive of getrandom 0.3" },
+]
 skip-tree = []
 
 [sources]
