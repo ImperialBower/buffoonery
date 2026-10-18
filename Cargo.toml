@@ -1,0 +1,16 @@
+[package]
+name = "buffoonery"
+description = "A Balatro-style card engine and solver foundation, built on cardpack"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85.0"
+license = "Apache-2.0"
+repository = "https://github.com/ImperialBower/buffoonery"
+keywords = ["balatro", "cards", "solver"]
+categories = ["game-development"]
+
+[dependencies]
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }

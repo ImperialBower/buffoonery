@@ -1,0 +1,34 @@
+[![Build and Test](https://github.com/ImperialBower/buffoonery/actions/workflows/ci.yaml/badge.svg)](https://github.com/ImperialBower/buffoonery/actions/workflows/ci.yaml)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE)
+[![AI-BOM](https://img.shields.io/badge/AI--BOM-declared-8A2BE2?style=flat-square)](AI-BOM.md)
+
+---
+
+# buffoonery
+
+A Balatro-style card engine and the foundation of a solver. It models jokers,
+editions, boards and scoring on top of [cardpack](https://crates.io/crates/cardpack),
+and it is growing a step-by-step score trace, boards you can write as YAML,
+and a WebAssembly (WIT) component so other programs, like a joker calculator
+in the browser, can use it. The engine started life as cardpack's `funky`
+feature.
+
+## How to use
+
+```shell
+git clone https://github.com/ImperialBower/buffoonery.git
+cd buffoonery
+make ayce
+```
+
+`make ayce` runs the whole quality gate. `make help` lists every target.
+
+## What's in the box
+
+- **Formatting:** rustfmt — see [toolchain decisions](.okf/decisions/toolchain.md)
+- **Linting:** clippy at pedantic, warnings as errors — see [toolchain decisions](.okf/decisions/toolchain.md)
+- **Supply-chain policy:** cargo-deny — see [toolchain decisions](.okf/decisions/toolchain.md)
+- **Security scan:** cargo-audit plus cargo-deny advisories, daily in CI — see [toolchain decisions](.okf/decisions/toolchain.md)
+- **Docs:** rustdoc with warnings as errors — see [toolchain decisions](.okf/decisions/toolchain.md)
+- **Toolchain:** Rust, MSRV pinned in one place per file — see [toolchain decisions](.okf/decisions/toolchain.md)

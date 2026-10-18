@@ -1,0 +1,35 @@
+# Configuration for cargo-deny
+# https://embarkstudios.github.io/cargo-deny/
+#
+# `cargo deny check` (no args) runs advisories + bans + licenses + sources.
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+ignore = []
+
+[licenses]
+# The crate's own license plus only what direct + transitive dependencies
+# actually need. Add entries as new dependencies require them.
+allow = [
+    "Apache-2.0",
+]
+confidence-threshold = 0.8
+exceptions = []
+private = { ignore = true }
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+highlight = "all"
+allow = []
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
