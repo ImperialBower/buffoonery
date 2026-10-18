@@ -10,7 +10,18 @@ keywords = ["balatro", "cards", "solver"]
 categories = ["game-development"]
 
 [dependencies]
+cardpack = { version = "0.11", features = ["std", "serde"] }
+log = "0.4"
+rand = "0.10"
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+env_logger = "0.11"
+rstest = "0.27"
+serde_json = "1"
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
