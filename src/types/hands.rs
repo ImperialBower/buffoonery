@@ -104,14 +104,13 @@ impl PokerHands {
     }
 
     pub fn increment(&mut self, planet_card: BuffoonCard) {
-        if planet_card.card_type == BCardType::Planet {
-            if let MPip::ChipsMultPlusOnHand(chips, mult, hand_type) = planet_card.enhancement {
-                if let Some(poker_hand) = self.get_mut(&hand_type) {
-                    poker_hand.chips += chips;
-                    poker_hand.mult += mult;
-                    poker_hand.level += 1;
-                }
-            }
+        if planet_card.card_type == BCardType::Planet
+            && let MPip::ChipsMultPlusOnHand(chips, mult, hand_type) = planet_card.enhancement
+            && let Some(poker_hand) = self.get_mut(&hand_type)
+        {
+            poker_hand.chips += chips;
+            poker_hand.mult += mult;
+            poker_hand.level += 1;
         }
     }
 

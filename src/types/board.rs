@@ -1961,10 +1961,10 @@ impl BuffoonBoard {
         if lose_discards {
             draws.discards = 0;
         }
-        if self.boss_ability_active() {
-            if let Some(boss) = self.blind.boss() {
-                draws = boss.apply(draws);
-            }
+        if self.boss_ability_active()
+            && let Some(boss) = self.blind.boss()
+        {
+            draws = boss.apply(draws);
         }
         self.draws = draws;
     }
@@ -2201,10 +2201,10 @@ impl BuffoonBoard {
         if self.vouchers.contains(&voucher) {
             return false;
         }
-        if let Some(base) = voucher.requires() {
-            if !self.vouchers.contains(&base) {
-                return false;
-            }
+        if let Some(base) = voucher.requires()
+            && !self.vouchers.contains(&base)
+        {
+            return false;
         }
         let price = 10;
         if self.money.saturating_sub(price) < self.debt_floor() {
@@ -3068,10 +3068,10 @@ impl BuffoonBoard {
     /// that 6". Located by value in [`full_deck`](Self::full_deck), like every
     /// other roster mutation.
     fn destroy_played_single(&mut self) {
-        if let Some(card) = self.played.get(0).copied() {
-            if let Some(slot) = self.full_deck_index_of(card) {
-                self.destroy_deck_card(slot);
-            }
+        if let Some(card) = self.played.get(0).copied()
+            && let Some(slot) = self.full_deck_index_of(card)
+        {
+            self.destroy_deck_card(slot);
         }
     }
 

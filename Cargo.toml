@@ -1,9 +1,9 @@
 [package]
 name = "buffoonery"
 description = "A Balatro-style card engine and solver foundation, built on cardpack"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.99.1"
 license = "Apache-2.0"
 repository = "https://github.com/ImperialBower/buffoonery"
 keywords = ["balatro", "cards", "solver"]
@@ -17,7 +17,7 @@ serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 env_logger = "0.11"
-rstest = "0.27"
+rstest = "0.28"
 serde_json = "1"
 
 [lints.clippy]

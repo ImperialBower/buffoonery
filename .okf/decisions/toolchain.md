@@ -10,7 +10,7 @@ timestamp: '2026-10-18T22:10:40Z'
 
 | Tool | Version | Why |
 |---|---|---|
-| Rust | 1.85.0 (MSRV, edition 2024) | Matches cardpack's MSRV, so the engine copied from cardpack's `funky` module compiles unchanged. |
+| Rust | 1.99.1 (MSRV, edition 2024) | Latest stable installed locally. Raised from 1.85.0 (cardpack's MSRV) on 2026-10-18; let-chains are now allowed, which newer clippy's `collapsible_if` asks for. |
 | rustfmt | ships with the toolchain | One formatting style, checked in CI. |
 | clippy | ships with the toolchain; `all` + `pedantic` in `Cargo.toml` | Pedantic catches API-design and idiom issues `clippy::all` misses; a few justified `#[allow]`s cost less than the bugs it prevents. |
 | cargo-deny | installed via `cargo install` (0.20.2 at scaffold) | One tool for four supply-chain concerns: licenses, banned or duplicate crates, advisories, and allowed sources. |
