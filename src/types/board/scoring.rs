@@ -1,0 +1,837 @@
+//! Scoring: the four-phase fold that turns a [`BuffoonBoard`] into a [`Score`].
+//!
+//! Phase 1 sets the base from the hand type and level, phase 2 folds the played
+//! cards, phase 3 the held cards, phase 4 the jokers, left to right. Moved here
+//! from `board.rs` unchanged (EPIC-05 Story S2), so a step-by-step trace can be
+//! threaded through the folds without growing `board.rs` further.
+
+use super::BuffoonBoard;
+use crate::prelude::{BCardType, BuffoonCard, HandRules, HandType, MPip, Score};
+use crate::types::effect::{EffectRegistry, ScoreOp, ScoringContext};
+use rand::rngs::StdRng;
+use rand::{Rng, RngExt, SeedableRng};
+
+/// Balatro's Lucky card grants a flat +20 mult on a successful (1-in-N) roll.
+const LUCKY_MULT: usize = 20;
+
+impl BuffoonBoard {
+    /// Phase 1 — pre-scoring: establishes the base chips and mult for the
+    /// played hand from its [`HandType`] at its current level, as tracked in
+    /// [`PokerHands`](crate::prelude::PokerHands). This is the starting [`Score`] before any played-card
+    /// (phase 2), held-card (phase 3), or joker (phase 4) contributions.
+    ///
+    /// A Royal Flush shares the Straight Flush's base and level, matching
+    /// Balatro (there is no separate Royal Flush entry to level up).
+    ///
+    /// From [Detailed Break down of Balatro Scoring System and some tips to optimise your hand scoring.](https://www.reddit.com/r/balatro/comments/1blbexa/detailed_break_down_of_balatro_scoring_system_and/)
+    #[must_use]
+    pub fn scoring_phase1_pre_scoring(&self) -> Score {
+        self.poker_hands
+            .get(&self.scoring_hand_type())
+            .map_or_else(Score::default, |hand| {
+                Score::from_usize(hand.chips, hand.mult)
+            })
+    }
+
+    /// The hand type the played cards score as, under the board's
+    /// [`HandRules`] — so Four Fingers and Shortcut are already accounted for.
+    ///
+    /// A Royal Flush is normalised to Straight Flush, matching Balatro (there is
+    /// no separate Royal Flush entry to level up). Shared by phase 1 and by the
+    /// hand-type readers (Card Sharp, `on_hand_played`'s per-round tally) so
+    /// there is one answer to "what hand is this" for the whole board — a
+    /// second, subtly different copy is exactly how a Royal Flush would come to
+    /// count as its own type in one place and not another.
+    #[must_use]
+    pub fn scoring_hand_type(&self) -> HandType {
+        Self::normalise_hand_type(self.played.determine_hand_type_with(self.hand_rules()))
+    }
+
+    pub(super) fn normalise_hand_type(hand_type: HandType) -> HandType {
+        match hand_type {
+            HandType::RoyalFlush => HandType::StraightFlush,
+            other => other,
+        }
+    }
+
+    /// Phase 2 — played-hand scoring: folds each played card into the running
+    /// `score`. Every card adds its chip value (base rank + flat `Chips`
+    /// enhancement, via [`BuffoonCard::get_chips`]) plus any per-card plus-effects
+    /// from its own enhancement (conditional chips / mult, via
+    /// [`BuffoonCard::calculate_plus`]); those two paths handle disjoint `MPip`
+    /// variants, so nothing is counted twice.
+    ///
+    /// Takes the running score (rather than returning an independent
+    /// contribution) so a custom played card's ×mult multiplies the score
+    /// accumulated so far — including the phase-1 base — in card order.
+    ///
+    /// [`BuffoonCard::get_chips`]: crate::types::buffoon_card::BuffoonCard::get_chips
+    /// [`BuffoonCard::calculate_plus`]: crate::types::buffoon_card::BuffoonCard::calculate_plus
+    #[must_use]
+    pub fn scoring_phase2_dealt_hand_scoring(&self, running: Score) -> Score {
+        self.fold_played_cards::<StdRng>(running, None, None)
+    }
+
+    /// The single played-card fold behind phase 2. Each card adds its chips and
+    /// built-in additive effects, then its special enhancement resolves:
+    /// a Lucky card rolls (if `rng`), a Glass card applies its ×mult, a
+    /// `MPip::Custom` card is looked up (if `registry`). Built-in cards are
+    /// unaffected by the options.
+    // Glass's ×mult factor is a small literal from the card data; the same
+    // allow the other ×mult seams carry (`builtin_held_op`, `joker_x_mult`).
+    #[allow(clippy::cast_precision_loss)]
+    fn fold_played_cards<R: Rng + ?Sized>(
+        &self,
+        running: Score,
+        mut rng: Option<&mut R>,
+        registry: Option<&EffectRegistry>,
+    ) -> Score {
+        let mut score = running;
+
+        for (index, card) in self.played.iter().enumerate() {
+            // A card is scored once, plus once more for each retrigger a joker
+            // grants it (Hack: each played 2-5; Hanging Chad: the first card).
+            // Retriggering re-runs the whole per-card contribution, so a
+            // retriggered Lucky card rolls again — matching Balatro. With no
+            // retrigger joker this is a single pass.
+            for _ in 0..=self.played_retriggers(index, card) {
+                // Every played card contributes its built-in chips/mult first,
+                // then its special (probabilistic / custom) effect resolves.
+                score = Self::builtin_played_op(card).apply(score);
+
+                let special = match card.enhancement {
+                    MPip::Lucky(mult_odds, _) if mult_odds > 0 => {
+                        // A 1-in-`mult_odds` roll wins on outcomes `0..wins`;
+                        // Oops! All 6s doubles `wins` (capped at certainty).
+                        let wins = self.probability_numerator().min(mult_odds);
+                        rng.as_deref_mut().map_or(ScoreOp::Nothing, |rng| {
+                            if rng.random_range(0..mult_odds) < wins {
+                                ScoreOp::AddMult(LUCKY_MULT)
+                            } else {
+                                ScoreOp::Nothing
+                            }
+                        })
+                    }
+                    // Glass card: ×n mult when scored. Multiplicative, so it
+                    // cannot ride the additive `calculate_plus` path — it scales
+                    // the running score at this card's position, like a held
+                    // Steel card does in phase 3. The destruction half
+                    // (1-in-`_odds` after the hand) is still data only:
+                    // `on_round_end_with_rng` rolls *joker* destruction, and
+                    // destroying a played card needs the deck-mutation seam
+                    // wired into a round loop that does not exist yet.
+                    MPip::Glass(mult, _odds) => ScoreOp::TimesMult(mult as f64),
+                    MPip::Custom(id) => self.custom_op(*card, id, registry),
+                    _ => ScoreOp::Nothing,
+                };
+                score = special.apply(score);
+
+                // The card's edition scores at its own position, after its
+                // chips/mult — so a Polychrome ×1.5 multiplies the running score
+                // here (the Glass shape), and a retriggered card re-applies its
+                // edition each pass, matching Balatro.
+                score = card.edition.score_op().apply(score);
+            }
+        }
+
+        score
+    }
+
+    /// How many *additional* times the played card at `index` is scored, summed
+    /// over the board's retrigger jokers. 0 for a board with none (the common
+    /// case), so the played-card fold is byte-identical when no retrigger joker
+    /// is held. `index` is the card's position in `self.played`, used by
+    /// position-based retriggers (Hanging Chad fires only on the first card).
+    ///
+    /// Jokers are walked with their `joker_state` slot, since the round-state
+    /// retriggers read a counter: Seltzer retriggers only while its 10 hands
+    /// are unspent.
+    fn played_retriggers(&self, index: usize, card: &BuffoonCard) -> usize {
+        self.jokers
+            .iter()
+            .enumerate()
+            .map(|(slot, joker)| {
+                let counter = self.joker_state.get(slot).copied().unwrap_or(0);
+                match joker.enhancement {
+                    MPip::RetriggerPlayedRanks(n, ranks) if ranks.contains(&card.rank.index) => n,
+                    MPip::RetriggerPlayedFaces(n) if self.is_face_card(card) => n,
+                    MPip::RetriggerFirstPlayed(n) if index == 0 => n,
+                    // Dusk: every played card, but only on the round's last hand.
+                    MPip::RetriggerPlayedCardsInFinalRound if self.is_final_hand() => 1,
+                    // Seltzer: every played card, for its first `hands` hands.
+                    // `counter` is hands *completed*, so the hand that spends the
+                    // last one still retriggers and `melt_emptied_jokers` removes
+                    // the joker immediately after it.
+                    MPip::RetriggerAllPlayedForHands(n, hands)
+                        if usize::try_from(counter.max(0)).unwrap_or(usize::MAX) < hands =>
+                    {
+                        n
+                    }
+                    _ => 0,
+                }
+            })
+            .sum()
+    }
+
+    /// Built-in played-card contribution: base rank chips (+ flat `Chips`) plus
+    /// the card's own additive plus-effects, as one additive [`ScoreOp`].
+    fn builtin_played_op(card: &BuffoonCard) -> ScoreOp {
+        ScoreOp::Add(Score::from_usize(card.get_chips(), 0) + card.calculate_plus(card))
+    }
+
+    /// Resolves a `MPip::Custom(id)` card/joker to the [`ScoreOp`] its registered
+    /// [`Effect`](crate::types::effect::Effect) returns, or
+    /// [`ScoreOp::Nothing`] if there is no registry entry. Shared by all three
+    /// phase folds.
+    fn custom_op(
+        &self,
+        source: BuffoonCard,
+        id: u32,
+        registry: Option<&EffectRegistry>,
+    ) -> ScoreOp {
+        registry
+            .and_then(|r| r.get(id))
+            .map_or(ScoreOp::Nothing, |effect| {
+                let ctx = ScoringContext {
+                    board: self,
+                    source,
+                };
+                effect.score(&ctx)
+            })
+    }
+
+    /// Phase 3 — held-card effects: applies the ×mult contributions of cards
+    /// held **in hand** (not played) to the running `score`. The canonical case
+    /// is a Steel card (`MPip::STEEL` = `MultTimes1Dot(15)` = ×1.5 mult while
+    /// held); `MultTimes(n)` gives a flat ×n.
+    ///
+    /// Unlike the additive phases, held effects multiply, so this takes the
+    /// score accumulated so far (phases 1 + 2) and returns it transformed. With
+    /// no held cards it is the identity.
+    #[must_use]
+    pub fn scoring_phase3_effects_in_hand(&self, running: Score) -> Score {
+        self.fold_held_cards(running, None)
+    }
+
+    /// The single held-card fold behind phase 3. Built-in Steel/`MultTimes`
+    /// cards apply their ×mult; a `MPip::Custom` held card is resolved through
+    /// `registry` (if any).
+    fn fold_held_cards(&self, running: Score, registry: Option<&EffectRegistry>) -> Score {
+        let mut score = running;
+
+        // Mime retriggers held-card abilities: each held card's op applies
+        // `1 + held_retriggers` times, so a retriggered Steel card gives ×1.5
+        // twice. 0 for a board with no held-retrigger joker (the common case),
+        // leaving the held fold byte-identical.
+        let retriggers = self.held_retriggers();
+        for card in &self.in_hand {
+            let op = match card.enhancement {
+                MPip::Custom(id) => self.custom_op(*card, id, registry),
+                _ => Self::builtin_held_op(card),
+            };
+            for _ in 0..=retriggers {
+                score = op.apply(score);
+            }
+        }
+
+        score
+    }
+
+    /// How many *additional* times every held card's ability fires, summed over
+    /// the board's held-retrigger jokers (Mime). Unlike `played_retriggers` this
+    /// is card-independent — Mime retriggers all held cards alike.
+    fn held_retriggers(&self) -> usize {
+        self.jokers
+            .iter()
+            .map(|joker| match joker.enhancement {
+                MPip::RetriggerCardsInHand(n) => n,
+                _ => 0,
+            })
+            .sum()
+    }
+
+    /// Built-in held-card contribution: Steel / `MultTimes` give a ×mult, as a
+    /// [`ScoreOp`]; anything else is inert while held.
+    #[allow(clippy::cast_precision_loss)]
+    fn builtin_held_op(card: &BuffoonCard) -> ScoreOp {
+        match card.enhancement {
+            MPip::MultTimes1Dot(n) => ScoreOp::TimesMult(n as f64 / 10.0),
+            MPip::MultTimes(n) => ScoreOp::TimesMult(n as f64),
+            _ => ScoreOp::Nothing,
+        }
+    }
+
+    /// Phase 4 — joker scoring: applies each joker to the running `score`, left
+    /// to right. Order matters: a `+mult` joker followed by a `×mult` joker
+    /// scores differently than the reverse, so jokers must be folded into one
+    /// running score rather than summed independently.
+    ///
+    /// Additive jokers contribute via [`BuffoonPile::calculate_plus`] (chips /
+    /// +mult); multiplicative jokers scale the running mult — unconditional
+    /// (`MultTimes(n)` = ×n, `MultTimes1Dot(n)` = ×n/10) or hand-conditional
+    /// (`MultTimesOn{Pair,Trips,4OfAKind,Straight,Flush}` — The Duo/Trio/Family/
+    /// Order/Tribe — which fire when the played hand *contains* that category).
+    ///
+    /// Note: state-dependent ×mult jokers (`MultTimesOnEmptyJokerSlots`,
+    /// `MultTimesEveryXHands`) are not applied yet — they need board/round
+    /// state and their exact factors pinned down.
+    ///
+    /// [`BuffoonPile::calculate_plus`]: crate::types::buffoon_pile::BuffoonPile::calculate_plus
+    #[must_use]
+    pub fn scoring_phase4_joker_scoring(&self, running: Score) -> Score {
+        self.fold_jokers::<StdRng>(running, None, None)
+    }
+
+    /// The single joker-scoring fold that every phase-4 entry point delegates
+    /// to. Applies each joker to the running score left-to-right:
+    ///
+    /// * `MPip::Custom(id)` — resolved through `registry` (if any), else inert;
+    /// * `MPip::MultPlusRandomTo(n)` — rolled with `rng` (if any), else inert;
+    /// * multiplicative built-ins ([`joker_x_mult`](Self::joker_x_mult)) — ×mult;
+    /// * everything else — additive ([`BuffoonPile::calculate_plus`]).
+    ///
+    /// The `rng`/`registry` options are what distinguish the pure, seeded, and
+    /// registry entry points — the fold itself lives here once.
+    ///
+    /// [`BuffoonPile::calculate_plus`]: crate::types::buffoon_pile::BuffoonPile::calculate_plus
+    fn fold_jokers<R: Rng + ?Sized>(
+        &self,
+        running: Score,
+        mut rng: Option<&mut R>,
+        registry: Option<&EffectRegistry>,
+    ) -> Score {
+        let mut score = running;
+
+        for (index, joker) in self.jokers.iter().enumerate() {
+            let op = match joker.enhancement {
+                MPip::Custom(id) => self.custom_op(*joker, id, registry),
+                MPip::MultPlusRandomTo(n) if n > 0 => {
+                    rng.as_deref_mut().map_or(ScoreOp::Nothing, |rng| {
+                        ScoreOp::AddMult(rng.random_range(0..n))
+                    })
+                }
+                _ => {
+                    let counter = self.joker_state.get(index).copied().unwrap_or(0);
+                    self.counter_joker_op(joker, counter)
+                        .unwrap_or_else(|| self.builtin_joker_op(joker))
+                }
+            };
+            score = op.apply(score);
+
+            // The joker's own edition scores at its position, after its effect —
+            // so a Polychrome joker ×1.5s the running score once its +mult/×mult
+            // has landed, matching Balatro's left-to-right joker order.
+            score = joker.edition.score_op().apply(score);
+        }
+
+        score
+    }
+
+    /// Built-in joker contribution as a [`ScoreOp`]: a ×mult for a (satisfied)
+    /// multiplicative joker, otherwise its additive chips/mult.
+    fn builtin_joker_op(&self, joker: &BuffoonCard) -> ScoreOp {
+        // Board-reading additive jokers (a pure function of the current board).
+        match joker.enhancement {
+            MPip::MultPlusPerJoker(n) => return ScoreOp::AddMult(n * self.jokers.len()),
+            MPip::ChipsPerDeckCard(n) => return ScoreOp::AddChips(n * self.deck.len()),
+            // Stone Joker: +n chips per Stone card in the full deck.
+            MPip::ChipsPerFullDeckStone(n) => {
+                return ScoreOp::AddChips(n * self.full_deck_stone_count());
+            }
+            // Erosion: +n mult per card destroyed from the starting deck.
+            MPip::MultPlusPerMissingDeckCard(n) => {
+                return ScoreOp::AddMult(n * self.cards_missing_from_deck());
+            }
+            MPip::ChipsPlusPerScoredFace(n) => {
+                let faces = self
+                    .played
+                    .iter()
+                    .filter(|card| self.is_face_card(card))
+                    .count();
+                return ScoreOp::AddChips(n * faces);
+            }
+            MPip::ChipsMultPlusPerScoredRanks(chips, mult, ranks) => {
+                let count = self
+                    .played
+                    .iter()
+                    .filter(|card| ranks.contains(&card.rank.index))
+                    .count();
+                return ScoreOp::Add(Score::from_usize(chips * count, mult * count));
+            }
+            // Banner: +n chips for each remaining discard (reads round state).
+            MPip::ChipsPerRemainingDiscard(n) => {
+                return ScoreOp::AddChips(n * self.discards_remaining());
+            }
+            // Mystic Summit: +n mult only when no discards remain, else inert.
+            MPip::MultPlusOnZeroDiscards(n) => {
+                return if self.discards_remaining() == 0 {
+                    ScoreOp::AddMult(n)
+                } else {
+                    ScoreOp::Nothing
+                };
+            }
+            // Bull: +n chips per $1 held; debt (negative money) scores nothing.
+            MPip::ChipsPerDollar(n) => {
+                let dollars = usize::try_from(self.money).unwrap_or(0);
+                return ScoreOp::AddChips(n * dollars);
+            }
+            // Fortune Teller: +n mult per Tarot used this run. A board reader,
+            // not a counter — that is what makes it retroactive.
+            MPip::MultPlusPerTarotUsedThisRun(n) => {
+                return ScoreOp::AddMult(n * self.tarots_used);
+            }
+            // Gros Michel: +n mult unconditionally. The destruction half of the
+            // variant is inert here — it rolls at end of round, which has no
+            // hook yet — but the mult is not conditional on it and scores now.
+            MPip::MultPlusChanceDestroyed(n, _, _) => return ScoreOp::AddMult(n),
+            // Scholar: +chips and +mult for each played card of the given rank;
+            // compounds with the count (+20 chips, +4 mult per played Ace).
+            MPip::MultPlusChipsOnRank(mult, chips, rank) => {
+                let count = self
+                    .played
+                    .iter()
+                    .filter(|card| card.rank.index == rank)
+                    .count();
+                return ScoreOp::Add(Score::from_usize(chips * count, mult * count));
+            }
+            // Raised Fist: +n × the lowest-ranked held card's value to mult
+            // (nothing when the hand is empty).
+            MPip::MultPlusXOnLowestRankInHand(n) => {
+                let lowest = self
+                    .in_hand
+                    .iter()
+                    .map(|card| card.rank.value)
+                    .min()
+                    .unwrap_or(0);
+                return ScoreOp::AddMult(n * lowest);
+            }
+            _ => {}
+        }
+
+        self.joker_x_mult(joker).map_or_else(
+            || ScoreOp::Add(self.played.calculate_plus(joker)),
+            ScoreOp::TimesMult,
+        )
+    }
+
+    /// The straight/flush detection rules in force for this board, loosened by
+    /// its rule-modifier jokers: **Four Fingers** drops straights and flushes to
+    /// four cards; **Shortcut** allows one-gap straights. Vanilla Balatro
+    /// ([`HandRules::default`]) when neither is held, so hand typing is
+    /// unchanged. Multiple modifiers stack (Four Fingers + Shortcut → a
+    /// four-card gapped straight).
+    pub(super) fn hand_rules(&self) -> HandRules {
+        let mut rules = HandRules::default();
+        for joker in &self.jokers {
+            match joker.enhancement {
+                MPip::FourFlushAndStraight => {
+                    rules.straight_connectors = 3;
+                    rules.flush_len = 4;
+                }
+                MPip::GappedStraight => rules.straight_distance = 2,
+                MPip::SmearedSuits => rules.smeared = true,
+                _ => {}
+            }
+        }
+        rules
+    }
+
+    /// Whether a card of suit `card_suit` counts as the `target` suit.
+    ///
+    /// Exact, except under **Smeared Joker**, which makes Hearts ≡ Diamonds and
+    /// Spades ≡ Clubs — the same merge it already applies to flush sizing, so
+    /// Smeared widens what Ancient Joker pays for exactly as it widens a flush.
+    fn suit_matches(card_suit: char, target: char, rules: HandRules) -> bool {
+        if card_suit == target {
+            return true;
+        }
+        rules.smeared
+            && matches!(
+                (card_suit, target),
+                ('H', 'D') | ('D', 'H') | ('S', 'C') | ('C', 'S')
+            )
+    }
+
+    /// Whether `card` counts as a face card for the face-reading jokers. Kings,
+    /// Queens and Jacks always do; **Pareidolia** makes *every* card a face.
+    pub(super) fn is_face_card(&self, card: &BuffoonCard) -> bool {
+        self.all_cards_are_faces() || matches!(card.rank.index, 'K' | 'Q' | 'J')
+    }
+
+    /// Whether Pareidolia is on the board (every card is treated as a face).
+    fn all_cards_are_faces(&self) -> bool {
+        self.jokers
+            .iter()
+            .any(|joker| matches!(joker.enhancement, MPip::AllCardsAreFaces))
+    }
+
+    /// How many cards in the run's full deck carry a Steel enhancement.
+    ///
+    /// Steel is modelled as `MultTimes1Dot`, matching what
+    /// [`builtin_held_op`](Self::builtin_held_op) treats as Steel while held.
+    fn full_deck_steel_count(&self) -> usize {
+        self.full_deck
+            .iter()
+            .filter(|card| matches!(card.enhancement, MPip::MultTimes1Dot(_)))
+            .count()
+    }
+
+    /// How many cards in the run's full deck are Stone cards.
+    fn full_deck_stone_count(&self) -> usize {
+        self.full_deck
+            .iter()
+            .filter(|card| matches!(card.enhancement, MPip::Stone(_)))
+            .count()
+    }
+
+    /// How many cards the full deck is **below** its starting size — the count
+    /// of cards destroyed over the run. Saturates at 0, so a deck grown past
+    /// its starting size (DNA, Séance) scores nothing rather than wrapping.
+    fn cards_missing_from_deck(&self) -> usize {
+        self.starting_deck_size.saturating_sub(self.full_deck.len())
+    }
+
+    /// Winning outcomes for a 1-in-N probability roll.
+    ///
+    /// 1 normally, doubled per **Oops! All 6s** on the board (each doubles
+    /// listed probabilities). The caller caps it at the roll's denominator so
+    /// it never exceeds certainty.
+    pub(super) fn probability_numerator(&self) -> usize {
+        let oops = self
+            .jokers
+            .iter()
+            .filter(|joker| matches!(joker.enhancement, MPip::DoubleOdds))
+            .count();
+        // 2^oops, saturating so a pathological joker count can't overflow-shift.
+        1usize
+            .checked_shl(u32::try_from(oops).unwrap_or(u32::MAX))
+            .unwrap_or(usize::MAX)
+    }
+
+    /// The ×mult factor a joker applies to the running score given the played
+    /// hand, or `None` if it is not a (satisfied) multiplicative joker — in
+    /// which case it is handled additively. Hand-conditional jokers use the
+    /// "contains" predicates (e.g. `has_pair` is true for two pair / trips /
+    /// full house / quads), matching Balatro.
+    #[allow(clippy::cast_precision_loss)]
+    fn joker_x_mult(&self, joker: &BuffoonCard) -> Option<f64> {
+        let played = &self.played;
+        // The straight/flush conditionals (The Order, The Tribe) honour the
+        // board's rule modifiers, so Four Fingers / Shortcut let them fire on a
+        // four-card or gapped hand just as they widen the base hand type.
+        let rules = self.hand_rules();
+        let factor = match joker.enhancement {
+            // Cavendish (`MultTimesChanceDestroyed`) rides the plain ×n arm:
+            // its destruction half rolls at end of round
+            // (`on_round_end_with_rng`), never gating the mult — the Gros
+            // Michel compound shape, on the ×mult side.
+            MPip::MultTimes(n) | MPip::MultTimesChanceDestroyed(n, _, _) => n as f64,
+            MPip::MultTimes1Dot(n) => n as f64 / 10.0,
+            MPip::MultTimesOnPair(n) if played.has_pair() => n as f64,
+            MPip::MultTimesOnTrips(n) if played.has_trips() => n as f64,
+            MPip::MultTimesOn4OfAKind(n) if played.has_4_of_a_kind() => n as f64,
+            MPip::MultTimesOnStraight(n) if played.has_straight_with(rules) => n as f64,
+            MPip::MultTimesOnFlush(n) if played.has_flush_with(rules) => n as f64,
+            MPip::MultTimesPerScoredRank(n, ranks) => {
+                // ×n for each played card of a matching rank; the factor
+                // compounds, e.g. two Kings and a Queen with Triboulet = ×2³.
+                let matches = played
+                    .iter()
+                    .filter(|card| ranks.contains(&card.rank.index))
+                    .count();
+                (0..matches).fold(1.0, |acc, _| acc * n as f64)
+            }
+            MPip::MultTimesPerHeldRank(tenths, rank) => {
+                // ×(tenths/10) for each held card of `rank`; compounds. Baron.
+                let held = self
+                    .in_hand
+                    .iter()
+                    .filter(|card| card.rank.index == rank)
+                    .count();
+                let per = tenths as f64 / 10.0;
+                (0..held).fold(1.0, |acc, _| acc * per)
+            }
+            MPip::MultTimesPlusPerFullDeckSteel(tenths) => {
+                // Steel Joker: ×1 base, gaining ×(tenths/10) per Steel card in
+                // the full deck. Additive in the factor, unlike the compounding
+                // per-card jokers above: two Steel with ×0.2 is ×1.4, not ×1.44.
+                let steel = self.full_deck_steel_count();
+                1.0 + (tenths * steel) as f64 / 10.0
+            }
+            MPip::MultTimesPerUncommonJoker(tenths) => {
+                // ×(tenths/10) per Uncommon joker on the board; compounds. Baseball Card.
+                let uncommon = self
+                    .jokers
+                    .iter()
+                    .filter(|j| j.card_type == BCardType::UncommonJoker)
+                    .count();
+                let per = tenths as f64 / 10.0;
+                (0..uncommon).fold(1.0, |acc, _| acc * per)
+            }
+            MPip::MultTimesIfHeldAllSuits(n, suits)
+                if self
+                    .in_hand
+                    .iter()
+                    .all(|card| suits.contains(&card.suit.index)) =>
+            {
+                // Blackboard: vacuously true (×n) when the hand is empty.
+                n as f64
+            }
+            // Card Sharp: ×n if this hand type has already been played this
+            // round. `hands_by_type_this_round` is bumped by `on_hand_played`,
+            // which fires *after* a hand scores — so during the round's second
+            // Pair the tally reads 1, and `>= 1` is the test. (Balatro bumps
+            // before its joker pass and so tests `> 1`; same semantics, and
+            // getting it backwards makes Card Sharp fire on the first play.)
+            MPip::MultTimesOnRepeatedHandThisRound(n)
+                if self
+                    .hands_by_type_this_round
+                    .get(&self.scoring_hand_type())
+                    .copied()
+                    .unwrap_or(0)
+                    >= 1 =>
+            {
+                n as f64
+            }
+            // Ancient Joker: ×(tenths/10) per played card of the run's current
+            // ancient suit; compounds, like its per-card ×mult neighbours. No
+            // suit rolled yet means no matches, i.e. ×1 — inert rather than
+            // zeroing.
+            MPip::MultTimesPerScoredAncientSuit(tenths) => {
+                let matches = self.ancient_suit.map_or(0, |suit| {
+                    played
+                        .iter()
+                        .filter(|card| Self::suit_matches(card.suit.index, suit, rules))
+                        .count()
+                });
+                let per = tenths as f64 / 10.0;
+                (0..matches).fold(1.0, |acc, _| acc * per)
+            }
+            // Joker Stencil: ×n per empty joker slot, "Joker Stencil included" —
+            // i.e. it counts its own occupied slot as if it were empty. Every
+            // Stencil on the board adds that +1, so the rule reduces to
+            // `slots − (jokers that are not Stencils)`.
+            //
+            // The `> 0` gate is on **literally** empty slots, not the inclusive
+            // count: a full board applies nothing at all. With one Stencil that
+            // is unobservable (the inclusive count is exactly ×1 — identity —
+            // when the gate closes), but with two on a full board the two
+            // disagree, and the gate wins.
+            MPip::MultTimesOnEmptyJokerSlots(n) => {
+                let empty = self.joker_slots.saturating_sub(self.jokers.len());
+                if empty == 0 {
+                    return None;
+                }
+                let stencils = self
+                    .jokers
+                    .iter()
+                    .filter(|j| matches!(j.enhancement, MPip::MultTimesOnEmptyJokerSlots(_)))
+                    .count();
+                (n * (empty + stencils)) as f64
+            }
+            _ => return None,
+        };
+        Some(factor)
+    }
+
+    /// Combined score for the currently played hand — the full four-phase
+    /// pipeline, in Balatro order:
+    ///
+    /// 1. base hand chips/mult,
+    /// 2. played-card chips,
+    /// 3. held-card ×mult (Steel, …),
+    /// 4. joker contributions.
+    ///
+    /// The final chips × mult is `score().score()`. Each phase folds into one
+    /// running score, so the Balatro-significant ordering (held ×mult before
+    /// jokers, and jokers left-to-right) is preserved. This never panics, so a
+    /// solver can call it for any board.
+    ///
+    /// NOTE: this is deterministic — probabilistic effects (Lucky, Misprint)
+    /// contribute their floor of zero here; use
+    /// [`score_with_seed`](Self::score_with_seed) to roll them. State-dependent
+    /// effects (economy, discards/hands remaining) still fall through to zero.
+    #[must_use]
+    pub fn score(&self) -> Score {
+        let base = self.scoring_phase1_pre_scoring();
+        let after_cards = self.scoring_phase2_dealt_hand_scoring(base);
+        let held = self.scoring_phase3_effects_in_hand(after_cards);
+
+        self.scoring_phase4_joker_scoring(held)
+    }
+
+    /// Like [`score`](Self::score), but realizes the crate's **probabilistic**
+    /// effects with a `u64` seed — deterministic per seed, so a solver can
+    /// reproduce a roll or sample the outcome distribution over many seeds.
+    ///
+    /// Currently rolled: Lucky cards (1-in-N → +20 mult, phase 2) and the
+    /// Misprint joker (`MultPlusRandomTo(n)` → +random(0..n) mult, phase 4).
+    /// Everything else scores identically to [`score`](Self::score); in
+    /// particular the pure `score()` is the guaranteed floor (no procs).
+    #[must_use]
+    pub fn score_with_seed(&self, seed: u64) -> Score {
+        self.score_with_rng(&mut StdRng::seed_from_u64(seed))
+    }
+
+    /// Like [`score_with_seed`](Self::score_with_seed), but drives the
+    /// probabilistic effects from the caller's RNG.
+    #[must_use]
+    pub fn score_with_rng<R: Rng + ?Sized>(&self, rng: &mut R) -> Score {
+        let base = self.scoring_phase1_pre_scoring();
+        let after_cards = self.scoring_phase2_dealt_hand_scoring_with_rng(base, rng);
+        let held = self.scoring_phase3_effects_in_hand(after_cards);
+
+        self.scoring_phase4_joker_scoring_with_rng(held, rng)
+    }
+
+    /// Phase 2 with probabilistic played-card effects (Lucky cards) rolled from
+    /// `rng`, threaded through the same played-card fold as
+    /// [`scoring_phase2_dealt_hand_scoring`](Self::scoring_phase2_dealt_hand_scoring).
+    #[must_use]
+    pub fn scoring_phase2_dealt_hand_scoring_with_rng<R: Rng + ?Sized>(
+        &self,
+        running: Score,
+        rng: &mut R,
+    ) -> Score {
+        self.fold_played_cards(running, Some(rng), None)
+    }
+
+    /// Phase 4 with probabilistic joker effects rolled, threaded through the
+    /// same left-to-right fold as
+    /// [`scoring_phase4_joker_scoring`](Self::scoring_phase4_joker_scoring) so
+    /// a random `+mult` (Misprint) still lands in joker order and interacts
+    /// correctly with later ×mult jokers.
+    #[must_use]
+    pub fn scoring_phase4_joker_scoring_with_rng<R: Rng + ?Sized>(
+        &self,
+        running: Score,
+        rng: &mut R,
+    ) -> Score {
+        self.fold_jokers(running, Some(rng), None)
+    }
+
+    /// Like [`score`](Self::score), but resolves `MPip::Custom(id)` jokers
+    /// through a mod-supplied [`EffectRegistry`] — the extension point that lets
+    /// a mod add scoring behaviour without editing funky source.
+    ///
+    /// Built-in effects score exactly as in [`score`](Self::score); a custom
+    /// card or joker is scored by looking up its id in `registry` and applying
+    /// the [`ScoreOp`] its [`Effect`] returns. Unregistered ids contribute
+    /// nothing.
+    ///
+    /// Custom effects are resolved in every phase they can occur — **played
+    /// cards** (phase 2), **held cards** (phase 3) and **jokers** (phase 4) —
+    /// via the same [`ScoringContext`]/[`ScoreOp`] pattern.
+    ///
+    /// [`Effect`]: crate::types::effect::Effect
+    /// [`ScoreOp`]: crate::types::effect::ScoreOp
+    #[must_use]
+    pub fn score_with_registry(&self, registry: &EffectRegistry) -> Score {
+        let base = self.scoring_phase1_pre_scoring();
+        let after_cards = self.fold_played_cards::<StdRng>(base, None, Some(registry));
+        let held = self.fold_held_cards(after_cards, Some(registry));
+
+        self.scoring_phase4_joker_scoring_with_registry(held, registry)
+    }
+
+    /// Phase 4, resolving `MPip::Custom(id)` jokers through `registry`. Built-in
+    /// jokers fold in exactly as [`scoring_phase4_joker_scoring`] does.
+    ///
+    /// [`scoring_phase4_joker_scoring`]: Self::scoring_phase4_joker_scoring
+    #[must_use]
+    pub fn scoring_phase4_joker_scoring_with_registry(
+        &self,
+        running: Score,
+        registry: &EffectRegistry,
+    ) -> Score {
+        self.fold_jokers::<StdRng>(running, None, Some(registry))
+    }
+
+    /// The scoring contribution of a counter joker given its accumulator, or
+    /// `None` if `joker` is not a counter joker (so scoring falls through to
+    /// `builtin_joker_op`). Arms are added per joker in later tasks, at which
+    /// point they will read board state through `&self`.
+    #[allow(clippy::unused_self)]
+    fn counter_joker_op(&self, joker: &BuffoonCard, counter: i32) -> Option<ScoreOp> {
+        match joker.enhancement {
+            MPip::GainMultPerHandLessDiscard(rate) => {
+                let net = counter.max(0);
+                #[allow(clippy::cast_sign_loss)]
+                Some(ScoreOp::AddMult(rate * net as usize))
+            }
+            MPip::GainChipsPerCardCountHand(rate, _n) =>
+            {
+                #[allow(clippy::cast_sign_loss)]
+                Some(ScoreOp::AddChips(rate * counter.max(0) as usize))
+            }
+            // Spare Trousers gains +rate mult per two-pair hand; Flash Card per
+            // reroll; Red Card per pack skipped. Different events grow the
+            // counter (`growth_delta` keeps them apart), but the read is one
+            // additive rule, so it is written once.
+            MPip::GainMultPerTwoPairHand(rate)
+            | MPip::MultPlusPerReroll(rate)
+            | MPip::MultPlusPerPackSkipped(rate) =>
+            {
+                #[allow(clippy::cast_sign_loss)]
+                Some(ScoreOp::AddMult(rate * counter.max(0) as usize))
+            }
+            MPip::GainChipsPerStraightHand(rate) =>
+            {
+                #[allow(clippy::cast_sign_loss)]
+                Some(ScoreOp::AddChips(rate * counter.max(0) as usize))
+            }
+            MPip::LoseMultTimesPerDiscard(base, per) => {
+                #[allow(clippy::cast_precision_loss)]
+                let raw = (per as f64).mul_add(-f64::from(counter.max(0)), base as f64) / 100.0;
+                Some(ScoreOp::TimesMult(raw.max(1.0)))
+            }
+            MPip::LoseChipsPerHand(base, per) => {
+                #[allow(clippy::cast_sign_loss)]
+                let hands = counter.max(0) as usize;
+                Some(ScoreOp::AddChips(base.saturating_sub(per * hands)))
+            }
+            // Popcorn: Ice Cream's decay on the mult side, per round rather
+            // than per hand. Floors at 0 — the round that empties it also
+            // destroys it (`melt_emptied_jokers`).
+            MPip::LoseMultPerRound(base, per) => {
+                #[allow(clippy::cast_sign_loss)]
+                let rounds = counter.max(0) as usize;
+                Some(ScoreOp::AddMult(base.saturating_sub(per * rounds)))
+            }
+            // Yorick: ×1 per 23 cards discarded. The accumulator counts cards,
+            // so the factor steps only on each completed block of `per`.
+            MPip::GainMultTimesPerDiscardedCards(rate, per) if per > 0 => {
+                #[allow(clippy::cast_sign_loss)]
+                let blocks = counter.max(0) as usize / per;
+                Some(ScoreOp::TimesMult(Self::gain_x_mult(rate, blocks)))
+            }
+            // Hologram (×0.25 per card added to the deck), Canio (×1 per face
+            // destroyed) and Vampire (×0.1 per enhanced card played) differ only
+            // in which event grows them — `growth_delta` keeps them apart. The
+            // *read* is one rule, so it is written once.
+            MPip::GainMultTimesPerCardAdded(rate)
+            | MPip::GainMultTimesPerFaceDestroyed(rate)
+            | MPip::GainMultTimesPerEnhancedPlayed(rate)
+            | MPip::GainMultTimesPerPlanetUsed(rate)
+            | MPip::GainMultTimesOnNonBossBlindDestroyingJoker(rate) => {
+                #[allow(clippy::cast_sign_loss)]
+                let ticks = counter.max(0) as usize;
+                Some(ScoreOp::TimesMult(Self::gain_x_mult(rate, ticks)))
+            }
+            _ => None,
+        }
+    }
+
+    /// The ×mult factor of a "this joker gains ×`rate`/100 mult per event"
+    /// counter that has ticked `count` times: `1 + (rate/100) × count`.
+    ///
+    /// **Additive, not compounding** — the Steel Joker rule
+    /// ([`MPip::MultTimesPlusPerFullDeckSteel`]), which is what Balatro's
+    /// "gains ×N Mult" jokers do: Hologram at four cards added is ×2, not
+    /// ×0.25⁴. Base ×1 falls out of `count == 0`, so an ungrown counter joker
+    /// is inert rather than zeroing the mult.
+    #[allow(clippy::cast_precision_loss)]
+    fn gain_x_mult(rate: usize, count: usize) -> f64 {
+        (rate as f64 / 100.0).mul_add(count as f64, 1.0)
+    }
+}

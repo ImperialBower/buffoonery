@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Scoring lives in `src/types/board/scoring.rs`** (EPIC-05 Story S2), moved
+  out of `board.rs` word for word. No public API or behavior change.
 - **Breaking: `Score` keeps fractional mult** (EPIC-05 Story S1). `Score` is
   now `{ chips: u64, mult: f64 }`. `multi_mult` no longer rounds up after each
   ×mult, so ×1.5 on 3 mult is 4.5, and `score()` rounds down once and returns

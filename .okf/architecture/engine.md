@@ -23,7 +23,7 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   effects **data, not code**; interpreted at scoring time.
 * **`BuffoonPile`** — implements cardpack's `Ranged`, so combinatorics and
   hand detection reuse cardpack's engine.
-* **Scoring** (`src/types/board.rs`) — `BuffoonBoard::score()` /
+* **Scoring** (`src/types/board/scoring.rs`, split out of `board.rs`) — `BuffoonBoard::score()` /
   `score_with_seed()`: base hand, played cards, held cards, then jokers left
   to right; never panics. Open effects go through `EffectRegistry`
   (`src/types/effect.rs`). `Score` keeps fractional mult and floors once
@@ -44,7 +44,7 @@ EPIC-05 Joker Calculator, EPIC-06 Funky Extraction), stay in the cardpack repo:
 # Next
 
 EPIC-05's stories run here: a fractional `Score` (done, S1), moving the scoring folds out
-of `board.rs`, a `ScoreTrace`, a `BoardSpec` written in Rust or YAML, a
+of `board.rs` (done, S2), a `ScoreTrace`, a `BoardSpec` written in Rust or YAML, a
 joker catalog, and a WIT component.
 
 # Try it
