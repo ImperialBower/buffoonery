@@ -142,6 +142,31 @@ impl PokerHands {
         (HandType::FlushFive, 50, 3),
     ];
 
+    /// Sets `hand_type` to `level`: its base chips and mult plus `level - 1`
+    /// level-ups from the level-up table, as if levelled one step at a time.
+    /// Keeps `times_played`. Returns false, and changes nothing, for level 0
+    /// or a hand with no entry of its own (a Royal Flush levels as a Straight
+    /// Flush).
+    pub fn set_level(&mut self, hand_type: HandType, level: usize) -> bool {
+        let Some(base) = Self::new().get(&hand_type).copied() else {
+            return false;
+        };
+        let Some((_, chips, mult)) = Self::LEVEL_UP.iter().find(|(h, _, _)| *h == hand_type) else {
+            return false;
+        };
+        if level == 0 {
+            return false;
+        }
+        let Some(hand) = self.get_mut(&hand_type) else {
+            return false;
+        };
+        let ups = level - 1;
+        hand.level = level;
+        hand.chips = base.chips + chips * ups;
+        hand.mult = base.mult + mult * ups;
+        true
+    }
+
     /// Level **every** poker hand up by one — Black Hole's effect. Each hand
     /// gains its canonical per-level chips/mult and one level, exactly as its
     /// planet card would, but for all twelve at once.
@@ -169,6 +194,52 @@ mod funky__types__hands_tests {
     use crate::decks::planet;
     use crate::prelude::*;
     use rstest::rstest;
+
+    /// Setting a level matches levelling up one step at a time.
+    #[test]
+    fn set_level__matches_levelling_up_step_by_step() {
+        let mut stepped = PokerHands::default();
+        stepped.increment_all();
+        stepped.increment_all();
+
+        for hand_type in [HandType::HighCard, HandType::Flush, HandType::FlushFive] {
+            let mut set = PokerHands::default();
+            assert!(set.set_level(hand_type, 3));
+            assert_eq!(
+                set.get(&hand_type),
+                stepped.get(&hand_type),
+                "{hand_type:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn set_level__one_resets_to_the_base() {
+        let mut hands = PokerHands::default();
+        hands.increment_all();
+        assert!(hands.set_level(HandType::Pair, 1));
+        assert_eq!(
+            hands.get(&HandType::Pair),
+            PokerHands::default().get(&HandType::Pair)
+        );
+    }
+
+    #[test]
+    fn set_level__keeps_times_played() {
+        let mut hands = PokerHands::default();
+        hands.play_hand(&HandType::Pair);
+        assert!(hands.set_level(HandType::Pair, 2));
+        assert_eq!(hands.get(&HandType::Pair).unwrap().times_played, 1);
+    }
+
+    #[test]
+    fn set_level__refuses_level_zero_and_unlevelled_hands() {
+        let mut hands = PokerHands::default();
+        assert!(!hands.set_level(HandType::Pair, 0));
+        // A Royal Flush levels as a Straight Flush; it has no entry of its own.
+        assert!(!hands.set_level(HandType::RoyalFlush, 2));
+        assert_eq!(hands, PokerHands::default());
+    }
 
     #[test]
     fn increment() {

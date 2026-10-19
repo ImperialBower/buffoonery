@@ -1,5 +1,6 @@
 pub mod blind;
 pub mod board;
+pub mod board_spec;
 pub mod buffoon_card;
 pub mod buffoon_pile;
 pub mod draws;
@@ -10,4 +11,5 @@ pub mod mpip;
 pub mod score;
 pub mod shop;
 pub mod toggle;
+pub mod trace;
 pub mod voucher;
