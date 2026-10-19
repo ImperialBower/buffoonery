@@ -27,6 +27,20 @@ make ayce
 
 `make ayce` runs the whole quality gate. `make help` lists every target.
 
+`make ayce` also builds the WebAssembly component and tests it. That step
+needs the `wasm32-wasip2` target and Node (see `.tool-versions`):
+
+```shell
+rustup target add wasm32-wasip2
+```
+
+## WebAssembly component
+
+[`component/`](component/README.md) wraps the engine in a WIT interface:
+score a board written as JSON or YAML, get the step-by-step trace back as
+JSON. The optimized component is 467 KiB (166 KiB gzipped); the budget is
+500 KiB.
+
 ## What's in the box
 
 - **Formatting:** rustfmt — see [toolchain decisions](.okf/decisions/toolchain.md)

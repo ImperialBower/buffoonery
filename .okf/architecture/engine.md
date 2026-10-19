@@ -3,7 +3,7 @@ type: architecture
 title: The engine — Balatro-style cards and scoring
 description: What buffoonery models (jokers, planets, tarots, spectrals as MPip data; four-phase scoring; shop, vouchers, editions, blinds), where it lives, and where it came from.
 tags: [engine, balatro, scoring, architecture]
-timestamp: '2026-10-19T00:00:00Z'
+timestamp: '2026-10-19T18:00:00Z'
 ---
 
 # What it is
@@ -41,6 +41,13 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   with a `BoardSpecError` naming any bad field
   ([decision](/decisions/board-spec-yaml.md)).
 * **Economy** — `Shop`, `Voucher`, editions, blinds with boss blinds.
+* **WIT component** (`component/`, its own crate) — the engine behind
+  `imperialbower:solver/calculator` on `wasm32-wasip2`: `score`, `catalog`,
+  `version`, strings in and out. The engine crate has no WIT or JSON code
+  ([decision](/decisions/wit-component-crate.md)).
+* **Golden fixtures** (`fixtures/golden/`) — `BoardSpec` YAML + `ScoreTrace`
+  JSON pairs read by `tests/golden.rs`, the component's native tests, and its
+  Node tests through `jco`.
 
 # Origin
 
@@ -55,7 +62,7 @@ EPIC-06 Funky Extraction), stay in the cardpack repo. EPIC-05 moved here on
 
 EPIC-05's stories run here: a fractional `Score` (done, S1), moving the scoring folds out
 of `board.rs` (done, S2), a `ScoreTrace` (done, Story 1), a `BoardSpec` written in Rust or YAML (done, Story 3), a
-joker catalog (done, Story 2), and a WIT component.
+joker catalog (done, Story 2), golden fixtures (done, Story 5), and a WIT component (built, Story 4; its browser test moved to Story 8). Milestone C, the calculator itself, is next.
 
 # Try it
 

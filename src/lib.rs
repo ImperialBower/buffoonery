@@ -27,3 +27,11 @@ pub mod decks;
 pub mod macros;
 pub mod prelude;
 pub mod types;
+
+/// This crate's version, e.g. `"0.0.1"`. The WIT component reports it, so a
+/// host knows which engine scored a board.
+///
+/// ```
+/// assert_eq!(buffoonery::VERSION, env!("CARGO_PKG_VERSION"));
+/// ```
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

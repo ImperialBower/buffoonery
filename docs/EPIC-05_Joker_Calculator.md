@@ -27,7 +27,7 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A run
 | Story 1 — `ScoreTrace` | **Complete** (`buffoonery` `622fd9e`, 2026-10-19) |
 | Story 2 — joker catalog | **Complete** (`buffoonery` `00e088e`, 2026-10-19) |
 | Story 3 — `BoardSpec` (Rust and YAML) | **Complete** (`buffoonery` `00e088e`, 2026-10-19). Milestone A is met |
-| Story 4 — WIT component | Planned |
+| Story 4 — WIT component | Built (2026-10-19; 20 component tests green through `jco`), not yet committed. Its browser test moved to Story 8 |
 | Story 5 — golden fixtures | Built (2026-10-19; 14 fixtures, `tests/golden.rs` green), not yet committed |
 | Stories 6–8 — calculator renders the engine | Planned |
 | Milestone D — polish | Planned |
@@ -233,11 +233,11 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 
 **Story 4: WIT component**
 
-- [ ] `wit/` holds the interface from the Design sketch; build with `cargo component` or `wit-bindgen`, target `wasm32-wasip2`
-- [ ] Exports: `score(spec) -> result<string, string>`, `catalog() -> string`, `version() -> string`
-- [ ] Run the golden boards against the built component in CI (for example with `wasmtime`), not only as native Rust tests
-- [ ] `jco transpile` produces an ES module, and a headless browser test loads it and scores one golden board
-- [ ] Size budget recorded in the README after `wasm-opt -Oz`; `i18n` and `colored-display` off in cardpack
+- [x] `wit/` holds the interface from the Design sketch; build with `cargo component` or `wit-bindgen`, target `wasm32-wasip2`. Done: a new workspace crate, `component/` (`buffoonery-component`, `publish = false`), with `component/wit/world.wit` exactly as sketched. `wit-bindgen` 0.63; plain `cargo build --target wasm32-wasip2` makes the component, so `cargo component` is not needed. The engine crate has no WIT or JSON code; it gained only `buffoonery::VERSION`. A `component` cargo profile (`opt-level = "z"`, LTO, `panic = "abort"`) leaves the engine's release build alone
+- [x] Exports: `score(spec) -> result<string, string>`, `catalog() -> string`, `version() -> string`. Done. `score` reads JSON when the input starts with `{`, YAML otherwise; its error is the `BoardSpecError` message (`jokers[0]: unknown joker ident "NOPE"`). `version` is the engine's version. The three are plain Rust functions; the bindings (only on `wasm32`) call them
+- [x] Run the golden boards against the built component in CI (for example with `wasmtime`), not only as native Rust tests. Done with Node instead of `wasmtime`: `component/js/golden.test.mjs` runs every fixture through the `jco`-transpiled component, the same ES module a browser loads (installed `wasmtime` 24 cannot invoke component exports). New CI job `component`; `make component`, part of `make ayce`. The native twin is `component/tests/golden.rs` (YAML and JSON input)
+- [x] `jco transpile` produces an ES module, and a headless browser test loads it and scores one golden board. Done for the module: `jco transpile` produces it and Node tests it. **The headless browser test moved to Story 8** (decided 2026-10-19): it needs a page that loads the module (an import map for `@bytecodealliance/preview2-shim`), and that page is Milestone C's web host (open question 3). A test page built now would be thrown away
+- [x] Size budget recorded in the README after `wasm-opt -Oz`; `i18n` and `colored-display` off in cardpack. Done: 571 KiB raw / 170 KiB gzip, and 467 KiB / 166 KiB after `jco opt -Oz` (which runs `wasm-opt` on the core modules; plain `wasm-opt` cannot read a component). Budget 500 KiB, checked by a test. cardpack's default features are empty, so `i18n` and `colored-display` were already off. Figures in [`component/README.md`](../component/README.md)
 
 **Story 5: golden fixtures shared across the boundary**
 
@@ -262,6 +262,7 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 
 **Story 8: parity test**
 
+- [ ] A headless browser test loads the `jco`-transpiled component and scores one golden board (moved here from Story 4 on 2026-10-19)
 - [ ] A browser test renders each golden fixture and asserts the table's cells equal the fixture's trace
 
 ### Milestone D — polish
@@ -311,8 +312,8 @@ cargo fmt --check
 cargo clippy --all-targets -- -Dclippy::all -Dclippy::pedantic
 cargo test
 cargo run --example buffoon                      # prints a trace
-cargo component build --release                  # or the wit-bindgen equivalent
-npx jco transpile target/wasm32-wasip2/release/buffoonery.wasm -o web/pkg
+rustup target add wasm32-wasip2
+make component                                   # builds, shrinks and transpiles the component; runs the fixtures through it
 ```
 
 Milestone 0 (cardpack, `c762538`) was checked on 2026-10-18 with:

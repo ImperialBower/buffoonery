@@ -1,0 +1,15 @@
+{
+  "name": "buffoonery-component-tests",
+  "private": true,
+  "description": "Runs the golden fixtures against the built WIT component, through jco (EPIC-05 Story 4)",
+  "type": "module",
+  "scripts": {
+    "opt": "jco opt ../../target/wasm32-wasip2/component/buffoonery_component.wasm -o ../../target/wasm32-wasip2/component/buffoonery_component.opt.wasm -- -Oz --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-multivalue --enable-reference-types",
+    "transpile": "jco transpile ../../target/wasm32-wasip2/component/buffoonery_component.opt.wasm --name buffoonery_component -o pkg",
+    "test": "npm run opt && npm run transpile && node --test"
+  },
+  "devDependencies": {
+    "@bytecodealliance/jco": "1.39.0",
+    "@bytecodealliance/preview2-shim": "0.30.0"
+  }
+}

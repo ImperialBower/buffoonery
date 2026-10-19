@@ -1,0 +1,8 @@
+{
+  "name": "buffoonery",
+  "image": "mcr.microsoft.com/devcontainers/rust:bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "24.14.1" }
+  },
+  "postCreateCommand": "rustup install 1.99.1 && rustup default 1.99.1 && rustup target add wasm32-wasip2"
+}

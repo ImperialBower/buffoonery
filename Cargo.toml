@@ -1,3 +1,8 @@
+[workspace]
+# The WIT component (EPIC-05 Story 4) is an adapter over this crate. It lives
+# in its own crate so the engine carries no wit-bindgen or JSON code.
+members = [".", "component"]
+
 [package]
 name = "buffoonery"
 description = "A Balatro-style card engine and solver foundation, built on cardpack"
@@ -33,3 +38,14 @@ all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 expect_used = "warn"
+
+# Small wasm for the WIT component (EPIC-05 Story 4):
+# `cargo build -p buffoonery-component --target wasm32-wasip2 --profile component`.
+# A profile of its own, so the engine's release build is unchanged.
+[profile.component]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

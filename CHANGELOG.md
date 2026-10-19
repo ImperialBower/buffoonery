@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `BLESS=1 cargo test --test golden` rewrites the JSON after a deliberate
   scoring change. They are the shared contract for the WIT component and the
   calculator.
+- **WIT component** (EPIC-05 Story 4): the new workspace crate
+  `component/` (`buffoonery-component`, not published) builds a
+  `wasm32-wasip2` component exporting `imperialbower:solver/calculator`:
+  `score` (a `BoardSpec` as JSON or YAML in, a `ScoreTrace` as JSON out),
+  `catalog` and `version`. `make component` shrinks it with `jco opt`,
+  transpiles it with `jco`, and runs the golden fixtures through it in Node;
+  CI does the same. 467 KiB after optimization (166 KiB gzipped).
+- `buffoonery::VERSION`, the crate version.
 
 ### Changed
 
