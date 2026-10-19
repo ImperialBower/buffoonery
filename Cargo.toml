@@ -10,7 +10,7 @@ keywords = ["balatro", "cards", "solver"]
 categories = ["game-development"]
 
 [dependencies]
-cardpack = { version = "0.11", features = ["std", "serde"] }
+cardpack = { version = "0.11.2", features = ["std", "serde"] }
 log = "0.4"
 rand = "0.10"
 serde = { version = "1", features = ["derive"] }

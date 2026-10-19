@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Requires cardpack 0.11.2.** cardpack 0.11.2 dropped a stale wasm-only
+  `getrandom` 0.3 pin, so `buffoonery` no longer gets two copies of
+  `getrandom`. The `getrandom` and `r-efi` skips in `deny.toml` are removed.
+
 ### Added
 
 - **The engine**, copied from cardpack's `funky` module at cardpack commit
