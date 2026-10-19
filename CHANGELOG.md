@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ScoreTrace`: the score, step by step** (EPIC-05 Story 1).
+  `BuffoonBoard::score_traced()`, `score_traced_with_seed`,
+  `score_traced_with_rng` and `score_traced_with_registry` return every
+  `ScoreOp` the folds applied, in order, as `ScoreStep`s: phase, source
+  (hand, card or joker, with its position), part (effect, special, edition),
+  retrigger pass, the op, whether it fired, whether it was rolled, and the
+  running score after it. The total always equals the matching `score*`
+  call, and replaying the ops from an empty `Score` reproduces every step.
+  The `buffoon` example prints the trace.
+- `ScoreOp` implements `Display` (`+4 Mult`, `+80 Chips`, `×3 Mult`) and
+  gains `ScoreOp::is_noop()`.
+
 ### Changed
 
 - **Scoring lives in `src/types/board/scoring.rs`** (EPIC-05 Story S2), moved

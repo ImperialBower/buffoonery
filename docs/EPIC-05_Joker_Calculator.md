@@ -24,7 +24,7 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A run
 | Engine standing in its own repo (EPIC-06 Phase 1) | **Complete** (`buffoonery` 0.0.1, 2026-10-18) |
 | Story S1 — fractional `Score` | **Complete** (`buffoonery` `bf779a4`, 2026-10-19) |
 | Story S2 — scoring folds out of `board.rs` | **Complete** (`buffoonery` `6fa2c8d`, 2026-10-19) |
-| Story 1 — `ScoreTrace` | Planned |
+| Story 1 — `ScoreTrace` | Built (2026-10-19; 502 lib tests green), not yet committed |
 | Story 2 — joker catalog | Planned (list + blank reasons done in Milestone 0; names not started) |
 | Story 3 — `BoardSpec` (Rust and YAML) | Planned |
 | Stories 4–5 — WIT component, golden fixtures | Planned |
@@ -102,11 +102,11 @@ The UI never computes. It sends a `BoardSpec` and renders the `ScoreTrace` that 
 ```rust
 pub struct ScoreStep {
     pub phase: Phase,            // Base, Played, Held, Joker
-    pub source: StepSource,      // HandType, Card(BuffoonCard, index), Joker(BuffoonCard, index)
+    pub source: StepSource,      // Hand { hand_type, level }, Card { card, index }, Joker { card, index }
     pub part: StepPart,          // Effect, Special, Edition
-    pub retrigger: u8,           // 0 = first pass, 1.. = each retrigger
-    pub op: ScoreOp,             // what it produced (Nothing when a condition fails)
-    pub fired: bool,             // op != Nothing
+    pub retrigger: usize,        // 0 = first pass, 1.. = each retrigger
+    pub op: ScoreOp,             // what it produced (a no-op when a condition fails)
+    pub fired: bool,             // !op.is_noop()
     pub rolled: bool,            // the op came from an RNG roll (Lucky, Misprint)
     pub after: Score,            // running score once applied
 }
@@ -196,16 +196,17 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 
 **Story 1: `ScoreTrace` in the fold pipeline**
 
-- [ ] Add `src/types/trace.rs` with `ScoreStep`, `ScoreTrace`, `Phase`, `StepSource`, `StepPart` (all `Clone + Debug + Serialize + Deserialize`, consistent with the rest of `src/types`)
-- [ ] Thread an `Option<&mut ScoreTrace>` sink through `fold_played_cards`, `fold_held_cards` and `fold_jokers`. It is a new parameter: `fold_held_cards` takes no RNG today (`scoring.rs:219`), so there is no existing parameter to copy on all three
-- [ ] Push one step at every `apply` call: 3 per played-card pass (`scoring.rs:100,127,133`, inside the retrigger loop at `:97`), one per held-card application (`:233`), 2 per joker (`:319,324`). Phase 1 pushes one `Base` step carrying the `HandType` and level
-- [ ] Mark RNG-resolved ops (Lucky `scoring.rs:107`, Misprint `:308`) with `rolled: true`
-- [ ] `BuffoonBoard::score_traced()`, `score_traced_with_seed(u64)`, `score_traced_with_registry(&EffectRegistry)`: the same trio as today's `score*` (`scoring.rs:655,672,729`). No current entry point takes both an RNG and a registry; this story does not add one
-- [ ] Invariant test: for every golden board, `score_traced().total == score()` and `steps.last().after == total`
-- [ ] Invariant test: folding the steps' ops from the base `Score` reproduces each `after`
-- [ ] `examples/buffoon.rs` prints the trace instead of (or alongside) the four phase totals
+- [x] Add `src/types/trace.rs` with `ScoreStep`, `ScoreTrace`, `Phase`, `StepSource`, `StepPart` (all `Clone + Debug + Serialize + Deserialize`, consistent with the rest of `src/types`). Done; all five are in the prelude. `StepSource` is `Hand { hand_type, level }`, `Card { card, index }` or `Joker { card, index }`; `retrigger` is a `usize`, not the sketch's `u8`, to match the engine's counts
+- [x] Thread an `Option<&mut ScoreTrace>` sink through `fold_played_cards`, `fold_held_cards` and `fold_jokers`. It is a new parameter: `fold_held_cards` takes no RNG today (`scoring.rs:219`), so there is no existing parameter to copy on all three. Done: the sink is `Option<&mut Vec<ScoreStep>>`, and every `apply` goes through one helper, `trace::apply_step`, which applies the op exactly as before and records the step only when there is a sink
+- [x] Push one step at every `apply` call: 3 per played-card pass (`scoring.rs:100,127,133`, inside the retrigger loop at `:97`), one per held-card application (`:233`), 2 per joker (`:319,324`). Phase 1 pushes one `Base` step carrying the `HandType` and level. Done. The base step's op is `Add(base)` applied to an empty `Score`, so a replay starts from zero
+- [x] Mark RNG-resolved ops (Lucky `scoring.rs:107`, Misprint `:308`) with `rolled: true`. Done: only when an RNG is present; the plain `score_traced()` never rolls
+- [x] `BuffoonBoard::score_traced()`, `score_traced_with_seed(u64)`, `score_traced_with_registry(&EffectRegistry)`: the same trio as today's `score*` (`scoring.rs:655,672,729`). No current entry point takes both an RNG and a registry; this story does not add one. Done, plus `score_traced_with_rng` to mirror `score_with_rng`. `score()` itself stays untraced, so the solver path allocates nothing; the invariant tests keep the two equal
+- [x] Invariant test: for every golden board, `score_traced().total == score()` and `steps.last().after == total`. Done on 8 test boards (`golden_boards()` in `scoring.rs`'s tests), also for 8 seeds each against `score_with_seed`, and for a registry board against `score_with_registry`. Story 5 replaces these boards with shared fixtures
+- [x] Invariant test: folding the steps' ops from the base `Score` reproduces each `after`. Done (`assert_replays`, from an empty `Score`)
+- [x] `examples/buffoon.rs` prints the trace instead of (or alongside) the four phase totals. Done: alongside; 25 steps, 11 fired, ending at 331 × 34 = 11254
+- [x] Added for the acceptance rows: `ScoreOp` implements `Display` (`+4 Mult`, `+80 Chips`, `×3 Mult`) and `ScoreOp::is_noop()`. `fired` is `!op.is_noop()`, not `op != Nothing` as sketched: a joker whose condition fails returns `Add(0 chips, 0 mult)`, not `Nothing`
 
-*Acceptance:* a Flush with Joker + Droll Joker + Crafty Joker + Cavendish yields a trace whose joker effect rows read `+4 Mult`, `+10 Mult`, `+80 Chips`, `×3 Mult` in that order. A Pair with Droll Joker yields a `fired: false` row for it.
+*Acceptance:* a Flush with Joker + Droll Joker + Crafty Joker + Cavendish yields a trace whose joker effect rows read `+4 Mult`, `+10 Mult`, `+80 Chips`, `×3 Mult` in that order. A Pair with Droll Joker yields a `fired: false` row for it. **Met** by `score_traced__flush_joker_rows_in_order` and `score_traced__a_failed_condition_is_a_row_that_did_not_fire`.
 
 **Story 2: joker catalog with display names**
 

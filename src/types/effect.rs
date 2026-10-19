@@ -16,6 +16,7 @@ use crate::types::buffoon_card::BuffoonCard;
 use crate::types::score::Score;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
 /// A declarative description of an effect's contribution to a running [`Score`].
 ///
@@ -49,6 +50,54 @@ impl ScoreOp {
             Self::Add(delta) => score + *delta,
             Self::TimesMult(factor) => score.multi_mult(*factor),
             Self::Seq(ops) => ops.iter().fold(score, |acc, op| op.apply(acc)),
+        }
+    }
+
+    /// Whether this operation leaves every score unchanged: `Nothing`, `+0`,
+    /// `×1`, or a `Seq` of those. A joker whose condition fails returns
+    /// `Add(0 chips, 0 mult)` rather than `Nothing`, so a trace asks this, not
+    /// `== Nothing`, to decide whether a step fired.
+    #[must_use]
+    // Exact compare on purpose: only a factor of exactly 1 is the identity.
+    #[allow(clippy::float_cmp)]
+    pub fn is_noop(&self) -> bool {
+        match self {
+            Self::Nothing => true,
+            Self::AddChips(n) | Self::AddMult(n) => *n == 0,
+            Self::Add(delta) => *delta == Score::default(),
+            Self::TimesMult(factor) => *factor == 1.0,
+            Self::Seq(ops) => ops.iter().all(Self::is_noop),
+        }
+    }
+}
+
+/// The breakdown-row text: `+4 Mult`, `+80 Chips`, `×3 Mult`. A no-op `Add`
+/// and `Nothing` read `nothing`; a `Seq` joins its parts with `, `.
+impl Display for ScoreOp {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Nothing => write!(f, "nothing"),
+            Self::AddChips(chips) => write!(f, "+{chips} Chips"),
+            Self::AddMult(mult) => write!(f, "+{mult} Mult"),
+            Self::Add(delta) => {
+                let mut parts = Vec::new();
+                if delta.chips > 0 {
+                    parts.push(format!("+{} Chips", delta.chips));
+                }
+                if delta.mult.abs() > 0.0 {
+                    parts.push(format!("+{} Mult", delta.mult));
+                }
+                if parts.is_empty() {
+                    write!(f, "nothing")
+                } else {
+                    write!(f, "{}", parts.join(" "))
+                }
+            }
+            Self::TimesMult(factor) => write!(f, "×{factor} Mult"),
+            Self::Seq(ops) => {
+                let parts: Vec<String> = ops.iter().map(ToString::to_string).collect();
+                write!(f, "{}", parts.join(", "))
+            }
         }
     }
 }
@@ -156,6 +205,46 @@ mod funky__types__effect_tests {
         // +2 mult then ×3 -> (4+2) * 3 = 18; the reverse would be 4*3 + 2 = 14.
         let op = ScoreOp::Seq(vec![ScoreOp::AddMult(2), ScoreOp::TimesMult(3.0)]);
         assert_eq!(op.apply(Score::new(0, 4.0)), Score::new(0, 18.0));
+    }
+
+    /// The calculator shows these strings as breakdown rows.
+    #[test]
+    fn score_op__display() {
+        assert_eq!(ScoreOp::AddMult(4).to_string(), "+4 Mult");
+        assert_eq!(ScoreOp::AddChips(80).to_string(), "+80 Chips");
+        assert_eq!(ScoreOp::TimesMult(3.0).to_string(), "×3 Mult");
+        assert_eq!(ScoreOp::TimesMult(1.5).to_string(), "×1.5 Mult");
+        assert_eq!(
+            ScoreOp::Add(Score::new(5, 3.0)).to_string(),
+            "+5 Chips +3 Mult"
+        );
+        assert_eq!(ScoreOp::Add(Score::new(11, 0.0)).to_string(), "+11 Chips");
+        assert_eq!(ScoreOp::Add(Score::new(0, 4.5)).to_string(), "+4.5 Mult");
+        assert_eq!(ScoreOp::Add(Score::default()).to_string(), "nothing");
+        assert_eq!(ScoreOp::Nothing.to_string(), "nothing");
+        assert_eq!(
+            ScoreOp::Seq(vec![ScoreOp::AddMult(2), ScoreOp::TimesMult(2.0)]).to_string(),
+            "+2 Mult, ×2 Mult"
+        );
+    }
+
+    /// A no-op leaves every score unchanged. A joker whose condition fails
+    /// returns `Add(0 chips, 0 mult)`, not `Nothing`, so both must count.
+    #[test]
+    fn score_op__is_noop() {
+        assert!(ScoreOp::Nothing.is_noop());
+        assert!(ScoreOp::Add(Score::default()).is_noop());
+        assert!(ScoreOp::AddChips(0).is_noop());
+        assert!(ScoreOp::AddMult(0).is_noop());
+        assert!(ScoreOp::TimesMult(1.0).is_noop());
+        assert!(ScoreOp::Seq(vec![]).is_noop());
+        assert!(ScoreOp::Seq(vec![ScoreOp::Nothing, ScoreOp::AddMult(0)]).is_noop());
+
+        assert!(!ScoreOp::AddChips(1).is_noop());
+        assert!(!ScoreOp::AddMult(1).is_noop());
+        assert!(!ScoreOp::Add(Score::new(0, 0.5)).is_noop());
+        assert!(!ScoreOp::TimesMult(1.5).is_noop());
+        assert!(!ScoreOp::Seq(vec![ScoreOp::Nothing, ScoreOp::AddMult(2)]).is_noop());
     }
 
     struct FlatMult(usize);

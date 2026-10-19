@@ -10,4 +10,5 @@ pub mod mpip;
 pub mod score;
 pub mod shop;
 pub mod toggle;
+pub mod trace;
 pub mod voucher;

@@ -8,6 +8,7 @@
 use super::BuffoonBoard;
 use crate::prelude::{BCardType, BuffoonCard, HandRules, HandType, MPip, Score};
 use crate::types::effect::{EffectRegistry, ScoreOp, ScoringContext};
+use crate::types::trace::{Phase, ScoreStep, ScoreTrace, StepAt, StepPart, StepSource, apply_step};
 use rand::rngs::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
 
@@ -69,14 +70,15 @@ impl BuffoonBoard {
     /// [`BuffoonCard::calculate_plus`]: crate::types::buffoon_card::BuffoonCard::calculate_plus
     #[must_use]
     pub fn scoring_phase2_dealt_hand_scoring(&self, running: Score) -> Score {
-        self.fold_played_cards::<StdRng>(running, None, None)
+        self.fold_played_cards::<StdRng>(running, None, None, None)
     }
 
     /// The single played-card fold behind phase 2. Each card adds its chips and
     /// built-in additive effects, then its special enhancement resolves:
     /// a Lucky card rolls (if `rng`), a Glass card applies its ×mult, a
     /// `MPip::Custom` card is looked up (if `registry`). Built-in cards are
-    /// unaffected by the options.
+    /// unaffected by the options. With a `trace`, each of the 3 ops per pass
+    /// (effect, special, edition) is recorded as a step.
     // Glass's ×mult factor is a small literal from the card data; the same
     // allow the other ×mult seams carry (`builtin_held_op`, `joker_x_mult`).
     #[allow(clippy::cast_precision_loss)]
@@ -85,19 +87,36 @@ impl BuffoonBoard {
         running: Score,
         mut rng: Option<&mut R>,
         registry: Option<&EffectRegistry>,
+        mut trace: Option<&mut Vec<ScoreStep>>,
     ) -> Score {
         let mut score = running;
 
         for (index, card) in self.played.iter().enumerate() {
+            let source = StepSource::Card { card: *card, index };
+            // Only a Lucky card rolls, and only when there is an RNG to roll.
+            let rolls =
+                matches!(card.enhancement, MPip::Lucky(odds, _) if odds > 0) && rng.is_some();
             // A card is scored once, plus once more for each retrigger a joker
             // grants it (Hack: each played 2-5; Hanging Chad: the first card).
             // Retriggering re-runs the whole per-card contribution, so a
             // retriggered Lucky card rolls again — matching Balatro. With no
             // retrigger joker this is a single pass.
-            for _ in 0..=self.played_retriggers(index, card) {
+            for retrigger in 0..=self.played_retriggers(index, card) {
+                let at = |part, rolled| StepAt {
+                    phase: Phase::Played,
+                    source,
+                    part,
+                    retrigger,
+                    rolled,
+                };
                 // Every played card contributes its built-in chips/mult first,
                 // then its special (probabilistic / custom) effect resolves.
-                score = Self::builtin_played_op(card).apply(score);
+                score = apply_step(
+                    &mut trace,
+                    score,
+                    &Self::builtin_played_op(card),
+                    at(StepPart::Effect, false),
+                );
 
                 let special = match card.enhancement {
                     MPip::Lucky(mult_odds, _) if mult_odds > 0 => {
@@ -124,13 +143,18 @@ impl BuffoonBoard {
                     MPip::Custom(id) => self.custom_op(*card, id, registry),
                     _ => ScoreOp::Nothing,
                 };
-                score = special.apply(score);
+                score = apply_step(&mut trace, score, &special, at(StepPart::Special, rolls));
 
                 // The card's edition scores at its own position, after its
                 // chips/mult — so a Polychrome ×1.5 multiplies the running score
                 // here (the Glass shape), and a retriggered card re-applies its
                 // edition each pass, matching Balatro.
-                score = card.edition.score_op().apply(score);
+                score = apply_step(
+                    &mut trace,
+                    score,
+                    &card.edition.score_op(),
+                    at(StepPart::Edition, false),
+                );
             }
         }
 
@@ -210,13 +234,18 @@ impl BuffoonBoard {
     /// no held cards it is the identity.
     #[must_use]
     pub fn scoring_phase3_effects_in_hand(&self, running: Score) -> Score {
-        self.fold_held_cards(running, None)
+        self.fold_held_cards(running, None, None)
     }
 
     /// The single held-card fold behind phase 3. Built-in Steel/`MultTimes`
     /// cards apply their ×mult; a `MPip::Custom` held card is resolved through
-    /// `registry` (if any).
-    fn fold_held_cards(&self, running: Score, registry: Option<&EffectRegistry>) -> Score {
+    /// `registry` (if any). With a `trace`, each application is a step.
+    fn fold_held_cards(
+        &self,
+        running: Score,
+        registry: Option<&EffectRegistry>,
+        mut trace: Option<&mut Vec<ScoreStep>>,
+    ) -> Score {
         let mut score = running;
 
         // Mime retriggers held-card abilities: each held card's op applies
@@ -224,13 +253,20 @@ impl BuffoonBoard {
         // twice. 0 for a board with no held-retrigger joker (the common case),
         // leaving the held fold byte-identical.
         let retriggers = self.held_retriggers();
-        for card in &self.in_hand {
+        for (index, card) in self.in_hand.iter().enumerate() {
             let op = match card.enhancement {
                 MPip::Custom(id) => self.custom_op(*card, id, registry),
                 _ => Self::builtin_held_op(card),
             };
-            for _ in 0..=retriggers {
-                score = op.apply(score);
+            for retrigger in 0..=retriggers {
+                let at = StepAt {
+                    phase: Phase::Held,
+                    source: StepSource::Card { card: *card, index },
+                    part: StepPart::Effect,
+                    retrigger,
+                    rolled: false,
+                };
+                score = apply_step(&mut trace, score, &op, at);
             }
         }
 
@@ -279,7 +315,7 @@ impl BuffoonBoard {
     /// [`BuffoonPile::calculate_plus`]: crate::types::buffoon_pile::BuffoonPile::calculate_plus
     #[must_use]
     pub fn scoring_phase4_joker_scoring(&self, running: Score) -> Score {
-        self.fold_jokers::<StdRng>(running, None, None)
+        self.fold_jokers::<StdRng>(running, None, None, None)
     }
 
     /// The single joker-scoring fold that every phase-4 entry point delegates
@@ -291,7 +327,8 @@ impl BuffoonBoard {
     /// * everything else — additive ([`BuffoonPile::calculate_plus`]).
     ///
     /// The `rng`/`registry` options are what distinguish the pure, seeded, and
-    /// registry entry points — the fold itself lives here once.
+    /// registry entry points — the fold itself lives here once. With a
+    /// `trace`, each joker's effect and edition are recorded as two steps.
     ///
     /// [`BuffoonPile::calculate_plus`]: crate::types::buffoon_pile::BuffoonPile::calculate_plus
     fn fold_jokers<R: Rng + ?Sized>(
@@ -299,10 +336,24 @@ impl BuffoonBoard {
         running: Score,
         mut rng: Option<&mut R>,
         registry: Option<&EffectRegistry>,
+        mut trace: Option<&mut Vec<ScoreStep>>,
     ) -> Score {
         let mut score = running;
 
         for (index, joker) in self.jokers.iter().enumerate() {
+            let at = |part, rolled| StepAt {
+                phase: Phase::Joker,
+                source: StepSource::Joker {
+                    card: *joker,
+                    index,
+                },
+                part,
+                retrigger: 0,
+                rolled,
+            };
+            // Only Misprint rolls, and only when there is an RNG to roll.
+            let rolls =
+                matches!(joker.enhancement, MPip::MultPlusRandomTo(n) if n > 0) && rng.is_some();
             let op = match joker.enhancement {
                 MPip::Custom(id) => self.custom_op(*joker, id, registry),
                 MPip::MultPlusRandomTo(n) if n > 0 => {
@@ -316,12 +367,17 @@ impl BuffoonBoard {
                         .unwrap_or_else(|| self.builtin_joker_op(joker))
                 }
             };
-            score = op.apply(score);
+            score = apply_step(&mut trace, score, &op, at(StepPart::Effect, rolls));
 
             // The joker's own edition scores at its position, after its effect —
             // so a Polychrome joker ×1.5s the running score once its +mult/×mult
             // has landed, matching Balatro's left-to-right joker order.
-            score = joker.edition.score_op().apply(score);
+            score = apply_step(
+                &mut trace,
+                score,
+                &joker.edition.score_op(),
+                at(StepPart::Edition, false),
+            );
         }
 
         score
@@ -693,7 +749,7 @@ impl BuffoonBoard {
         running: Score,
         rng: &mut R,
     ) -> Score {
-        self.fold_played_cards(running, Some(rng), None)
+        self.fold_played_cards(running, Some(rng), None, None)
     }
 
     /// Phase 4 with probabilistic joker effects rolled, threaded through the
@@ -707,7 +763,7 @@ impl BuffoonBoard {
         running: Score,
         rng: &mut R,
     ) -> Score {
-        self.fold_jokers(running, Some(rng), None)
+        self.fold_jokers(running, Some(rng), None, None)
     }
 
     /// Like [`score`](Self::score), but resolves `MPip::Custom(id)` jokers
@@ -728,8 +784,8 @@ impl BuffoonBoard {
     #[must_use]
     pub fn score_with_registry(&self, registry: &EffectRegistry) -> Score {
         let base = self.scoring_phase1_pre_scoring();
-        let after_cards = self.fold_played_cards::<StdRng>(base, None, Some(registry));
-        let held = self.fold_held_cards(after_cards, Some(registry));
+        let after_cards = self.fold_played_cards::<StdRng>(base, None, Some(registry), None);
+        let held = self.fold_held_cards(after_cards, Some(registry), None);
 
         self.scoring_phase4_joker_scoring_with_registry(held, registry)
     }
@@ -744,7 +800,75 @@ impl BuffoonBoard {
         running: Score,
         registry: &EffectRegistry,
     ) -> Score {
-        self.fold_jokers::<StdRng>(running, None, Some(registry))
+        self.fold_jokers::<StdRng>(running, None, Some(registry), None)
+    }
+
+    /// Like [`score`](Self::score), but returns every step: one per
+    /// [`ScoreOp`] applied, starting with the base hand. Its `total` equals
+    /// `score()`, and replaying the steps' ops from an empty [`Score`] gives
+    /// each step's `after`.
+    #[must_use]
+    pub fn score_traced(&self) -> ScoreTrace {
+        self.trace_with::<StdRng>(None, None)
+    }
+
+    /// Like [`score_with_seed`](Self::score_with_seed), but returns every
+    /// step. Rolled steps (Lucky, Misprint) carry `rolled: true`.
+    #[must_use]
+    pub fn score_traced_with_seed(&self, seed: u64) -> ScoreTrace {
+        self.score_traced_with_rng(&mut StdRng::seed_from_u64(seed))
+    }
+
+    /// Like [`score_with_rng`](Self::score_with_rng), but returns every step.
+    #[must_use]
+    pub fn score_traced_with_rng<R: Rng + ?Sized>(&self, rng: &mut R) -> ScoreTrace {
+        self.trace_with(Some(rng), None)
+    }
+
+    /// Like [`score_with_registry`](Self::score_with_registry), but returns
+    /// every step.
+    #[must_use]
+    pub fn score_traced_with_registry(&self, registry: &EffectRegistry) -> ScoreTrace {
+        self.trace_with::<StdRng>(None, Some(registry))
+    }
+
+    /// The traced pipeline: the base step, then the same three folds the
+    /// untraced entry points use, each given the step list. The RNG is drawn in
+    /// the same order as [`score_with_rng`](Self::score_with_rng) (played
+    /// cards, then jokers), so a seed gives the same total either way.
+    fn trace_with<R: Rng + ?Sized>(
+        &self,
+        mut rng: Option<&mut R>,
+        registry: Option<&EffectRegistry>,
+    ) -> ScoreTrace {
+        let hand_type = self.scoring_hand_type();
+        let level = self
+            .poker_hands
+            .get(&hand_type)
+            .map_or(0, |hand| hand.level);
+        let mut steps = Vec::new();
+
+        let base = apply_step(
+            &mut Some(&mut steps),
+            Score::default(),
+            &ScoreOp::Add(self.scoring_phase1_pre_scoring()),
+            StepAt {
+                phase: Phase::Base,
+                source: StepSource::Hand { hand_type, level },
+                part: StepPart::Effect,
+                retrigger: 0,
+                rolled: false,
+            },
+        );
+        let played = self.fold_played_cards(base, rng.as_deref_mut(), registry, Some(&mut steps));
+        let held = self.fold_held_cards(played, registry, Some(&mut steps));
+        let total = self.fold_jokers(held, rng, registry, Some(&mut steps));
+
+        ScoreTrace {
+            hand_type,
+            steps,
+            total,
+        }
     }
 
     /// The scoring contribution of a counter joker given its accumulator, or
@@ -833,5 +957,344 @@ impl BuffoonBoard {
     #[allow(clippy::cast_precision_loss)]
     fn gain_x_mult(rate: usize, count: usize) -> f64 {
         (rate as f64 / 100.0).mul_add(count as f64, 1.0)
+    }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod funky__types__board__scoring_tests {
+    use super::*;
+    use crate::bcards;
+    use crate::decks::basic::Deck;
+    use crate::decks::basic::card as basic;
+    use crate::decks::joker::card;
+    use crate::prelude::{BuffoonPile, Edition};
+    use crate::types::draws::Draws;
+    use crate::types::effect::Effect;
+    use crate::types::trace::{Phase, ScoreTrace, StepPart, StepSource};
+
+    fn board_playing(index: &str) -> BuffoonBoard {
+        let mut board = BuffoonBoard::new(Draws::new(4, 3), Deck::basic_buffoon_pile());
+        board.played = bcards!(index);
+        board
+    }
+
+    fn enhanced(card: BuffoonCard, enhancement: MPip) -> BuffoonCard {
+        BuffoonCard {
+            enhancement,
+            ..card
+        }
+    }
+
+    fn with_jokers(index: &str, jokers: &[BuffoonCard]) -> BuffoonBoard {
+        let mut board = board_playing(index);
+        for joker in jokers {
+            board.push_joker(*joker);
+        }
+        board
+    }
+
+    /// The `buffoon` example's board: a Royal Flush, a held Steel King, and
+    /// four hand-conditional jokers.
+    fn buffoon_example_board() -> BuffoonBoard {
+        let mut board = with_jokers(
+            "AS KS QS JS TS",
+            &[
+                card::CRAZY_JOKER,
+                card::DROLL_JOKER,
+                card::DEVIOUS_JOKER,
+                card::CRAFTY_JOKER,
+            ],
+        );
+        board.in_hand = BuffoonPile::from(vec![enhanced(basic::KING_HEARTS, MPip::STEEL)]);
+        board
+    }
+
+    fn acceptance_flush_board() -> BuffoonBoard {
+        with_jokers(
+            "2H 5H 8H TH KH",
+            &[
+                card::JOKER,
+                card::DROLL_JOKER,
+                card::CRAFTY_JOKER,
+                card::CAVENDISH,
+            ],
+        )
+    }
+
+    fn lucky_ace_board() -> BuffoonBoard {
+        let mut board = board_playing("2S");
+        board.played = BuffoonPile::from(vec![enhanced(basic::ACE_SPADES, MPip::Lucky(5, 15))]);
+        board
+    }
+
+    /// Boards that cover each kind of step: base, played (with a retrigger,
+    /// a special and an edition), held (with a retrigger), and jokers (with a
+    /// failed condition, a ×mult, a roll and an edition).
+    fn golden_boards() -> Vec<BuffoonBoard> {
+        let mut steel_mime = with_jokers("2S 5D 8C TS KH", &[card::MIME]);
+        steel_mime.in_hand = BuffoonPile::from(vec![enhanced(basic::KING_HEARTS, MPip::STEEL)]);
+
+        let mut glass_poly = board_playing("AS AD QC JS TH");
+        glass_poly.played = BuffoonPile::from(vec![
+            enhanced(basic::ACE_SPADES, MPip::Glass(2, 4)),
+            basic::ACE_DIAMONDS.with_edition(Edition::Polychrome),
+        ]);
+
+        vec![
+            buffoon_example_board(),
+            acceptance_flush_board(),
+            with_jokers("AS AD QC JS TH", &[card::DROLL_JOKER]),
+            with_jokers("2S 3D 8C TS KH", &[card::HACK]),
+            steel_mime,
+            glass_poly,
+            with_jokers(
+                "2S 5D 8C TS KH",
+                &[
+                    card::JOKER.with_edition(Edition::Polychrome),
+                    card::MISPRINT,
+                ],
+            ),
+            lucky_ace_board(),
+        ]
+    }
+
+    /// Every step's `after` is its `op` applied to the step before it, starting
+    /// from an empty score: the trace replays to the same numbers.
+    fn assert_replays(trace: &ScoreTrace) {
+        let mut score = Score::default();
+        for (i, step) in trace.steps.iter().enumerate() {
+            score = step.op.apply(score);
+            assert_eq!(score, step.after, "step {i} does not replay: {step:?}");
+        }
+        assert_eq!(trace.steps.last().map(|s| s.after), Some(trace.total));
+    }
+
+    fn effect_rows(trace: &ScoreTrace, phase: Phase) -> Vec<String> {
+        trace
+            .steps
+            .iter()
+            .filter(|s| s.phase == phase && s.part == StepPart::Effect)
+            .map(|s| s.op.to_string())
+            .collect()
+    }
+
+    // ---- EPIC-05 Story 1 acceptance -----------------------------------------
+
+    #[test]
+    fn score_traced__flush_joker_rows_in_order() {
+        let trace = acceptance_flush_board().score_traced();
+        assert_eq!(
+            effect_rows(&trace, Phase::Joker),
+            vec!["+4 Mult", "+10 Mult", "+80 Chips", "×3 Mult"]
+        );
+    }
+
+    #[test]
+    fn score_traced__a_failed_condition_is_a_row_that_did_not_fire() {
+        // Droll Joker pays on a flush; a Pair is not one.
+        let trace = with_jokers("AS AD QC JS TH", &[card::DROLL_JOKER]).score_traced();
+        let droll = trace
+            .steps
+            .iter()
+            .find(|s| s.phase == Phase::Joker && s.part == StepPart::Effect)
+            .unwrap();
+        assert!(!droll.fired, "{droll:?}");
+        assert!(droll.op.is_noop());
+    }
+
+    // ---- Shape ---------------------------------------------------------------
+
+    #[test]
+    fn score_traced__starts_with_the_base_step() {
+        let board = board_playing("AS AD QC JS TH");
+        let trace = board.score_traced();
+        let base = &trace.steps[0];
+
+        assert_eq!(trace.hand_type, HandType::Pair);
+        assert_eq!(base.phase, Phase::Base);
+        assert_eq!(
+            base.source,
+            StepSource::Hand {
+                hand_type: HandType::Pair,
+                level: 1
+            }
+        );
+        assert_eq!(base.after, board.scoring_phase1_pre_scoring());
+        assert!(base.fired);
+    }
+
+    /// A played card makes 3 steps per pass: effect, special, edition.
+    #[test]
+    fn score_traced__three_steps_per_played_card_pass() {
+        let trace = board_playing("2S").score_traced();
+        let parts: Vec<_> = trace
+            .steps
+            .iter()
+            .filter(|s| s.phase == Phase::Played)
+            .map(|s| (s.part, s.retrigger))
+            .collect();
+        assert_eq!(
+            parts,
+            vec![
+                (StepPart::Effect, 0),
+                (StepPart::Special, 0),
+                (StepPart::Edition, 0)
+            ]
+        );
+        assert_eq!(trace.steps.len(), 4, "base + 3");
+    }
+
+    /// Hack retriggers a played 2: the card's three steps repeat with
+    /// `retrigger: 1`.
+    #[test]
+    fn score_traced__a_retrigger_repeats_the_card_steps() {
+        let trace = with_jokers("2S", &[card::HACK]).score_traced();
+        let played: Vec<_> = trace
+            .steps
+            .iter()
+            .filter(|s| s.phase == Phase::Played)
+            .map(|s| (s.part, s.retrigger))
+            .collect();
+        assert_eq!(
+            played,
+            vec![
+                (StepPart::Effect, 0),
+                (StepPart::Special, 0),
+                (StepPart::Edition, 0),
+                (StepPart::Effect, 1),
+                (StepPart::Special, 1),
+                (StepPart::Edition, 1),
+            ]
+        );
+    }
+
+    /// Mime retriggers a held Steel card: one held step per application.
+    #[test]
+    fn score_traced__held_steps_one_per_application() {
+        let mut board = with_jokers("2S", &[card::MIME]);
+        board.in_hand = BuffoonPile::from(vec![enhanced(basic::KING_HEARTS, MPip::STEEL)]);
+        let held: Vec<_> = board
+            .score_traced()
+            .steps
+            .into_iter()
+            .filter(|s| s.phase == Phase::Held)
+            .collect();
+
+        assert_eq!(held.len(), 2);
+        assert_eq!((held[0].retrigger, held[1].retrigger), (0, 1));
+        assert!(held.iter().all(|s| s.op == ScoreOp::TimesMult(1.5)));
+        assert!(matches!(held[0].source, StepSource::Card { index: 0, .. }));
+    }
+
+    /// A joker makes 2 steps: its effect, then its edition.
+    #[test]
+    fn score_traced__two_steps_per_joker() {
+        let trace = with_jokers("2S", &[card::JOKER.with_edition(Edition::Foil)]).score_traced();
+        let joker: Vec<_> = trace
+            .steps
+            .iter()
+            .filter(|s| s.phase == Phase::Joker)
+            .collect();
+
+        assert_eq!(joker.len(), 2);
+        assert_eq!(joker[0].part, StepPart::Effect);
+        assert_eq!(joker[0].op.to_string(), "+4 Mult");
+        assert_eq!(joker[1].part, StepPart::Edition);
+        assert_eq!(joker[1].op.to_string(), "+50 Chips");
+        assert!(matches!(
+            joker[0].source,
+            StepSource::Joker { index: 0, card } if card == card::JOKER.with_edition(Edition::Foil)
+        ));
+    }
+
+    // ---- Rolls ---------------------------------------------------------------
+
+    #[test]
+    fn score_traced__unseeded_lucky_is_the_unrolled_floor() {
+        let trace = lucky_ace_board().score_traced();
+        let special = trace
+            .steps
+            .iter()
+            .find(|s| s.phase == Phase::Played && s.part == StepPart::Special)
+            .unwrap();
+        assert!(!special.rolled);
+        assert_eq!(special.op, ScoreOp::Nothing);
+    }
+
+    #[test]
+    fn score_traced_with_seed__lucky_and_misprint_are_rolled() {
+        let mut board = lucky_ace_board();
+        board.push_joker(card::MISPRINT);
+        for seed in 0..16 {
+            let trace = board.score_traced_with_seed(seed);
+            let rolled: Vec<_> = trace
+                .steps
+                .iter()
+                .filter(|s| s.rolled)
+                .map(|s| (s.phase, s.part))
+                .collect();
+            assert_eq!(
+                rolled,
+                vec![
+                    (Phase::Played, StepPart::Special),
+                    (Phase::Joker, StepPart::Effect)
+                ],
+                "seed {seed}"
+            );
+        }
+    }
+
+    // ---- Invariants ----------------------------------------------------------
+
+    #[test]
+    fn score_traced__total_matches_score_on_every_golden_board() {
+        for (i, board) in golden_boards().iter().enumerate() {
+            let trace = board.score_traced();
+            assert_eq!(trace.total, board.score(), "board {i}");
+            assert_eq!(trace.hand_type, board.scoring_hand_type(), "board {i}");
+            assert_replays(&trace);
+        }
+    }
+
+    #[test]
+    fn score_traced_with_seed__total_matches_score_with_seed() {
+        for (i, board) in golden_boards().iter().enumerate() {
+            for seed in 0..8 {
+                let trace = board.score_traced_with_seed(seed);
+                assert_eq!(
+                    trace.total,
+                    board.score_with_seed(seed),
+                    "board {i} seed {seed}"
+                );
+                assert_replays(&trace);
+            }
+        }
+    }
+
+    struct DoubleMult;
+    impl Effect for DoubleMult {
+        fn score(&self, _ctx: &ScoringContext<'_>) -> ScoreOp {
+            ScoreOp::TimesMult(2.0)
+        }
+    }
+
+    #[test]
+    fn score_traced_with_registry__total_matches_score_with_registry() {
+        let mut registry = EffectRegistry::new();
+        registry.register(7, DoubleMult);
+
+        let mut board = with_jokers("AS AD QC JS TH", &[enhanced(card::JOKER, MPip::Custom(7))]);
+        board.in_hand = BuffoonPile::from(vec![enhanced(basic::KING_HEARTS, MPip::Custom(7))]);
+
+        let trace = board.score_traced_with_registry(&registry);
+        assert_eq!(trace.total, board.score_with_registry(&registry));
+        assert_replays(&trace);
+        let custom_steps = trace
+            .steps
+            .iter()
+            .filter(|s| s.op == ScoreOp::TimesMult(2.0))
+            .count();
+        assert_eq!(custom_steps, 2, "the held card and the joker");
     }
 }

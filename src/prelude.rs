@@ -22,6 +22,7 @@ pub use crate::types::mpip::*;
 pub use crate::types::score::Score;
 pub use crate::types::shop::{BoosterPack, PackKind, Shop};
 pub use crate::types::toggle::{Toggle, ToggleCard};
+pub use crate::types::trace::{Phase, ScoreStep, ScoreTrace, StepPart, StepSource};
 pub use crate::types::voucher::Voucher;
 
 pub use crate::bcard;

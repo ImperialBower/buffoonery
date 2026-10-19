@@ -10,7 +10,8 @@ use buffoonery::prelude::*;
 ///   * **phase 2** — played-card chips (base rank + enhancements);
 ///   * **phase 3** — held-card ×mult (a Steel card held in hand);
 ///   * **phase 4** — joker contributions;
-///   * `board.score()` — the combined pipeline a solver would call.
+///   * `board.score()` — the combined pipeline a solver would call;
+///   * `board.score_traced()` — the same score, step by step (EPIC-05 Story 1).
 fn main() {
     env_logger::init();
 
@@ -54,5 +55,37 @@ fn main() {
     println!("Phase 2 (+played cards)    {after_cards}");
     println!("Phase 3 (+held x mult)     {after_held}");
     println!("Phase 4 (+jokers) = final  {total}");
+
+    // The same score as a trace: one row per op that changed the score.
+    let trace = board.score_traced();
+    println!();
+    println!(
+        "Trace ({} steps, {} fired):",
+        trace.steps.len(),
+        fired(&trace)
+    );
+    for step in trace.steps.iter().filter(|step| step.fired) {
+        println!(
+            "  {:<7} {:<16} {:<8} {:<16} -> {} chips x {} mult",
+            format!("{:?}", step.phase),
+            source(&step.source),
+            format!("{:?}", step.part),
+            step.op.to_string(),
+            step.after.chips,
+            step.after.mult,
+        );
+    }
+    println!();
     println!("Final score = {}", total.score());
+}
+
+fn fired(trace: &ScoreTrace) -> usize {
+    trace.steps.iter().filter(|step| step.fired).count()
+}
+
+fn source(source: &StepSource) -> String {
+    match source {
+        StepSource::Hand { hand_type, level } => format!("{hand_type:?} L{level}"),
+        StepSource::Card { card, .. } | StepSource::Joker { card, .. } => card.to_string(),
+    }
 }

@@ -27,7 +27,10 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   `score_with_seed()`: base hand, played cards, held cards, then jokers left
   to right; never panics. Open effects go through `EffectRegistry`
   (`src/types/effect.rs`). `Score` keeps fractional mult and floors once
-  ([decision](/decisions/fractional-score.md)).
+  ([decision](/decisions/fractional-score.md)). `score_traced()` and its
+  seeded/registry twins return a `ScoreTrace` (`src/types/trace.rs`): one
+  `ScoreStep` per `ScoreOp` applied. Every fold applies ops through
+  `trace::apply_step`, so tracing cannot change a number.
 * **Decks** (`src/decks/`) — basic decks, 112 jokers (`Joker::ALL_JOKERS`;
   8 `Blank` with reasons in `Joker::BLANK_WITH_REASON`), planets, tarots,
   spectrals.
@@ -45,7 +48,7 @@ EPIC-06 Funky Extraction), stay in the cardpack repo. EPIC-05 moved here on
 # Next
 
 EPIC-05's stories run here: a fractional `Score` (done, S1), moving the scoring folds out
-of `board.rs` (done, S2), a `ScoreTrace`, a `BoardSpec` written in Rust or YAML, a
+of `board.rs` (done, S2), a `ScoreTrace` (done, Story 1), a `BoardSpec` written in Rust or YAML, a
 joker catalog, and a WIT component.
 
 # Try it
