@@ -3,7 +3,7 @@ type: architecture
 title: The engine — Balatro-style cards and scoring
 description: What buffoonery models (jokers, planets, tarots, spectrals as MPip data; four-phase scoring; shop, vouchers, editions, blinds), where it lives, and where it came from.
 tags: [engine, balatro, scoring, architecture]
-timestamp: '2026-10-18T22:27:13Z'
+timestamp: '2026-10-19T00:00:00Z'
 ---
 
 # What it is
@@ -26,7 +26,8 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
 * **Scoring** (`src/types/board.rs`) — `BuffoonBoard::score()` /
   `score_with_seed()`: base hand, played cards, held cards, then jokers left
   to right; never panics. Open effects go through `EffectRegistry`
-  (`src/types/effect.rs`).
+  (`src/types/effect.rs`). `Score` keeps fractional mult and floors once
+  ([decision](/decisions/fractional-score.md)).
 * **Decks** (`src/decks/`) — basic decks, 112 jokers (`Joker::ALL_JOKERS`;
   8 `Blank` with reasons in `Joker::BLANK_WITH_REASON`), planets, tarots,
   spectrals.
@@ -42,7 +43,7 @@ EPIC-05 Joker Calculator, EPIC-06 Funky Extraction), stay in the cardpack repo:
 
 # Next
 
-EPIC-05's stories run here: a fractional `Score`, moving the scoring folds out
+EPIC-05's stories run here: a fractional `Score` (done, S1), moving the scoring folds out
 of `board.rs`, a `ScoreTrace`, a `BoardSpec` written in Rust or YAML, a
 joker catalog, and a WIT component.
 

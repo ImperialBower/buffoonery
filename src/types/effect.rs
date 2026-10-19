@@ -33,7 +33,7 @@ pub enum ScoreOp {
     /// Add both chips and mult (a whole [`Score`] contribution).
     Add(Score),
     /// Multiply the running mult by a factor (e.g. `2.0` for ×2).
-    TimesMult(f32),
+    TimesMult(f64),
     /// Apply several operations in order.
     Seq(Vec<Self>),
 }
@@ -44,8 +44,8 @@ impl ScoreOp {
     pub fn apply(&self, score: Score) -> Score {
         match self {
             Self::Nothing => score,
-            Self::AddChips(chips) => score + Score::new(*chips, 0),
-            Self::AddMult(mult) => score + Score::new(0, *mult),
+            Self::AddChips(chips) => score + Score::from_usize(*chips, 0),
+            Self::AddMult(mult) => score + Score::from_usize(0, *mult),
             Self::Add(delta) => score + *delta,
             Self::TimesMult(factor) => score.multi_mult(*factor),
             Self::Seq(ops) => ops.iter().fold(score, |acc, op| op.apply(acc)),
@@ -116,7 +116,7 @@ mod funky__types__effect_tests {
             ScoreOp::Nothing,
             ScoreOp::AddChips(5),
             ScoreOp::AddMult(3),
-            ScoreOp::Add(Score::new(5, 3)),
+            ScoreOp::Add(Score::new(5, 3.0)),
             ScoreOp::TimesMult(1.5),
         ])
     }
@@ -134,28 +134,28 @@ mod funky__types__effect_tests {
     fn score_op__serde_format() {
         assert_eq!(
             serde_json::to_string(&every_score_op()).unwrap(),
-            r#"{"Seq":["Nothing",{"AddChips":5},{"AddMult":3},{"Add":{"chips":5,"mult":3}},{"TimesMult":1.5}]}"#
+            r#"{"Seq":["Nothing",{"AddChips":5},{"AddMult":3},{"Add":{"chips":5,"mult":3.0}},{"TimesMult":1.5}]}"#
         );
     }
 
     #[test]
     fn score_op__apply() {
-        let base = Score::new(10, 4);
-        assert_eq!(ScoreOp::Nothing.apply(base), Score::new(10, 4));
-        assert_eq!(ScoreOp::AddChips(5).apply(base), Score::new(15, 4));
-        assert_eq!(ScoreOp::AddMult(3).apply(base), Score::new(10, 7));
+        let base = Score::new(10, 4.0);
+        assert_eq!(ScoreOp::Nothing.apply(base), Score::new(10, 4.0));
+        assert_eq!(ScoreOp::AddChips(5).apply(base), Score::new(15, 4.0));
+        assert_eq!(ScoreOp::AddMult(3).apply(base), Score::new(10, 7.0));
         assert_eq!(
-            ScoreOp::Add(Score::new(5, 3)).apply(base),
-            Score::new(15, 7)
+            ScoreOp::Add(Score::new(5, 3.0)).apply(base),
+            Score::new(15, 7.0)
         );
-        assert_eq!(ScoreOp::TimesMult(2.0).apply(base), Score::new(10, 8));
+        assert_eq!(ScoreOp::TimesMult(2.0).apply(base), Score::new(10, 8.0));
     }
 
     #[test]
     fn score_op__seq_applies_in_order() {
         // +2 mult then ×3 -> (4+2) * 3 = 18; the reverse would be 4*3 + 2 = 14.
         let op = ScoreOp::Seq(vec![ScoreOp::AddMult(2), ScoreOp::TimesMult(3.0)]);
-        assert_eq!(op.apply(Score::new(0, 4)), Score::new(0, 18));
+        assert_eq!(op.apply(Score::new(0, 4.0)), Score::new(0, 18.0));
     }
 
     struct FlatMult(usize);

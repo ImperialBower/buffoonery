@@ -36,7 +36,7 @@ impl Edition {
     /// slot rule, read elsewhere).
     ///
     /// Polychrome's `×1.5` rides [`ScoreOp::TimesMult`], which routes to
-    /// `Score::multi_mult` — the same ceil-based path `MultTimes1Dot` uses — so
+    /// `Score::multi_mult` — the same path `MultTimes1Dot` uses — so
     /// the factor composes at the bearer's position in the fold, not as a global
     /// post-multiply.
     #[must_use]
@@ -83,31 +83,31 @@ mod funky__types__edition_tests {
     #[test]
     fn score_op__foil_adds_fifty_chips() {
         assert_eq!(
-            Edition::Foil.score_op().apply(Score::new(10, 2)),
-            Score::new(60, 2)
+            Edition::Foil.score_op().apply(Score::new(10, 2.0)),
+            Score::new(60, 2.0)
         );
     }
 
     #[test]
     fn score_op__holographic_adds_ten_mult() {
         assert_eq!(
-            Edition::Holographic.score_op().apply(Score::new(10, 2)),
-            Score::new(10, 12)
+            Edition::Holographic.score_op().apply(Score::new(10, 2.0)),
+            Score::new(10, 12.0)
         );
     }
 
     #[test]
     fn score_op__polychrome_times_one_and_a_half_mult() {
-        // multi_mult ceils: 10 mult × 1.5 = 15.
+        // 10 mult × 1.5 = 15.
         assert_eq!(
-            Edition::Polychrome.score_op().apply(Score::new(100, 10)),
-            Score::new(100, 15)
+            Edition::Polychrome.score_op().apply(Score::new(100, 10.0)),
+            Score::new(100, 15.0)
         );
     }
 
     #[test]
     fn score_op__none_and_negative_are_inert() {
-        let base = Score::new(100, 8);
+        let base = Score::new(100, 8.0);
         assert_eq!(Edition::None.score_op().apply(base), base);
         assert_eq!(Edition::Negative.score_op().apply(base), base);
     }

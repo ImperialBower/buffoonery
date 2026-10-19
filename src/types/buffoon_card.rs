@@ -136,15 +136,15 @@ impl BuffoonCard {
         match enhancer.enhancement {
             MPip::MultPlusChipsOnRank(mult, chips, rank_char) => {
                 if self.rank.index == rank_char {
-                    Score { chips, mult }
+                    Score::from_usize(chips, mult)
                 } else {
                     Score::default()
                 }
             }
-            _ => Score {
-                chips: self.calculate_plus_chips(enhancer),
-                mult: self.calculate_plus_mult(enhancer),
-            },
+            _ => Score::from_usize(
+                self.calculate_plus_chips(enhancer),
+                self.calculate_plus_mult(enhancer),
+            ),
         }
     }
 
@@ -404,12 +404,15 @@ mod funky__types__buffoon_card_tests {
     fn calculate_plus() {
         assert_eq!(
             bcard!(AD).calculate_plus(&bcard!(ODD_TODD)),
-            Score::new(31, 0)
+            Score::new(31, 0.0)
         );
-        assert_eq!(bcard!(AD).calculate_plus(&bcard!(GREEDY)), Score::new(0, 3));
+        assert_eq!(
+            bcard!(AD).calculate_plus(&bcard!(GREEDY)),
+            Score::new(0, 3.0)
+        );
         assert_eq!(
             bcard!(AD).calculate_plus(&bcard!(SCHOLAR)),
-            Score::new(20, 4)
+            Score::new(20, 4.0)
         );
     }
 

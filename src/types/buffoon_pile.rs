@@ -64,10 +64,10 @@ impl BuffoonPile {
 
     #[must_use]
     pub fn calculate_plus(&self, enhancer: &BuffoonCard) -> Score {
-        Score {
-            chips: self.calculate_plus_chips(enhancer),
-            mult: self.calculate_plus_mult(enhancer),
-        }
+        Score::from_usize(
+            self.calculate_plus_chips(enhancer),
+            self.calculate_plus_mult(enhancer),
+        )
     }
 
     #[must_use]

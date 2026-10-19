@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-10-19
+* **`Score` keeps fractional mult (EPIC-05 Story S1).** `Score` is now `{ chips: u64, mult: f64 }`; `multi_mult` no longer rounds up, and `score()` floors once and returns `f64`. `Eq`/`Hash`/`Ord` dropped from `Score` (and `Eq` from `BuffoonBoard`); engine x-mult math moved from `f32` to `f64`; `round_score` is `f64`. 8 new `Score` tests; 11 tests re-baselined from rounded-up values; `ScoreOp` JSON pin updated (`Add` mult is `3.0`). 485 lib tests pass; `buffoon` still scores 11254; `funky_tour` output unchanged. New [decision](decisions/fractional-score.md).
 * **cardpack requirement raised to 0.11.2; `deny.toml` skips removed.** cardpack 0.11.2 (its EPIC-06 item 2f) dropped the stale wasm-only `getrandom` 0.3 pin, so `getrandom` 0.3.4, `r-efi` 5.3.0, `wasip2` and `wit-bindgen` left the lockfile. `cargo deny check` passes with `skip = []`; `make ayce` green (477 lib tests, 4 doctests), `buffoon` still scores 11254.
 
 ## 2026-10-18
