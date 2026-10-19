@@ -33,7 +33,13 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   `trace::apply_step`, so tracing cannot change a number.
 * **Decks** (`src/decks/`) — basic decks, 112 jokers (`Joker::ALL_JOKERS`;
   8 `Blank` with reasons in `Joker::BLANK_WITH_REASON`), planets, tarots,
-  spectrals.
+  spectrals. `src/decks/joker_catalog.rs` names every joker and maps its
+  ident (the const name) to the card: `Joker::catalog()`, `by_ident`,
+  `name`, `info`.
+* **Boards as data** (`src/types/board_spec.rs`) — `BoardSpec` (Rust, JSON,
+  or YAML behind the default `yaml` feature) → `BuffoonBoard::try_from`,
+  with a `BoardSpecError` naming any bad field
+  ([decision](/decisions/board-spec-yaml.md)).
 * **Economy** — `Shop`, `Voucher`, editions, blinds with boss blinds.
 
 # Origin
@@ -48,8 +54,8 @@ EPIC-06 Funky Extraction), stay in the cardpack repo. EPIC-05 moved here on
 # Next
 
 EPIC-05's stories run here: a fractional `Score` (done, S1), moving the scoring folds out
-of `board.rs` (done, S2), a `ScoreTrace` (done, Story 1), a `BoardSpec` written in Rust or YAML, a
-joker catalog, and a WIT component.
+of `board.rs` (done, S2), a `ScoreTrace` (done, Story 1), a `BoardSpec` written in Rust or YAML (done, Story 3), a
+joker catalog (done, Story 2), and a WIT component.
 
 # Try it
 

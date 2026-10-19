@@ -86,6 +86,9 @@ fn fired(trace: &ScoreTrace) -> usize {
 fn source(source: &StepSource) -> String {
     match source {
         StepSource::Hand { hand_type, level } => format!("{hand_type:?} L{level}"),
-        StepSource::Card { card, .. } | StepSource::Joker { card, .. } => card.to_string(),
+        StepSource::Card { card, .. } => card.to_string(),
+        StepSource::Joker { card, .. } => {
+            Joker::name(card).map_or_else(|| card.to_string(), String::from)
+        }
     }
 }

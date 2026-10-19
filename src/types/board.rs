@@ -489,7 +489,7 @@ impl BuffoonBoard {
     /// How many items in `pile` occupy a slot — every one that is not Negative.
     /// The one live rule both room checks share, so Negative behaves identically
     /// for jokers and consumables.
-    fn slots_taken(pile: &BuffoonPile) -> usize {
+    pub(crate) fn slots_taken(pile: &BuffoonPile) -> usize {
         pile.iter()
             .filter(|card| !card.edition.is_negative())
             .count()

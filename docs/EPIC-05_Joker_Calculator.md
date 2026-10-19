@@ -24,9 +24,9 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A run
 | Engine standing in its own repo (EPIC-06 Phase 1) | **Complete** (`buffoonery` 0.0.1, 2026-10-18) |
 | Story S1 — fractional `Score` | **Complete** (`buffoonery` `bf779a4`, 2026-10-19) |
 | Story S2 — scoring folds out of `board.rs` | **Complete** (`buffoonery` `6fa2c8d`, 2026-10-19) |
-| Story 1 — `ScoreTrace` | Built (2026-10-19; 502 lib tests green), not yet committed |
-| Story 2 — joker catalog | Planned (list + blank reasons done in Milestone 0; names not started) |
-| Story 3 — `BoardSpec` (Rust and YAML) | Planned |
+| Story 1 — `ScoreTrace` | **Complete** (`buffoonery` `622fd9e`, 2026-10-19) |
+| Story 2 — joker catalog | Built (2026-10-19; 513 lib tests green), not yet committed |
+| Story 3 — `BoardSpec` (Rust and YAML) | Built (2026-10-19; 539 lib tests green), not yet committed. Milestone A is met |
 | Stories 4–5 — WIT component, golden fixtures | Planned |
 | Stories 6–8 — calculator renders the engine | Planned |
 | Milestone D — polish | Planned |
@@ -213,20 +213,20 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 - [x] All jokers in a stable order: `Joker::ALL_JOKERS` / `Joker::pile_all()` (Milestone 0b)
 - [x] Blank reasons: `Joker::blank_reason()` (Milestone 0b)
 - [x] Test: every joker appears exactly once (`pile_all__holds_every_joker_exactly_once`), and every `Blank` joker carries a non-empty reason (`all_jokers__every_blank_joker_has_a_stated_reason`, pre-existing)
-- [ ] A `JokerInfo { ident, name, rarity, cost, enhancement, blank_reason }` accessor over `Joker::ALL_JOKERS`
-- [ ] **A name for each of the 112 jokers.** No `.ftl` file has joker names, so this is a full table, not an override table. Decide where it lives: a `.ftl` (behind `i18n`) or a plain `const` table in `funky` (no feature cost)
-- [ ] `ident` (`"JOLLY_JOKER"`) needs a const-name ↔ card map. There is none today; build it next to `ALL_JOKERS` and test it covers all 112
+- [x] A `JokerInfo { ident, name, rarity, cost, enhancement, blank_reason }` accessor over `Joker::ALL_JOKERS`. Done in `src/decks/joker_catalog.rs`: `Joker::catalog()`, `Joker::info(&card)`, `Joker::name(&card)`. `cost` is `rank.value`, the price the shop charges. `JokerInfo` is `Serialize` only (its strings are `'static`); its JSON is pinned by `joker_info__serde_format`
+- [x] **A name for each of the 112 jokers.** No `.ftl` file has joker names, so this is a full table, not an override table. Decide where it lives: a `.ftl` (behind `i18n`) or a plain `const` table in `funky` (no feature cost). Done: a plain `const` table (`buffoonery` has no i18n feature). Its length is `ALL_JOKERS_SIZE`, so a missing joker does not compile, and `catalog__covers_every_joker_in_order` checks the order. Unusual spellings are pinned by `name__special_spellings` (`8 Ball`, `DNA`, `Oops! All 6s`, `Séance`, `Riff-raff`, `Canio`, …); Riff-raff, Séance and Canio were checked against published joker lists on 2026-10-19
+- [x] `ident` (`"JOLLY_JOKER"`) needs a const-name ↔ card map. There is none today; build it next to `ALL_JOKERS` and test it covers all 112. Done: `Joker::by_ident("JOLLY_JOKER")` and `Joker::ident(&card)`. Each ident comes from the const by `stringify!`, so it cannot drift from its card. Lookup by card goes through the rank pip (unique per joker, tested), so an edited joker (edition, effect override, debuff) keeps its name and ident; Story 3's `JokerSpec` overrides rely on this
 
 **Story 3: `BoardSpec`, a serde-friendly way to build a `BuffoonBoard`**
 
-- [ ] `BoardSpec { hand_levels, played, held, jokers: Vec<JokerSpec>, money, discards_left, hands_left, blind }` with every field optional and defaulted
-- [ ] `JokerSpec { ident, enhancement: Option<MPip>, edition: Option<Edition>, debuffed: bool }`: the override is the "updatable effect"
-- [ ] `TryFrom<BoardSpec> for BuffoonBoard` with a typed error naming the bad field (unknown ident, unknown card index, 6 jokers in 5 slots, more than 5 played cards)
-- [ ] Round-trip test: `BoardSpec` → board → trace → JSON → parse, for the golden boards
-- [ ] Load a `BoardSpec` from YAML, through the same serde types. Reuse cardpack's YAML stack (`serde_norway`, the `yaml` feature) rather than adding a second YAML crate
-- [ ] Pin the YAML shape of `MPip` with format tests, like the JSON ones from Milestone 0e: once boards are written as YAML, that shape is a public contract
+- [x] `BoardSpec { hand_levels, played, held, jokers: Vec<JokerSpec>, money, discards_left, hands_left, blind }` with every field optional and defaulted. Done in `src/types/board_spec.rs`. `played`/`held` are `CardSpec`s: a plain index (`"AS"`) or `{card, enhancement, edition}`. Unknown fields are errors. `hand_levels` needed a new `PokerHands::set_level`
+- [x] `JokerSpec { ident, enhancement: Option<MPip>, edition: Option<Edition>, debuffed: bool }`: the override is the "updatable effect". Done; an overridden joker keeps its name (Story 2 looks jokers up by rank pip)
+- [x] `TryFrom<BoardSpec> for BuffoonBoard` with a typed error naming the bad field (unknown ident, unknown card index, 6 jokers in 5 slots, more than 5 played cards). Done (also `TryFrom<&BoardSpec>`): `BoardSpecError` has `UnknownJoker`, `UnknownCard`, `TooManyPlayed`, `TooManyJokers` (Negative jokers take no slot), `BadHandLevel` and `Parse`; messages read like `jokers[1]: unknown joker ident "NOT_A_JOKER"`
+- [x] Round-trip test: `BoardSpec` → board → trace → JSON → parse, for the golden boards. Done for the `buffoon` board (`round_trip__spec_board_trace_json`); Story 5's shared fixtures extend it to every golden board
+- [x] Load a `BoardSpec` from YAML, through the same serde types. Reuse cardpack's YAML stack (`serde_norway`, the `yaml` feature) rather than adding a second YAML crate. Done: `BoardSpec::from_yaml` / `to_yaml` behind a default-on `yaml` feature, `serde_norway` 0.9.42 as cardpack uses. `CardSpec` deserializes by hand, because `#[serde(untagged)]` cannot carry YAML tags; see `.okf/decisions/board-spec-yaml.md`. The YAML `buffoon` board gives the same trace as the board built in Rust (`yaml__the_buffoon_board_matches_rust`), which is the Definition of done's YAML-vs-Rust check
+- [x] Pin the YAML shape of `MPip` with format tests, like the JSON ones from Milestone 0e: once boards are written as YAML, that shape is a public contract. Done: `yaml__mpip_and_edition_format` (`!MultPlus 4`, `!Lucky` with a list, `Blank`, `Polychrome`)
 
-*Milestone A done when:* `cargo test` is green in the solver repo and `cargo run --example buffoon` prints a trace.
+*Milestone A done when:* `cargo test` is green in the solver repo and `cargo run --example buffoon` prints a trace. **Met 2026-10-19:** 539 lib tests green, and `buffoon` prints its trace with joker names.
 
 ### Milestone B — the boundary (WIT component, solver repo)
 
@@ -281,13 +281,13 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 2. **Engine placement.** ~~A `funky-wasm` adapter crate, in cardpack's workspace or a sibling repo.~~ **Decided 2026-10-18 (0h):** the engine itself moves to its own repo, which becomes the solver foundation ([EPIC-06](https://github.com/ImperialBower/cardpack.rs/blob/main/docs/EPIC-06_Funky_Extraction.md)). This also avoids the cargo-deny trap a workspace member would have hit (cardpack [`.okf/decisions/examples-flag-free-alias.md`](https://github.com/ImperialBower/cardpack.rs/blob/main/.okf/decisions/examples-flag-free-alias.md)).
 3. **Where the calculator lives.** The Design artifact cannot load a `.wasm` from the canvas page today, so Milestone C needs a real web host (a static page in the repo, `examples/wasm.rs` style). The artboard stays as the design reference.
 4. ~~**`funky` requires `std`**, which rules out a `no_std` component.~~ **Resolved:** the WIT component targets `wasm32-wasip2`, which supports `std`.
-5. **Display names.** No joker names exist in the i18n resources (Story 2). The const name title-cased is wrong for several ("Dna", "Oops All 6s"), so a hand-checked table of all 112 is needed.
+5. **Display names.** No joker names exist in the i18n resources (Story 2). The const name title-cased is wrong for several ("Dna", "Oops All 6s"), so a hand-checked table of all 112 is needed. **Resolved 2026-10-19:** a hand-written table in `src/decks/joker_catalog.rs` (Story 2).
 6. **Trace size.** One played card makes up to 3 steps per pass. Retriggers on a 5-card hand with Hack + Sock and Buskin can produce 40+ steps. The table needs grouping by card (Story 7).
 7. **Every played card scores.** The engine has no scoring-card vs kicker split (`src/types/mpip.rs:60-61`). In Balatro, a kicker in a Pair does not add chips. The calculator will show kicker rows that Balatro would not. Fix in the engine (its own story) or show it as a known gap.
 8. **No Ace-low straights** (`src/types/buffoon_pile.rs:472-474`). `A-2-3-4-5` is not a straight here. The hand editor in Story 7 makes this easy to hit.
 9. ~~**Crate name.**~~ **Decided 2026-10-18:** `buffoonery`, for the repo and the crate (`funky` and `buffoon` are taken on crates.io).
 10. **Typed WIT records.** v1 passes `BoardSpec` and `ScoreTrace` as strings (Design). A typed `score-step` record would let non-JS hosts read the trace without a JSON parser. Worth it once the trace shape settles after Story 1; `MPip` likely stays a string.
-11. **YAML is a second contract.** Once boards are written as YAML, renaming an `MPip` variant breaks users' files. Story 3 pins the shape; renames then need a version bump or a serde alias.
+11. **YAML is a second contract.** Once boards are written as YAML, renaming an `MPip` variant breaks users' files. Story 3 pins the shape; renames then need a version bump or a serde alias. **Pinned 2026-10-19** (`yaml__mpip_and_edition_format`).
 
 **Risks:** scope creep toward a playable game (the board already has a shop; the calculator must keep saying no); silent drift between catalog and engine if Story 2 is hand-maintained instead of generated from `Joker::ALL_JOKERS`.
 

@@ -18,6 +18,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   running score after it. The total always equals the matching `score*`
   call, and replaying the ops from an empty `Score` reproduces every step.
   The `buffoon` example prints the trace.
+- **Joker catalog** (EPIC-05 Story 2): the Balatro name of all 112 jokers,
+  and a stable identifier (the const name, e.g. `"JOLLY_JOKER"`).
+  `Joker::catalog()` lists a `JokerInfo` (ident, name, rarity, cost, effect,
+  blank reason) per joker; `Joker::by_ident`, `Joker::ident`, `Joker::name`
+  and `Joker::info` look one up. An edited joker keeps its name and ident.
+  The `buffoon` example's trace shows joker names.
+- **`BoardSpec`: a board as data** (EPIC-05 Story 3). Write a board in Rust,
+  JSON or YAML (hand levels, played and held cards, jokers by ident with
+  optional effect/edition/debuff overrides, money, hands, discards, blind)
+  and build it with `BuffoonBoard::try_from(spec)`. Bad input is a
+  `BoardSpecError` that names the field, e.g.
+  `jokers[1]: unknown joker ident "NOT_A_JOKER"`. `BoardSpec::from_yaml` and
+  `to_yaml` are behind the new default-on `yaml` feature (`serde_norway`
+  0.9.42, as cardpack uses); `deny.toml` allows MIT for its parser,
+  `unsafe-libyaml-norway`, by name.
+- `PokerHands::set_level(hand_type, level)`.
 - `ScoreOp` implements `Display` (`+4 Mult`, `+80 Chips`, `×3 Mult`) and
   gains `ScoreOp::is_noop()`.
 

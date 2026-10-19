@@ -8,7 +8,7 @@
 
 # buffoonery
 
-![buffoonery_card_stacked_172x248.gif](docs/images/grimaldi/buffoonery_card_stacked_172x248.gif)
+![buffoonery_card_stacked_172x248.gif](docs/images/grimaldi/buffoonery_card_stacked_flipped_172x248.gif)
 
 Foundation for a Balatro-style score calculator to help learn optimized play
 and math. It models jokers, editions, boards and scoring on top of [cardpack](https://crates.io/crates/cardpack),

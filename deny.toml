@@ -18,7 +18,11 @@ allow = [
     "Unicode-3.0",
 ]
 confidence-threshold = 0.8
-exceptions = []
+exceptions = [
+    # The YAML parser under serde_norway (the `yaml` feature). MIT only, so
+    # it is allowed by name rather than allowing MIT for every crate.
+    { allow = ["MIT"], crate = "unsafe-libyaml-norway" },
+]
 private = { ignore = true }
 
 [bans]

@@ -14,6 +14,14 @@ cardpack = { version = "0.11.2", features = ["std", "serde"] }
 log = "0.4"
 rand = "0.10"
 serde = { version = "1", features = ["derive"] }
+# The same YAML crate and version cardpack's `yaml` feature uses, so the
+# graph never carries two YAML stacks.
+serde_norway = { version = "0.9.42", optional = true }
+
+[features]
+default = ["yaml"]
+# Load and write a `BoardSpec` as YAML. Off, the crate has no YAML code.
+yaml = ["dep:serde_norway"]
 
 [dev-dependencies]
 env_logger = "0.11"
