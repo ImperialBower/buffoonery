@@ -38,7 +38,8 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
 Copied on 2026-10-18 from cardpack's `funky` module at cardpack commit
 `599a621` (last engine change there: `c762538`), with no git history. The
 engine's earlier history, and its design documents (EPIC-01 and children,
-EPIC-05 Joker Calculator, EPIC-06 Funky Extraction), stay in the cardpack repo:
+EPIC-06 Funky Extraction), stay in the cardpack repo. EPIC-05 moved here on
+2026-10-19 ([EPIC-05](/references/epic-05-joker-calculator.md)). Cardpack's docs:
 <https://github.com/ImperialBower/cardpack.rs/tree/main/docs>.
 
 # Next
