@@ -25,9 +25,10 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A run
 | Story S1 — fractional `Score` | **Complete** (`buffoonery` `bf779a4`, 2026-10-19) |
 | Story S2 — scoring folds out of `board.rs` | **Complete** (`buffoonery` `6fa2c8d`, 2026-10-19) |
 | Story 1 — `ScoreTrace` | **Complete** (`buffoonery` `622fd9e`, 2026-10-19) |
-| Story 2 — joker catalog | Built (2026-10-19; 513 lib tests green), not yet committed |
-| Story 3 — `BoardSpec` (Rust and YAML) | Built (2026-10-19; 539 lib tests green), not yet committed. Milestone A is met |
-| Stories 4–5 — WIT component, golden fixtures | Planned |
+| Story 2 — joker catalog | **Complete** (`buffoonery` `00e088e`, 2026-10-19) |
+| Story 3 — `BoardSpec` (Rust and YAML) | **Complete** (`buffoonery` `00e088e`, 2026-10-19). Milestone A is met |
+| Story 4 — WIT component | Planned |
+| Story 5 — golden fixtures | Built (2026-10-19; 14 fixtures, `tests/golden.rs` green), not yet committed |
 | Stories 6–8 — calculator renders the engine | Planned |
 | Milestone D — polish | Planned |
 
@@ -240,8 +241,8 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 
 **Story 5: golden fixtures shared across the boundary**
 
-- [ ] `fixtures/golden/`: 10–15 `BoardSpec` (YAML) + expected `ScoreTrace` (JSON) pairs, checked into the solver repo and consumed verbatim by the Rust tests, the component tests and the UI tests
-- [ ] At least one fixture per `ScoreOp` variant, one with a failed condition, one with a retrigger, one with an edition, one with a `Blank` joker
+- [x] `fixtures/golden/`: 10–15 `BoardSpec` (YAML) + expected `ScoreTrace` (JSON) pairs, checked into the solver repo and consumed verbatim by the Rust tests, the component tests and the UI tests. Done: 14 pairs, read by `tests/golden.rs`, which compares each trace to its JSON as a `serde_json::Value`, reads the JSON back into the same `ScoreTrace`, and checks `trace.total == score()`. `BLESS=1 cargo test --test golden` rewrites the JSON after a deliberate change ([`fixtures/golden/README.md`](../fixtures/golden/README.md)). Every total was checked by hand against Balatro's rules before it was committed. The component and UI tests (Stories 4 and 8) still have to read them
+- [x] At least one fixture per `ScoreOp` variant, one with a failed condition, one with a retrigger, one with an edition, one with a `Blank` joker. Done, and enforced by `golden__coverage`: `Nothing`, `AddChips`, `AddMult`, `Add`, `TimesMult`; a failed joker condition; played and held retriggers (Hack, Hanging Chad + Sock and Buskin stacked, Mime); editions firing on a card and on jokers; DNA (`Blank`). **Not covered: `Seq`.** Only a registered custom effect returns it, and a `BoardSpec` cannot carry a registry. No fixture plays a kicker (risk 7)
 
 ### Milestone C — the calculator renders the engine (Design artifact / web)
 

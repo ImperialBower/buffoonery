@@ -1,0 +1,6 @@
+# Retriggers stack: Hanging Chad gives the first card 2 more passes, Sock and
+# Buskin gives every face card 1 more. The first King scores 4 times.
+played: [KS, KH, KD]
+jokers:
+  - ident: HANGING_CHAD
+  - ident: SOCK_AND_BUSKIN

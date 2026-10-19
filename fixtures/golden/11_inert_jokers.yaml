@@ -1,0 +1,10 @@
+# What scores nothing without a seed: DNA is Blank (not wired yet), Misprint
+# and a Lucky card roll only in a seeded score. The plain trace marks no step
+# `rolled`.
+played:
+  - card: TS
+    enhancement: !Lucky [5, 15]
+  - TH
+jokers:
+  - ident: DNA
+  - ident: MISPRINT

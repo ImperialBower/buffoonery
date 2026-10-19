@@ -1,0 +1,11 @@
+# Editions on a played card (Foil: +50 chips) and on jokers (Holographic: +10
+# mult; Polychrome: x1.5). Each is its own Edition step after the effect.
+played:
+  - card: QS
+    edition: Foil
+  - QD
+jokers:
+  - ident: JOKER
+    edition: Holographic
+  - ident: GREEDY_JOKER
+    edition: Polychrome

@@ -1,0 +1,8 @@
+# Two Steel cards held in hand: each is a x1.5 step in the Held phase.
+played: [KS, KD]
+held:
+  - card: KH
+    enhancement: !MultTimes1Dot 15
+  - card: QC
+    enhancement: !MultTimes1Dot 15
+  - 4D

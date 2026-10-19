@@ -1,0 +1,883 @@
+{
+  "hand_type": "ThreeOfAKind",
+  "steps": [
+    {
+      "phase": "Base",
+      "source": {
+        "Hand": {
+          "hand_type": "ThreeOfAKind",
+          "level": 1
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "Add": {
+          "chips": 30,
+          "mult": 3.0
+        }
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 30,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 3,
+              "pip_type": "Suit",
+              "index": "S",
+              "symbol": "♠",
+              "value": 4
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 0
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "Add": {
+          "chips": 11,
+          "mult": 0.0
+        }
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 41,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 3,
+              "pip_type": "Suit",
+              "index": "S",
+              "symbol": "♠",
+              "value": 4
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 0
+        }
+      },
+      "part": "Special",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 41,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 3,
+              "pip_type": "Suit",
+              "index": "S",
+              "symbol": "♠",
+              "value": 4
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 0
+        }
+      },
+      "part": "Edition",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 41,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 1,
+              "pip_type": "Suit",
+              "index": "D",
+              "symbol": "♦",
+              "value": 2
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 1
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "Add": {
+          "chips": 11,
+          "mult": 0.0
+        }
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 52,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 1,
+              "pip_type": "Suit",
+              "index": "D",
+              "symbol": "♦",
+              "value": 2
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 1
+        }
+      },
+      "part": "Special",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 52,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 1,
+              "pip_type": "Suit",
+              "index": "D",
+              "symbol": "♦",
+              "value": 2
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 1
+        }
+      },
+      "part": "Edition",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 52,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 2,
+              "pip_type": "Suit",
+              "index": "H",
+              "symbol": "♥",
+              "value": 3
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 2
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "Add": {
+          "chips": 11,
+          "mult": 0.0
+        }
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 63,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 2,
+              "pip_type": "Suit",
+              "index": "H",
+              "symbol": "♥",
+              "value": 3
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 2
+        }
+      },
+      "part": "Special",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 63,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Played",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 2,
+              "pip_type": "Suit",
+              "index": "H",
+              "symbol": "♥",
+              "value": 3
+            },
+            "rank": {
+              "weight": 12,
+              "pip_type": "Rank",
+              "index": "A",
+              "symbol": "A",
+              "value": 11
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 2
+        }
+      },
+      "part": "Edition",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 63,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Held",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 0,
+              "pip_type": "Suit",
+              "index": "C",
+              "symbol": "♣",
+              "value": 1
+            },
+            "rank": {
+              "weight": 1,
+              "pip_type": "Rank",
+              "index": "3",
+              "symbol": "3",
+              "value": 3
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 0
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 63,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Held",
+      "source": {
+        "Card": {
+          "card": {
+            "suit": {
+              "weight": 1,
+              "pip_type": "Suit",
+              "index": "D",
+              "symbol": "♦",
+              "value": 2
+            },
+            "rank": {
+              "weight": 7,
+              "pip_type": "Rank",
+              "index": "9",
+              "symbol": "9",
+              "value": 9
+            },
+            "card_type": "Basic",
+            "enhancement": "Blank",
+            "edition": "None",
+            "resell_value": 0,
+            "debuffed": false
+          },
+          "index": 1
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 63,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 911,
+              "pip_type": "Joker",
+              "index": "🚩",
+              "symbol": "🚩",
+              "value": 5
+            },
+            "card_type": "CommonJoker",
+            "enhancement": {
+              "ChipsPerRemainingDiscard": 30
+            },
+            "edition": "None",
+            "resell_value": 2,
+            "debuffed": false
+          },
+          "index": 0
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "AddChips": 60
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 123,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 911,
+              "pip_type": "Joker",
+              "index": "🚩",
+              "symbol": "🚩",
+              "value": 5
+            },
+            "card_type": "CommonJoker",
+            "enhancement": {
+              "ChipsPerRemainingDiscard": 30
+            },
+            "edition": "None",
+            "resell_value": 2,
+            "debuffed": false
+          },
+          "index": 0
+        }
+      },
+      "part": "Edition",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 123,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 700,
+              "pip_type": "Joker",
+              "index": "≇",
+              "symbol": "≇",
+              "value": 6
+            },
+            "card_type": "UncommonJoker",
+            "enhancement": {
+              "ChipsPerDollar": 2
+            },
+            "edition": "None",
+            "resell_value": 3,
+            "debuffed": false
+          },
+          "index": 1
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "AddChips": 40
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 163,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 700,
+              "pip_type": "Joker",
+              "index": "≇",
+              "symbol": "≇",
+              "value": 6
+            },
+            "card_type": "UncommonJoker",
+            "enhancement": {
+              "ChipsPerDollar": 2
+            },
+            "edition": "None",
+            "resell_value": 3,
+            "debuffed": false
+          },
+          "index": 1
+        }
+      },
+      "part": "Edition",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 163,
+        "mult": 3.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 895,
+              "pip_type": "Joker",
+              "index": "🎨",
+              "symbol": "🎨",
+              "value": 4
+            },
+            "card_type": "CommonJoker",
+            "enhancement": {
+              "MultPlusPerJoker": 3
+            },
+            "edition": "None",
+            "resell_value": 2,
+            "debuffed": false
+          },
+          "index": 2
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "AddMult": 15
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 163,
+        "mult": 18.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 895,
+              "pip_type": "Joker",
+              "index": "🎨",
+              "symbol": "🎨",
+              "value": 4
+            },
+            "card_type": "CommonJoker",
+            "enhancement": {
+              "MultPlusPerJoker": 3
+            },
+            "edition": "None",
+            "resell_value": 2,
+            "debuffed": false
+          },
+          "index": 2
+        }
+      },
+      "part": "Edition",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 163,
+        "mult": 18.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 875,
+              "pip_type": "Joker",
+              "index": "🍌",
+              "symbol": "🍌",
+              "value": 5
+            },
+            "card_type": "CommonJoker",
+            "enhancement": {
+              "MultPlusChanceDestroyed": [
+                15,
+                1,
+                6
+              ]
+            },
+            "edition": "None",
+            "resell_value": 2,
+            "debuffed": false
+          },
+          "index": 3
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "AddMult": 15
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 163,
+        "mult": 33.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 875,
+              "pip_type": "Joker",
+              "index": "🍌",
+              "symbol": "🍌",
+              "value": 5
+            },
+            "card_type": "CommonJoker",
+            "enhancement": {
+              "MultPlusChanceDestroyed": [
+                15,
+                1,
+                6
+              ]
+            },
+            "edition": "None",
+            "resell_value": 2,
+            "debuffed": false
+          },
+          "index": 3
+        }
+      },
+      "part": "Edition",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 163,
+        "mult": 33.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 904,
+              "pip_type": "Joker",
+              "index": "✊",
+              "symbol": "✊",
+              "value": 5
+            },
+            "card_type": "CommonJoker",
+            "enhancement": {
+              "MultPlusXOnLowestRankInHand": 2
+            },
+            "edition": "None",
+            "resell_value": 2,
+            "debuffed": false
+          },
+          "index": 4
+        }
+      },
+      "part": "Effect",
+      "retrigger": 0,
+      "op": {
+        "AddMult": 6
+      },
+      "fired": true,
+      "rolled": false,
+      "after": {
+        "chips": 163,
+        "mult": 39.0
+      }
+    },
+    {
+      "phase": "Joker",
+      "source": {
+        "Joker": {
+          "card": {
+            "suit": {
+              "weight": 4,
+              "pip_type": "Joker",
+              "index": "J",
+              "symbol": "🃟",
+              "value": 5
+            },
+            "rank": {
+              "weight": 904,
+              "pip_type": "Joker",
+              "index": "✊",
+              "symbol": "✊",
+              "value": 5
+            },
+            "card_type": "CommonJoker",
+            "enhancement": {
+              "MultPlusXOnLowestRankInHand": 2
+            },
+            "edition": "None",
+            "resell_value": 2,
+            "debuffed": false
+          },
+          "index": 4
+        }
+      },
+      "part": "Edition",
+      "retrigger": 0,
+      "op": "Nothing",
+      "fired": false,
+      "rolled": false,
+      "after": {
+        "chips": 163,
+        "mult": 39.0
+      }
+    }
+  ],
+  "total": {
+    "chips": 163,
+    "mult": 39.0
+  }
+}

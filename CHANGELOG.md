@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PokerHands::set_level(hand_type, level)`.
 - `ScoreOp` implements `Display` (`+4 Mult`, `+80 Chips`, `×3 Mult`) and
   gains `ScoreOp::is_noop()`.
+- **Golden fixtures** (EPIC-05 Story 5): 14 boards in
+  `fixtures/golden/` as `BoardSpec` YAML, each with the `ScoreTrace` JSON the
+  engine must return. `tests/golden.rs` checks them;
+  `BLESS=1 cargo test --test golden` rewrites the JSON after a deliberate
+  scoring change. They are the shared contract for the WIT component and the
+  calculator.
 
 ### Changed
 

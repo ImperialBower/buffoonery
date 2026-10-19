@@ -1,0 +1,6 @@
+# A Pair with two additive jokers whose condition holds: Jolly (+8 mult) and
+# Sly (+50 chips). Each joker's effect is an `Add`.
+played: [AS, AH]
+jokers:
+  - ident: JOLLY_JOKER
+  - ident: SLY_JOKER
