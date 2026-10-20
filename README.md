@@ -41,6 +41,17 @@ score a board written as JSON or YAML, get the step-by-step trace back as
 JSON. The optimized component is 467 KiB (166 KiB gzipped); the budget is
 500 KiB.
 
+## Joker Calculator
+
+[`web/`](web/) is a Balatro joker calculator built on the component: pick a
+hand, slot in jokers, override or debuff them, and read the score step by
+step. It does no scoring of its own.
+
+```shell
+make web                 # builds the component, tests the page, builds web/dist
+cd web && npm run dev    # serves it with live reload
+```
+
 ## What's in the box
 
 - **Formatting:** rustfmt — see [toolchain decisions](.okf/decisions/toolchain.md)

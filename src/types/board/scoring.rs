@@ -174,6 +174,7 @@ impl BuffoonBoard {
         self.jokers
             .iter()
             .enumerate()
+            .filter(|(_, joker)| !joker.debuffed)
             .map(|(slot, joker)| {
                 let counter = self.joker_state.get(slot).copied().unwrap_or(0);
                 match joker.enhancement {
@@ -279,6 +280,7 @@ impl BuffoonBoard {
     fn held_retriggers(&self) -> usize {
         self.jokers
             .iter()
+            .filter(|joker| !joker.debuffed)
             .map(|joker| match joker.enhancement {
                 MPip::RetriggerCardsInHand(n) => n,
                 _ => 0,
@@ -351,10 +353,13 @@ impl BuffoonBoard {
                 retrigger: 0,
                 rolled,
             };
+            // A debuffed joker keeps its rows, as no-ops: it does nothing.
             // Only Misprint rolls, and only when there is an RNG to roll.
-            let rolls =
-                matches!(joker.enhancement, MPip::MultPlusRandomTo(n) if n > 0) && rng.is_some();
+            let rolls = !joker.debuffed
+                && matches!(joker.enhancement, MPip::MultPlusRandomTo(n) if n > 0)
+                && rng.is_some();
             let op = match joker.enhancement {
+                _ if joker.debuffed => ScoreOp::Nothing,
                 MPip::Custom(id) => self.custom_op(*joker, id, registry),
                 MPip::MultPlusRandomTo(n) if n > 0 => {
                     rng.as_deref_mut().map_or(ScoreOp::Nothing, |rng| {
@@ -372,12 +377,12 @@ impl BuffoonBoard {
             // The joker's own edition scores at its position, after its effect —
             // so a Polychrome joker ×1.5s the running score once its +mult/×mult
             // has landed, matching Balatro's left-to-right joker order.
-            score = apply_step(
-                &mut trace,
-                score,
-                &joker.edition.score_op(),
-                at(StepPart::Edition, false),
-            );
+            let edition = if joker.debuffed {
+                ScoreOp::Nothing
+            } else {
+                joker.edition.score_op()
+            };
+            score = apply_step(&mut trace, score, &edition, at(StepPart::Edition, false));
         }
 
         score
@@ -388,6 +393,9 @@ impl BuffoonBoard {
     fn builtin_joker_op(&self, joker: &BuffoonCard) -> ScoreOp {
         // Board-reading additive jokers (a pure function of the current board).
         match joker.enhancement {
+            // Flat +chips, whatever the hand. No Balatro joker carries it; the
+            // calculator's "+ Chips" override does (EPIC-05 Story 6).
+            MPip::Chips(n) => return ScoreOp::AddChips(n),
             MPip::MultPlusPerJoker(n) => return ScoreOp::AddMult(n * self.jokers.len()),
             MPip::ChipsPerDeckCard(n) => return ScoreOp::AddChips(n * self.deck.len()),
             // Stone Joker: +n chips per Stone card in the full deck.
@@ -478,7 +486,7 @@ impl BuffoonBoard {
     /// four-card gapped straight).
     pub(super) fn hand_rules(&self) -> HandRules {
         let mut rules = HandRules::default();
-        for joker in &self.jokers {
+        for joker in self.jokers.iter().filter(|joker| !joker.debuffed) {
             match joker.enhancement {
                 MPip::FourFlushAndStraight => {
                     rules.straight_connectors = 3;
@@ -518,7 +526,7 @@ impl BuffoonBoard {
     fn all_cards_are_faces(&self) -> bool {
         self.jokers
             .iter()
-            .any(|joker| matches!(joker.enhancement, MPip::AllCardsAreFaces))
+            .any(|joker| !joker.debuffed && matches!(joker.enhancement, MPip::AllCardsAreFaces))
     }
 
     /// How many cards in the run's full deck carry a Steel enhancement.
@@ -556,7 +564,7 @@ impl BuffoonBoard {
         let oops = self
             .jokers
             .iter()
-            .filter(|joker| matches!(joker.enhancement, MPip::DoubleOdds))
+            .filter(|joker| !joker.debuffed && matches!(joker.enhancement, MPip::DoubleOdds))
             .count();
         // 2^oops, saturating so a pathological joker count can't overflow-shift.
         1usize
@@ -1101,6 +1109,60 @@ mod funky__types__board__scoring_tests {
             .unwrap();
         assert!(!droll.fired, "{droll:?}");
         assert!(droll.op.is_noop());
+    }
+
+    #[test]
+    fn scoring_phase4__a_chips_joker_adds_flat_chips() {
+        // The calculator's "+ Chips" override (EPIC-05 Story 6) writes
+        // `MPip::Chips(n)` onto a joker; it adds n chips whatever the hand.
+        let board = with_jokers("AS", &[enhanced(card::JOKER, MPip::Chips(50))]);
+        let trace = board.score_traced();
+        let step = trace
+            .steps
+            .iter()
+            .find(|s| s.phase == Phase::Joker && s.part == StepPart::Effect)
+            .unwrap();
+
+        assert_eq!(step.op, ScoreOp::AddChips(50));
+        assert_eq!(trace.total, Score::new(5 + 11 + 50, 1.0));
+    }
+
+    fn debuffed(joker: BuffoonCard) -> BuffoonCard {
+        BuffoonCard {
+            debuffed: true,
+            ..joker
+        }
+    }
+
+    #[test]
+    fn scoring_phase4__a_debuffed_joker_scores_nothing() {
+        let polychrome = card::JOKER.with_edition(Edition::Polychrome);
+        let board = with_jokers("AS AH", &[debuffed(polychrome)]);
+        let trace = board.score_traced();
+        let jokers: Vec<_> = trace
+            .steps
+            .iter()
+            .filter(|s| s.phase == Phase::Joker)
+            .collect();
+
+        assert_eq!(jokers.len(), 2, "the rows stay, so the table can show them");
+        assert!(jokers.iter().all(|s| s.op == ScoreOp::Nothing && !s.fired));
+        assert_eq!(trace.total, board_playing("AS AH").score_traced().total);
+    }
+
+    #[test]
+    fn played_retriggers__a_debuffed_joker_retriggers_nothing() {
+        let board = with_jokers("2S 2H", &[debuffed(card::HACK)]);
+        assert!(board.score_traced().steps.iter().all(|s| s.retrigger == 0));
+    }
+
+    #[test]
+    fn hand_rules__a_debuffed_joker_changes_no_rule() {
+        let working = with_jokers("2H 5H 8H TH", &[card::FOUR_FINGERS]);
+        assert_eq!(working.score_traced().hand_type, HandType::Flush);
+
+        let board = with_jokers("2H 5H 8H TH", &[debuffed(card::FOUR_FINGERS)]);
+        assert_eq!(board.score_traced().hand_type, HandType::HighCard);
     }
 
     // ---- Shape ---------------------------------------------------------------

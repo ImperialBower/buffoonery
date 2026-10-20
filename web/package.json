@@ -1,0 +1,19 @@
+{
+  "name": "buffoonery-calculator",
+  "private": true,
+  "description": "The Joker Calculator: a thin display over the buffoonery WIT component (EPIC-05 Milestone C)",
+  "type": "module",
+  "scripts": {
+    "transpile": "jco transpile ../target/wasm32-wasip2/component/buffoonery_component.opt.wasm --name buffoonery_component -o src/pkg",
+    "dev": "npm run transpile && vite",
+    "build": "npm run transpile && vite build",
+    "test": "npm run transpile && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@bytecodealliance/preview2-shim": "0.30.0"
+  },
+  "devDependencies": {
+    "@bytecodealliance/jco": "1.39.0",
+    "vite": "8.3.4"
+  }
+}

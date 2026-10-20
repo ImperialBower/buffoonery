@@ -77,7 +77,7 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   component:
-    name: WIT component
+    name: WIT component and calculator page
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -94,3 +94,9 @@ jobs:
         working-directory: component/js
       - run: npm test
         working-directory: component/js
+      - run: npm ci
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npx vite build
+        working-directory: web

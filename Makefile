@@ -1,4 +1,4 @@
-.PHONY: default help clean fmt build test lint security-scan docs component ayce
+.PHONY: default help clean fmt build test lint security-scan docs component web ayce
 default: ayce
 
 help:  ## self-documenting: every target has a '## comment' printed here
@@ -31,7 +31,10 @@ component: ## build the WIT component, run the golden fixtures against it (needs
 	cargo build -p buffoonery-component --target wasm32-wasip2 --profile component
 	cd component/js && npm ci && npm test
 
-ayce: clean fmt build test lint security-scan docs component ## all-you-can-eat: full pre-push sweep
+web: component ## test and build the Joker Calculator page into web/dist (needs node)
+	cd web && npm ci && npm test && npx vite build
+
+ayce: clean fmt build test lint security-scan docs web ## all-you-can-eat: full pre-push sweep
 
 .PHONY: watch install-tools
 

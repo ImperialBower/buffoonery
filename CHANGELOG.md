@@ -50,6 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transpiles it with `jco`, and runs the golden fixtures through it in Node;
   CI does the same. 467 KiB after optimization (166 KiB gzipped).
 - `buffoonery::VERSION`, the crate version.
+- **The Joker Calculator page** (EPIC-05 Story 6), in `web/`: pick a hand,
+  slot jokers, override their effects or debuff them; every number comes
+  from the WIT component's trace. `make web` tests and builds it.
+- A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
+  it; the calculator's "+ Chips" override does.
 
 ### Changed
 
@@ -69,6 +74,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Requires cardpack 0.11.2.** cardpack 0.11.2 dropped a stale wasm-only
   `getrandom` 0.3 pin, so `buffoonery` no longer gets two copies of
   `getrandom`. The `getrandom` and `r-efi` skips in `deny.toml` are removed.
+
+### Fixed
+
+- A debuffed joker no longer scores: its effect and edition are no-op trace
+  steps, and it adds no retriggers, hand-rule changes or odds. Before, the
+  `debuffed` flag was never read while scoring.
 
 ### Added
 

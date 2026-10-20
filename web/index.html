@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Joker Calculator</title>
+  <meta name="description" content="Balatro joker calculator: every number comes from the buffoonery engine, step by step.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap">
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <div class="intro">
+        <h1>Joker Calculator</h1>
+        <p class="muted">Pick a hand, slot in jokers, override their effects. The engine scores every edit.</p>
+      </div>
+      <div class="total" aria-live="polite">
+        <span class="chips" id="final-chips">0</span>
+        <span class="muted">×</span>
+        <span class="mult" id="final-mult">0</span>
+        <span class="muted">=</span>
+        <span class="score" id="final-score">0</span>
+      </div>
+    </header>
+
+    <p class="error" id="error" role="alert" hidden></p>
+
+    <section class="panel hand">
+      <div class="field">
+        <label for="hand-type">Hand type</label>
+        <select id="hand-type"></select>
+      </div>
+      <div class="field">
+        <span class="label">Played cards</span>
+        <div class="readout" id="played"></div>
+      </div>
+      <div class="field">
+        <span class="label">Base from hand</span>
+        <div class="readout"><span class="chips" id="base-chips">0 Chips</span><span class="muted">×</span><span class="mult" id="base-mult">0 Mult</span></div>
+      </div>
+    </section>
+
+    <section class="stack">
+      <div class="heading">
+        <h2>Jokers</h2>
+        <span class="muted small">Applied left to right. The engine decides whether each one fires.</span>
+      </div>
+      <div class="slots" id="slots"></div>
+    </section>
+
+    <section class="stack">
+      <div class="heading">
+        <h2>Breakdown</h2>
+        <label class="check"><input type="checkbox" id="show-all"> <span>Show every step</span></label>
+      </div>
+      <div class="table-wrap">
+        <table class="breakdown">
+          <thead>
+            <tr><th scope="col">#</th><th scope="col">Source</th><th scope="col">Effect</th><th scope="col">Chips</th><th scope="col">Mult</th><th scope="col">Running score</th></tr>
+          </thead>
+          <tbody id="steps"></tbody>
+          <tfoot>
+            <tr>
+              <td></td>
+              <th scope="row" class="final-label">Final</th>
+              <td class="muted">floor(chips × mult)</td>
+              <td class="chips strong" id="foot-chips">0</td>
+              <td class="mult strong" id="foot-mult">0</td>
+              <td class="score" id="foot-score">0</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="muted small" id="footnote"></p>
+    </section>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

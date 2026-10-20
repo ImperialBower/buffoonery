@@ -45,6 +45,12 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   `imperialbower:solver/calculator` on `wasm32-wasip2`: `score`, `catalog`,
   `version`, strings in and out. The engine crate has no WIT or JSON code
   ([decision](/decisions/wit-component-crate.md)).
+* **Joker Calculator** (`web/`, Vite) — the page over the component.
+  `web/src/model.js` maps page state to a `BoardSpec` and the trace to the
+  page; `main.js` only draws ([decision](/decisions/web-calculator.md)).
+* **Debuffed jokers** do nothing while scoring: effect and edition are no-op
+  steps, and they add no retriggers, rule changes or odds. Readers outside
+  scoring (boss disabling, draws, rerolls) still ignore the flag.
 * **Golden fixtures** (`fixtures/golden/`) — `BoardSpec` YAML + `ScoreTrace`
   JSON pairs read by `tests/golden.rs`, the component's native tests, and its
   Node tests through `jco`.
@@ -62,7 +68,7 @@ EPIC-06 Funky Extraction), stay in the cardpack repo. EPIC-05 moved here on
 
 EPIC-05's stories run here: a fractional `Score` (done, S1), moving the scoring folds out
 of `board.rs` (done, S2), a `ScoreTrace` (done, Story 1), a `BoardSpec` written in Rust or YAML (done, Story 3), a
-joker catalog (done, Story 2), golden fixtures (done, Story 5), and a WIT component (built, Story 4; its browser test moved to Story 8). Milestone C, the calculator itself, is next.
+joker catalog (done, Story 2), golden fixtures (done, Story 5), a WIT component (built, Story 4; its browser test moved to Story 8), and the calculator page (built, Story 6). Story 7, the hand editor, is next.
 
 # Try it
 
