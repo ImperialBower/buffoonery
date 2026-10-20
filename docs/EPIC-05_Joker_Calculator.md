@@ -32,7 +32,7 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestones A an
 | Story 6 — the page calls the engine | **Complete** (`buffoonery` `1cf72e5` and `393cc67`, merged in `53550da`, 2026-10-19; CI green on `main`) |
 | Story 7 — played and held cards | **Complete** (`buffoonery` `e32881a`, 2026-10-19; branch `epic05-status`, not yet merged) |
 | Story 8 — parity test | **Complete** (`buffoonery` `9ee8495`, 2026-10-19; branch `epic05-status`, not yet merged). Milestone C is met |
-| Milestone D — polish | In progress: export (`585bfd4`) and edition picker (`e3fe092`) done; seeded mode built 2026-10-20, not yet committed; custom effects open |
+| Milestone D — polish | In progress: export (`585bfd4`) and edition picker (`e3fe092`) done; seeded mode (`fedb407`) done; custom effects open |
 
 ## Current state
 

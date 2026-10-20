@@ -66,6 +66,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Copy link", and "Paste a board" (YAML or JSON) in the calculator.
 - **Joker edition picker** (EPIC-05 Milestone D): each joker card in the
   calculator has an edition menu (Foil, Holographic, Polychrome, Negative).
+- **`make setup`**: one-time setup for `make ayce` (the wasm target,
+  `cargo-deny`, `cargo-audit`, npm packages, and Chromium for the browser
+  tests). The devcontainer runs it.
 - **Seeded scoring in the component and the calculator** (EPIC-05
   Milestone D): the WIT export `score-seeded(spec, seed)` rolls Lucky cards
   and Misprint from a `u64` seed. The calculator has a seed field, marks

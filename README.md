@@ -22,17 +22,17 @@ feature.
 ```shell
 git clone https://github.com/ImperialBower/buffoonery.git
 cd buffoonery
+make setup
 make ayce
 ```
 
 `make ayce` runs the whole quality gate. `make help` lists every target.
 
-`make ayce` also builds the WebAssembly component and tests it. That step
-needs the `wasm32-wasip2` target and Node (see `.tool-versions`):
-
-```shell
-rustup target add wasm32-wasip2
-```
+`make setup` runs once. It needs rustup and Node (versions in
+`.tool-versions`). It adds the `wasm32-wasip2` target, installs
+`cargo-deny` and `cargo-audit`, installs the npm packages, and installs
+Chromium for the browser tests. On Linux, Chromium's system libraries need
+sudo. The devcontainer runs it for you.
 
 ## WebAssembly component
 
