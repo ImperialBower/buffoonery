@@ -34,13 +34,23 @@ const $ = (id) => document.getElementById(id);
 // holds the board on screen.
 let loadError = null;
 
+/** Page state for a board as YAML or JSON. Throws with the reason it cannot open. */
+function openBoard(text) {
+  const opened = specToState(JSON.parse(calculator.parse(text)));
+  // `parse` checks the shape only; scoring once names an unknown joker or card.
+  calculator.score(JSON.stringify(buildSpec(opened).spec));
+  return opened;
+}
+
+const reason = (error) => error.payload ?? error.message;
+
 function loadFromHash() {
   const match = /^#board=(.*)$/s.exec(window.location.hash);
   if (!match) return null;
   try {
-    return specToState(JSON.parse(calculator.parse(decodeURIComponent(match[1]))));
+    return openBoard(decodeURIComponent(match[1]));
   } catch (error) {
-    loadError = `The board in the link could not be opened: ${error.payload ?? error.message}`;
+    loadError = `The board in the link could not be opened: ${reason(error)}`;
     return null;
   }
 }
@@ -68,6 +78,7 @@ function el(tag, attrs = {}, children = []) {
 
 function update(change) {
   loadError = null;
+  $('copy-status').textContent = '';
   change(state);
   render();
 }
@@ -129,6 +140,33 @@ levelHand.addEventListener('change', () => update((s) => { s.levelHand = levelHa
 levelInput.addEventListener('input', () => {
   const level = Number.parseInt(levelInput.value, 10);
   if (level >= 1) update((s) => { s.levels[levelHand.value] = level; });
+});
+
+// ---- Copy and paste a board ------------------------------------------------
+
+async function copy(text, done) {
+  try {
+    await navigator.clipboard.writeText(text);
+    $('copy-status').textContent = done;
+  } catch {
+    // No clipboard (an insecure page, or permission denied): hand the text over.
+    $('paste').open = true;
+    $('paste-text').value = text;
+    $('paste-text').select();
+    $('copy-status').textContent = 'Could not copy; the text is in the paste box, selected.';
+  }
+}
+
+$('copy-board').addEventListener('click', () => copy(`${JSON.stringify(buildSpec(state).spec, null, 2)}\n`, 'Board copied.'));
+$('copy-link').addEventListener('click', () => copy(window.location.href, 'Link copied.'));
+$('paste-open').addEventListener('click', () => {
+  try {
+    const opened = openBoard($('paste-text').value);
+    update((s) => Object.assign(s, opened, { showAll: s.showAll }));
+    $('paste-status').textContent = 'Opened.';
+  } catch (error) {
+    $('paste-status').textContent = `Could not open it: ${reason(error)}`;
+  }
 });
 
 $('show-all').addEventListener('change', (e) => update((s) => { s.showAll = e.target.checked; }));

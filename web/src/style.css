@@ -43,6 +43,14 @@ p { margin: 0; }
 .total .chips, .total .mult { font-size: 28px; font-weight: 700; }
 .score { font-family: var(--pixel); font-size: 44px; font-weight: 700; line-height: 1; color: var(--gold); }
 
+.board-io { display: flex; flex-direction: column; gap: 10px; margin-top: -12px; }
+.io-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.io-row button { min-height: 36px; padding: 0 14px; }
+.paste summary { cursor: pointer; font-size: 13px; color: var(--muted); width: fit-content; }
+.paste summary:focus-visible { outline: 2px solid var(--chips); outline-offset: 2px; }
+.paste-body { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+textarea { width: 100%; padding: 10px; border: 1px solid var(--input-line); border-radius: 6px; background: var(--well); color: var(--text); font: 13px/1.5 var(--mono); resize: vertical; }
+textarea:focus-visible { outline: 2px solid var(--chips); outline-offset: 1px; }
 .error { padding: 12px 16px; border: 1px solid var(--mult); border-radius: 8px; background: #2a1414; color: #ffd6d1; }
 
 label, .label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }

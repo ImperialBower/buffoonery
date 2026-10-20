@@ -281,7 +281,7 @@ Built 2026-10-19 with Playwright 1.64.1 (Chromium) in `web/e2e/parity.spec.mjs`;
 
 - [ ] Seeded mode: a seed field switches to `score_traced_with_seed`. The trace marks rolled steps
 - [ ] Edition picker (Foil / Holo / Poly) per joker, rendered as a corner mark on the simplified card
-- [ ] Export: copy the current `BoardSpec` JSON; paste one to restore a board. **Partly done in Story 8:** the link always holds the board as JSON, and a link with a board in JSON or YAML opens it. A copy button and a paste box are still open
+- [x] Export: copy the current `BoardSpec` JSON; paste one to restore a board. Done 2026-10-19: the link always holds the board (Story 8); "Copy board" copies the `BoardSpec` as pretty JSON and "Copy link" the link; "Paste a board" opens a board written as YAML or JSON. A board opens only if the engine can score it, so an unknown joker or card is reported at once and the page keeps its board. With no clipboard, the text lands in the paste box, selected. Two browser tests cover paste and copy
 - [ ] Custom effects: a `MPip::Custom(id)` entry whose `ScoreOp` the user types, routed through an `EffectRegistry` in the adapter
 
 ## Open questions and risks

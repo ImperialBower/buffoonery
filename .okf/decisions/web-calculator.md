@@ -3,7 +3,7 @@ type: decision
 title: The Joker Calculator lives in web/, built with Vite
 description: "EPIC-05 open question 3 and the stack: the calculator page is a web/ folder in this repo (GitHub Pages later), bundled by Vite so the jco output and preview2-shim resolve without an import map; model.js is pure and tested in Node against the real component."
 tags: [web, vite, calculator, decision, epic-05]
-timestamp: '2026-10-19T23:30:00Z'
+timestamp: '2026-10-19T23:50:00Z'
 resource: web/
 ---
 
@@ -37,6 +37,11 @@ resource: web/
   effects that are no override kind, `money`, `discards_left`, `hands_left`,
   `blind`). The page rewrites the link as JSON on every edit, with
   `history.replaceState`, so it never adds history entries.
+* **Copy and paste** (Milestone D export): "Copy board" writes the spec as
+  pretty JSON, "Copy link" the link, "Paste a board" opens YAML or JSON.
+  `openBoard` (main.js) is the one way in, for links and pastes: `parse`,
+  `specToState`, then one `score` so an unknown joker or card is refused
+  before the page swaps its board.
 * **Browser parity** (`web/e2e/parity.spec.mjs`, Playwright, Chromium):
   each fixture opens from a link, and the table must equal rows built from
   the fixture's JSON. Expected rows use `rows()` from `model.js`; the

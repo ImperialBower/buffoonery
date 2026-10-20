@@ -48,4 +48,46 @@ test('a link that is not a board says so, and the page opens its own board', asy
   await page.goto(`/#board=${encodeURIComponent('colour: red')}`);
   await expect(page.locator('#error')).toContainText('The board in the link could not be opened: parse: ');
   await expect(page.locator('#final-score')).toHaveText('8,316');
+
+  await page.goto('/');
+  await page.goto(`/#board=${encodeURIComponent('played: [AS, ZZ]')}`);
+  await page.reload();
+  await expect(page.locator('#error')).toHaveText('The board in the link could not be opened: played[1]: unknown card "ZZ"');
+  await expect(page.locator('#final-score')).toHaveText('8,316');
+});
+
+test('a pasted board opens like a link does', async ({ page }) => {
+  const name = '06_editions.yaml';
+  const yaml = readFileSync(join(golden, name), 'utf8');
+  const trace = JSON.parse(readFileSync(join(golden, name.replace(/\.yaml$/, '.trace.json')), 'utf8'));
+
+  await page.goto('/');
+  await page.click('summary:has-text("Paste a board")');
+  await page.fill('#paste-text', yaml);
+  await page.click('#paste-open');
+  await page.check('#show-all');
+  await expect(page.locator('#paste-status')).toHaveText('Opened.');
+  expect(await shownCells(page)).toEqual(expectedCells(trace));
+
+  await page.fill('#paste-text', 'played: [AS]\njokers: [{ident: NOPE}]');
+  await page.click('#paste-open');
+  await expect(page.locator('#paste-status')).toHaveText('Could not open it: jokers[0]: unknown joker ident "NOPE"');
+  expect(await shownCells(page)).toEqual(expectedCells(trace));
+});
+
+test('copy board and copy link put the board on the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const yaml = readFileSync(join(golden, '13_board_readers.yaml'), 'utf8');
+  await page.goto(`/#board=${encodeURIComponent(yaml)}`);
+
+  await page.click('#copy-board');
+  await expect(page.locator('#copy-status')).toHaveText('Board copied.');
+  const board = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
+  expect(board).toMatchObject({ money: 20, discards_left: 2, played: ['AS', 'AD', 'AH'] });
+
+  await page.click('#copy-link');
+  await expect(page.locator('#copy-status')).toHaveText('Link copied.');
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  expect(link).toBe(page.url());
+  expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice('#board='.length)))).toEqual(board);
 });

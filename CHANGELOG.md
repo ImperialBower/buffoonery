@@ -62,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as JSON out. The calculator opens a board from `#board=` in its link and
   keeps the link up to date. `make e2e` opens every golden fixture in the
   page with Playwright and checks every table cell against its trace.
+- **Copy and paste boards** (EPIC-05 Milestone D): "Copy board" (JSON),
+  "Copy link", and "Paste a board" (YAML or JSON) in the calculator.
 - A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
   it; the calculator's "+ Chips" override does.
 

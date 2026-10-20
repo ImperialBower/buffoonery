@@ -14,7 +14,7 @@
     <header class="top">
       <div class="intro">
         <h1>Joker Calculator</h1>
-        <p class="muted">Pick a hand, slot in jokers, override their effects. The engine scores every edit. The address bar holds the board: copy it to share.</p>
+        <p class="muted">Pick a hand, slot in jokers, override their effects. The engine scores every edit.</p>
       </div>
       <div class="total" aria-live="polite">
         <span class="chips" id="final-chips">0</span>
@@ -26,6 +26,26 @@
     </header>
 
     <p class="error" id="error" role="alert" hidden></p>
+
+    <section class="board-io" aria-label="Board">
+      <div class="io-row">
+        <button type="button" id="copy-board">Copy board</button>
+        <button type="button" id="copy-link">Copy link</button>
+        <span class="muted small">The address bar always holds this board.</span>
+        <span class="muted small" id="copy-status" role="status"></span>
+      </div>
+      <details class="paste" id="paste">
+        <summary>Paste a board</summary>
+        <div class="paste-body">
+          <label for="paste-text">A board as YAML or JSON</label>
+          <textarea id="paste-text" rows="8" spellcheck="false" placeholder="played: [AS, AH]&#10;jokers:&#10;  - ident: JOLLY_JOKER"></textarea>
+          <div class="io-row">
+            <button type="button" id="paste-open">Open</button>
+            <span class="muted small" id="paste-status" role="status"></span>
+          </div>
+        </div>
+      </details>
+    </section>
 
     <section class="panel hand">
       <div class="hand-cards">
