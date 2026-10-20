@@ -49,7 +49,7 @@ step. It does no scoring of its own.
 
 ```shell
 make web                 # builds the component, tests the page, builds web/dist
-cd web && npm run dev    # serves it with live reload
+make dev                 # serves it with live reload
 ```
 
 ## What's in the box

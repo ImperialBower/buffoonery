@@ -249,7 +249,7 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 
 **Story 6: replace the JS math with the wasm call**
 
-Built 2026-10-19 in `web/` (open question 3), with Vite: `make web` tests the model and builds `web/dist`; `cd web && npm run dev` serves it. `web/src/model.js` turns page state into a `BoardSpec` and the trace into what the page shows; `web/src/main.js` only draws. The page's one sum is `floor(chips × mult)` for the running score, the same expression as `Score::score()`.
+Built 2026-10-19 in `web/` (open question 3), with Vite: `make web` tests the model and builds `web/dist`; `make dev` serves it with live reload. `web/src/model.js` turns page state into a `BoardSpec` and the trace into what the page shows; `web/src/main.js` only draws. The page's one sum is `floor(chips × mult)` for the running score, the same expression as `Score::score()`.
 
 - [x] Load the `jco`-transpiled component. On any edit, build a `BoardSpec` from UI state and call `score`. Done; a bad spec shows the engine's error message in a banner
 - [x] Delete `HANDS`, `JOKERS` and the step loop from the artboard. The breakdown table maps 1:1 onto `ScoreTrace.steps`. Done in the page, which has none of the three; the artboard stays as the design reference. One row per step; rows that changed nothing are hidden, except a joker's effect row (so "did not fire" stays visible), and "Show every step" shows them all. Until Story 7 the hand-type menu picks a sample hand (cards only; the engine finds the type and its base). No Royal Flush entry: the engine scores one as a Straight Flush, as Balatro does
