@@ -3,7 +3,7 @@ type: decision
 title: The WIT component is its own workspace crate, tested through jco
 description: "component/ (buffoonery-component, unpublished) holds the WIT boundary so the engine crate carries no wit-bindgen or JSON code; it builds with plain cargo for wasm32-wasip2, is shrunk by jco opt, and is tested in Node through the jco-transpiled module."
 tags: [wit, wasm, component, decision, epic-05]
-timestamp: '2026-10-20T12:22:00Z'
+timestamp: '2026-10-20T12:44:00Z'
 resource: component/
 ---
 
@@ -50,5 +50,11 @@ member's path dependency carries a version, so `wildcards` stays quiet.
 
 # Size
 
-494 KiB after `jco opt -Oz` (178 KiB gzipped; 6 KiB of room left), against a 500 KiB budget that
+494 KiB after `jco opt -Oz` (178 KiB gzipped), against a 600 KiB budget that
 `golden.test.mjs` checks. Figures in `component/README.md`.
+
+The budget was 500 KiB until 2026-10-20. At 494 KiB it was raised, not cut:
+YAML is 180 of the 502 KiB of code (JSON 115, the engine 92), and a
+JSON-only component (295 KiB) would cost YAML in the page's paste box,
+links and fixtures. Keeping YAML was the choice; dropping it stays the
+lever if size starts to matter more.

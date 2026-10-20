@@ -84,6 +84,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The WIT component's size budget is 600 KiB after `jco opt` (was 500 KiB;
+  it is 494 KiB). `component/README.md` records where the size goes: YAML
+  parsing is the largest part.
 - **Scoring lives in `src/types/board/scoring.rs`** (EPIC-05 Story S2), moved
   out of `board.rs` word for word. No public API or behavior change.
 - **Breaking: `Score` keeps fractional mult** (EPIC-05 Story S1). `Score` is

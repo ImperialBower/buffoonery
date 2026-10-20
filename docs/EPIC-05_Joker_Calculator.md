@@ -32,7 +32,7 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestones A an
 | Story 6 — the page calls the engine | **Complete** (`buffoonery` `1cf72e5` and `393cc67`, merged in `53550da`, 2026-10-19; CI green on `main`) |
 | Story 7 — played and held cards | **Complete** (`buffoonery` `e32881a`, 2026-10-19; branch `epic05-status`, not yet merged) |
 | Story 8 — parity test | **Complete** (`buffoonery` `9ee8495`, 2026-10-19; branch `epic05-status`, not yet merged). Milestone C is met |
-| Milestone D — polish | All four items done: export (`585bfd4`), edition picker (`e3fe092`), seeded mode (`fedb407`); custom effects built 2026-10-20, not yet committed |
+| Milestone D — polish | All four items done: export (`585bfd4`), edition picker (`e3fe092`) and seeded mode (`fedb407`), merged in PR #3; custom effects (`88e3fe3`) and the risk 7 and 8 fixes (`2698c74`) on branch `epic05-custom-effects`, not yet merged |
 
 ## Current state
 
@@ -241,7 +241,7 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 - [x] Exports: `score(spec) -> result<string, string>`, `catalog() -> string`, `version() -> string`. Done. `score` reads JSON when the input starts with `{`, YAML otherwise; its error is the `BoardSpecError` message (`jokers[0]: unknown joker ident "NOPE"`). `version` is the engine's version. The three are plain Rust functions; the bindings (only on `wasm32`) call them
 - [x] Run the golden boards against the built component in CI (for example with `wasmtime`), not only as native Rust tests. Done with Node instead of `wasmtime`: `component/js/golden.test.mjs` runs every fixture through the `jco`-transpiled component, the same ES module a browser loads (installed `wasmtime` 24 cannot invoke component exports). New CI job `component`; `make component`, part of `make ayce`. The native twin is `component/tests/golden.rs` (YAML and JSON input)
 - [x] `jco transpile` produces an ES module, and a headless browser test loads it and scores one golden board. Done for the module: `jco transpile` produces it and Node tests it. **The headless browser test moved to Story 8** (decided 2026-10-19): it needs a page that loads the module (an import map for `@bytecodealliance/preview2-shim`), and that page is Milestone C's web host (open question 3). A test page built now would be thrown away
-- [x] Size budget recorded in the README after `wasm-opt -Oz`; `i18n` and `colored-display` off in cardpack. Done: 571 KiB raw / 170 KiB gzip, and 467 KiB / 166 KiB after `jco opt -Oz` (which runs `wasm-opt` on the core modules; plain `wasm-opt` cannot read a component). Budget 500 KiB, checked by a test. cardpack's default features are empty, so `i18n` and `colored-display` were already off. Figures in [`component/README.md`](../component/README.md)
+- [x] Size budget recorded in the README after `wasm-opt -Oz`; `i18n` and `colored-display` off in cardpack. Done: 571 KiB raw / 170 KiB gzip, and 467 KiB / 166 KiB after `jco opt -Oz` (which runs `wasm-opt` on the core modules; plain `wasm-opt` cannot read a component). Budget 500 KiB, checked by a test (raised to 600 KiB on 2026-10-20 at 494 KiB, keeping YAML; breakdown in `component/README.md`). cardpack's default features are empty, so `i18n` and `colored-display` were already off. Figures in [`component/README.md`](../component/README.md)
 
 **Story 5: golden fixtures shared across the boundary**
 

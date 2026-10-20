@@ -80,9 +80,9 @@ test('version is a semver string', () => {
   assert.match(calculator.version(), /^\d+\.\d+\.\d+/);
 });
 
-// The size budget in component/README.md: 500 KiB after `jco opt -Oz`.
+// The size budget in component/README.md: 600 KiB after `jco opt -Oz`.
 test('the optimized component fits the size budget', () => {
   const wasm = join(import.meta.dirname, '../../target/wasm32-wasip2/component/buffoonery_component.opt.wasm');
   const kib = statSync(wasm).size / 1024;
-  assert.ok(kib <= 500, `${kib.toFixed(0)} KiB is over the 500 KiB budget`);
+  assert.ok(kib <= 600, `${kib.toFixed(0)} KiB is over the 600 KiB budget`);
 });

@@ -36,10 +36,30 @@ Measured 2026-10-20, Rust 1.99.1, `--profile component`:
 | `buffoonery_component.wasm` | 603 KiB | 180 KiB |
 | after `jco opt -Oz` | 494 KiB | 178 KiB |
 
-The budget is 500 KiB raw after `jco opt`. Most of the size is the engine, the
-YAML parser and the joker data. `score-with` added 21 KiB: 8 KiB for the
-seeded RNG (`StdRng`), 13 KiB for reading a `ScoreOp` from JSON and the
-effect registry. Scoring only the cards that make the hand (kickers) added
-6 KiB. That leaves 6 KiB of room: the next feature that grows the component
-needs a size cut or a bigger budget. cardpack's `i18n` and `colored-display`
-features are off.
+The budget is 600 KiB raw after `jco opt`, checked by `js/golden.test.mjs`.
+It was 500 KiB until 2026-10-20, when the component reached 494 KiB. Raised
+on purpose, not cut: most of the size is YAML, and YAML is a feature.
+
+Where the code goes (measured 2026-10-20 on an unstripped build, before
+`jco opt`; 502 KiB of code, plus 88 KiB of data):
+
+| Pulled in by | Code |
+| --- | --- |
+| YAML (`serde_norway`, `unsafe-libyaml-norway`) | 180 KiB |
+| JSON (`serde_json`) | 115 KiB |
+| The engine and cardpack | 92 KiB |
+| Other std / core / alloc | 58 KiB |
+| Formatting (`fmt`) | 27 KiB |
+| Unicode tables | 22 KiB |
+| Other serde glue | 9 KiB |
+
+A component with no YAML (buffoonery's `yaml` feature off, JSON in only) is
+295 KiB after `jco opt` (114 KiB gzipped). That is the lever if size ever
+matters more than YAML in the page: the paste box, links and fixtures would
+take JSON only. Smaller levers: panic messages carry about 6 KiB of
+file paths (`--remap-path-prefix` would shorten them).
+
+Growth so far: `score-with` added 21 KiB (8 KiB for the seeded RNG,
+`StdRng`; 13 KiB for reading a `ScoreOp` from JSON and the effect
+registry). Scoring only the cards that make the hand (kickers) added 6 KiB.
+cardpack's `i18n` and `colored-display` features are off.
