@@ -280,7 +280,7 @@ Built 2026-10-19 with Playwright 1.64.1 (Chromium) in `web/e2e/parity.spec.mjs`;
 ### Milestone D — polish
 
 - [ ] Seeded mode: a seed field switches to `score_traced_with_seed`. The trace marks rolled steps
-- [ ] Edition picker (Foil / Holo / Poly) per joker, rendered as a corner mark on the simplified card
+- [x] Edition picker (Foil / Holo / Poly) per joker, rendered as a corner mark on the simplified card. Done 2026-10-19: each joker card has an edition menu (No edition, Foil, Holographic, Polychrome, Negative), each labelled with what it adds. The engine scores it as the joker's Edition step; the card's note reads e.g. "Edition: ×1.5 Mult" and the breakdown shows the row. No corner mark: the note already names the edition and its effect. Negative is offered because links carry it; it scores nothing, and the page does not model the slot it frees. A Node test checks each edition's op against the engine; a browser test picks Polychrome and compares the table with the engine's trace. Picking another joker clears the edition, as it clears the override
 - [x] Export: copy the current `BoardSpec` JSON; paste one to restore a board. Done 2026-10-19: the link always holds the board (Story 8); "Copy board" copies the `BoardSpec` as pretty JSON and "Copy link" the link; "Paste a board" opens a board written as YAML or JSON. A board opens only if the engine can score it, so an unknown joker or card is reported at once and the page keeps its board. With no clipboard, the text lands in the paste box, selected. Two browser tests cover paste and copy
 - [ ] Custom effects: a `MPip::Custom(id)` entry whose `ScoreOp` the user types, routed through an `EffectRegistry` in the adapter
 

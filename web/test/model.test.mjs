@@ -6,6 +6,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { calculator } from '../src/pkg/buffoonery_component.js';
 import {
+  EDITIONS,
   HAND_TYPES,
   MAX_HELD,
   MAX_PLAYED,
@@ -182,6 +183,30 @@ test('a joker override the editor knows becomes an override; any other stays as 
   assert.deepEqual(state.slots[1], { ident: 'JOLLY_JOKER', override: null, enhancement: { MultPlusOnPair: 9 }, edition: 'Negative', debuffed: true });
   assert.equal(state.slots.length, 5);
   assert.deepEqual(buildSpec(state).spec.jokers[1], { ident: 'JOLLY_JOKER', enhancement: { MultPlusOnPair: 9 }, edition: 'Negative', debuffed: true });
+});
+
+test('every edition the picker offers scores as the engine says', () => {
+  assert.deepEqual(EDITIONS.map((e) => e.edition), [null, 'Foil', 'Holographic', 'Polychrome', 'Negative']);
+  const expected = { Foil: { AddChips: 50 }, Holographic: { AddMult: 10 }, Polychrome: { TimesMult: 1.5 } };
+  for (const { edition } of EDITIONS) {
+    const state = initialState();
+    state.slots[0].edition = edition;
+    const { spec } = buildSpec(state);
+    if (edition) assert.equal(spec.jokers[0].edition, edition);
+    else assert.equal('edition' in spec.jokers[0], false);
+    const step = jokerSteps(score(spec), 'Edition').find((s) => s.source.Joker.index === 0);
+    if (expected[edition]) {
+      assert.equal(step.fired, true, edition);
+      assert.deepEqual(step.op, expected[edition]);
+    } else {
+      assert.equal(step?.fired ?? false, false, String(edition));
+    }
+  }
+});
+
+test('an edition of None leaves the spec as it was', () => {
+  const state = specToState({ played: ['AS'], jokers: [{ ident: 'JOKER', edition: 'None' }] });
+  assert.deepEqual(buildSpec(state).spec.jokers, [{ ident: 'JOKER' }]);
 });
 
 test('the board fields the page has no control for are kept', () => {

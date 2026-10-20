@@ -1,11 +1,13 @@
 // The browser parity test (EPIC-05 Story 8): every golden fixture, opened in
 // the real page from a link, shows exactly the fixture's trace, one table row
 // per step. The expected rows come from the fixture's JSON, never from a fresh
-// score, so the page must reach the engine's numbers on its own.
+// score, so the page must reach the engine's numbers on its own. Tests of an
+// editor score their expected board with the component, as model.test.mjs does.
 import { test, expect } from '@playwright/test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fmtNum, handScore, rows } from '../src/model.js';
+import { calculator } from '../src/pkg/buffoonery_component.js';
+import { buildSpec, fmtNum, handScore, initialState, rows } from '../src/model.js';
 
 const golden = join(import.meta.dirname, '../../fixtures/golden');
 const fixtures = readdirSync(golden).filter((name) => name.endsWith('.yaml')).sort();
@@ -49,9 +51,10 @@ test('a link that is not a board says so, and the page opens its own board', asy
   await expect(page.locator('#error')).toContainText('The board in the link could not be opened: parse: ');
   await expect(page.locator('#final-score')).toHaveText('8,316');
 
-  await page.goto('/');
+  // A fresh load, not a hash change: on a hash change the page puts its own
+  // board back in the address bar, so a reload would not see the bad link.
+  await page.goto('about:blank');
   await page.goto(`/#board=${encodeURIComponent('played: [AS, ZZ]')}`);
-  await page.reload();
   await expect(page.locator('#error')).toHaveText('The board in the link could not be opened: played[1]: unknown card "ZZ"');
   await expect(page.locator('#final-score')).toHaveText('8,316');
 });
@@ -90,4 +93,23 @@ test('copy board and copy link put the board on the clipboard', async ({ page, c
   const link = await page.evaluate(() => navigator.clipboard.readText());
   expect(link).toBe(page.url());
   expect(JSON.parse(decodeURIComponent(new URL(link).hash.slice('#board='.length)))).toEqual(board);
+});
+
+test('the edition picker puts an edition on a joker, and the engine scores it', async ({ page }) => {
+  const state = initialState();
+  state.slots[0].edition = 'Polychrome';
+  const trace = JSON.parse(calculator.score(JSON.stringify(buildSpec(state).spec)));
+
+  await page.goto('/');
+  await page.selectOption('[aria-label="Edition, slot 1"]', 'Polychrome');
+  await page.check('#show-all');
+  await expect(page.locator('#final-score')).toHaveText(fmtNum(handScore(trace.total)));
+  expect(await shownCells(page)).toEqual(expectedCells(trace));
+  await expect(page.locator('.slot').first().locator('.note')).toContainText('Edition: ×1.5 Mult');
+  expect(JSON.parse(decodeURIComponent(new URL(page.url()).hash.slice('#board='.length))).jokers[0])
+    .toEqual({ ident: 'JOKER', edition: 'Polychrome' });
+
+  await page.selectOption('[aria-label="Edition, slot 1"]', '');
+  await expect(page.locator('#final-score')).toHaveText('8,316');
+  await expect(page.locator('[aria-label="Edition, slot 5"]')).toBeDisabled();
 });

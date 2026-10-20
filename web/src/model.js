@@ -62,6 +62,18 @@ export const OVERRIDE_KINDS = [
   { kind: 'xmult', label: '× Mult' },
 ];
 
+/**
+ * The joker editions the edition picker offers. `null` means no edition.
+ * Negative scores nothing; in Balatro it frees a joker slot.
+ */
+export const EDITIONS = [
+  { edition: null, label: 'No edition' },
+  { edition: 'Foil', label: 'Foil +50 Chips' },
+  { edition: 'Holographic', label: 'Holographic +10 Mult' },
+  { edition: 'Polychrome', label: 'Polychrome ×1.5 Mult' },
+  { edition: 'Negative', label: 'Negative (no score)' },
+];
+
 /** The board the page opens with: Story 1's acceptance board. */
 export function initialState() {
   const slot = (ident) => ({ ident, override: null, debuffed: false });
@@ -125,7 +137,7 @@ export function buildSpec(state) {
     const override = slot.override && overrideEnhancement(slot.override);
     if (override) joker.enhancement = override.enhancement;
     else if (slot.enhancement) joker.enhancement = slot.enhancement;
-    if (slot.edition) joker.edition = slot.edition;
+    if (slot.edition && slot.edition !== 'None') joker.edition = slot.edition;
     if (slot.debuffed) joker.debuffed = true;
     jokers.push(joker);
     return jokers.length - 1;

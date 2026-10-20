@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   page with Playwright and checks every table cell against its trace.
 - **Copy and paste boards** (EPIC-05 Milestone D): "Copy board" (JSON),
   "Copy link", and "Paste a board" (YAML or JSON) in the calculator.
+- **Joker edition picker** (EPIC-05 Milestone D): each joker card in the
+  calculator has an edition menu (Foil, Holographic, Polychrome, Negative).
 - A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
   it; the calculator's "+ Chips" override does.
 

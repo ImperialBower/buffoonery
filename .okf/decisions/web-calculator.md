@@ -3,7 +3,7 @@ type: decision
 title: The Joker Calculator lives in web/, built with Vite
 description: "EPIC-05 open question 3 and the stack: the calculator page is a web/ folder in this repo (GitHub Pages later), bundled by Vite so the jco output and preview2-shim resolve without an import map; model.js is pure and tested in Node against the real component."
 tags: [web, vite, calculator, decision, epic-05]
-timestamp: '2026-10-19T23:50:00Z'
+timestamp: '2026-10-20T02:27:00Z'
 resource: web/
 ---
 
@@ -42,9 +42,15 @@ resource: web/
   `openBoard` (main.js) is the one way in, for links and pastes: `parse`,
   `specToState`, then one `score` so an unknown joker or card is refused
   before the page swaps its board.
+* **Edition picker** (Milestone D): `EDITIONS` in model.js feeds a menu per
+  joker card. `buildSpec` writes `edition` only when it is not `None`. The
+  page draws no corner mark; the card's note names the edition's op.
 * **Browser parity** (`web/e2e/parity.spec.mjs`, Playwright, Chromium):
   each fixture opens from a link, and the table must equal rows built from
-  the fixture's JSON. Expected rows use `rows()` from `model.js`; the
+  the fixture's JSON. Editor tests (edition picker) score their expected
+  board with the component instead. To test a bad link, load it fresh
+  (from `about:blank`): on a hash change the page writes its own board back
+  into the link, so a reload races it. Expected rows use `rows()` from `model.js`; the
   formatting itself is covered by the Node tests.
 * **No scoring in the page.** Its one sum is `floor(chips × mult)` for the
   running score, the same expression as `Score::score()`.

@@ -3,6 +3,7 @@
 import './style.css';
 import { calculator } from './pkg/buffoonery_component.js';
 import {
+  EDITIONS,
   HAND_TYPES,
   MAX_HELD,
   MAX_PLAYED,
@@ -195,6 +196,8 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
   const kind = el('select', { 'aria-label': `Effect override, slot ${i + 1}` },
     OVERRIDE_KINDS.map((k) => el('option', { value: k.kind ?? '', text: k.label })));
   const value = el('input', { type: 'number', step: 'any', min: '0', 'aria-label': `Override value, slot ${i + 1}` });
+  const edition = el('select', { 'aria-label': `Edition, slot ${i + 1}` },
+    EDITIONS.map((e) => el('option', { value: e.edition ?? '', text: e.label })));
   const headline = el('span', { class: 'headline' });
   const kindLabel = el('span', { class: 'kind-label' });
   const status = el('span', { class: 'status' });
@@ -211,7 +214,10 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
       el('div', { class: 'effect' }, [headline, kindLabel, badge]),
       note,
       el('div', { class: 'editors' }, [kind, value]),
-      el('label', { class: 'check small' }, [debuff, el('span', { text: 'debuffed' })]),
+      el('div', { class: 'flags' }, [
+        edition,
+        el('label', { class: 'check small' }, [debuff, el('span', { text: 'debuffed' })]),
+      ]),
     ]),
   ]);
 
@@ -219,6 +225,10 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
     s.slots[i] = { ident: picker.value || null, override: null, debuffed: false };
   }));
   debuff.addEventListener('change', () => update((s) => { s.slots[i].debuffed = debuff.checked; }));
+  edition.addEventListener('change', () => update((s) => {
+    if (edition.value) s.slots[i].edition = edition.value;
+    else delete s.slots[i].edition;
+  }));
   kind.addEventListener('change', () => update((s) => {
     const chosen = kind.value || null;
     s.slots[i].override = chosen ? { kind: chosen, value: seedValue(lastSteps[i] ?? [], chosen) } : null;
@@ -230,7 +240,7 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
   }));
 
   $('slots').append(card);
-  return { card, picker, debuff, kind, value, headline, kindLabel, status, badge, note };
+  return { card, picker, debuff, edition, kind, value, headline, kindLabel, status, badge, note };
 });
 
 // ---- Render ---------------------------------------------------------------
@@ -305,6 +315,8 @@ function render() {
     nodes.note.textContent = view.note;
     nodes.debuff.checked = Boolean(slot.debuffed);
     nodes.debuff.disabled = view.empty;
+    nodes.edition.value = slot.edition && slot.edition !== 'None' ? slot.edition : '';
+    nodes.edition.disabled = view.empty;
     nodes.kind.value = slot.override?.kind ?? '';
     nodes.kind.disabled = view.empty;
     nodes.value.disabled = !slot.override;
