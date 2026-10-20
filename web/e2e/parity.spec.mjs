@@ -113,3 +113,34 @@ test('the edition picker puts an edition on a joker, and the engine scores it', 
   await expect(page.locator('#final-score')).toHaveText('8,316');
   await expect(page.locator('[aria-label="Edition, slot 5"]')).toBeDisabled();
 });
+
+test('a seed rolls the chances, and the link keeps it', async ({ page }) => {
+  const yaml = readFileSync(join(golden, '11_inert_jokers.yaml'), 'utf8');
+  const spec = JSON.parse(calculator.parse(yaml));
+  const seeded = JSON.parse(calculator.scoreSeeded(JSON.stringify(spec), 7n));
+
+  await page.goto(`/#board=${encodeURIComponent(yaml)}`);
+  await page.check('#show-all');
+  await expect(page.locator('#seed-hint')).toContainText('No seed');
+  await page.fill('#seed', '7');
+  await expect(page.locator('#seed-hint')).toContainText('Seeded');
+  expect(await shownCells(page)).toEqual(expectedCells(seeded));
+  await expect(page.locator('#breakdown .detail', { hasText: 'rolled' })).toHaveCount(2);
+  expect(new URL(page.url()).hash).toMatch(/^#seed=7&board=/);
+
+  // The link alone brings the seed back.
+  const link = page.url();
+  await page.goto('about:blank');
+  await page.goto(link);
+  await expect(page.locator('#seed')).toHaveValue('7');
+  await expect(page.locator('#final-score')).toHaveText(fmtNum(handScore(seeded.total)));
+
+  await page.fill('#seed', 'x');
+  await expect(page.locator('#seed')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#seed-hint')).toContainText('whole number');
+  await expect(page.locator('#final-score')).toHaveText(fmtNum(handScore(seeded.total)));
+
+  await page.fill('#seed', '');
+  await expect(page.locator('#breakdown .detail', { hasText: 'rolled' })).toHaveCount(0);
+  expect(new URL(page.url()).hash).toMatch(/^#board=/);
+});

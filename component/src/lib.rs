@@ -10,7 +10,7 @@
 //! cargo build -p buffoonery-component --target wasm32-wasip2 --profile component
 //! ```
 //!
-//! The four functions below are the exports. They are plain Rust, so the
+//! The five functions below are the exports. They are plain Rust, so the
 //! native tests check them against `fixtures/golden/` without a wasm runtime;
 //! the `js/` tests check the built component itself.
 
@@ -39,6 +39,28 @@ pub fn score(spec: &str) -> Result<String, String> {
     let spec = read_spec(spec).map_err(|e| e.to_string())?;
     let board = BuffoonBoard::try_from(&spec).map_err(|e| e.to_string())?;
     serde_json::to_string(&board.score_traced()).map_err(|e| e.to_string())
+}
+
+/// Like [`score`], but rolls the chances (Lucky cards, Misprint) from `seed`,
+/// so the same board and seed always give the same trace. Rolled steps carry
+/// `"rolled": true`. [`score`] rolls nothing: a chance there is its floor.
+///
+/// # Errors
+///
+/// The same [`BoardSpecError`] messages as [`score`].
+///
+/// # Examples
+///
+/// ```
+/// let board = "played: [{card: AS, enhancement: !Lucky [5, 15]}]";
+/// let trace = buffoonery_component::score_seeded(board, 7).unwrap();
+/// assert!(trace.contains(r#""rolled":true"#));
+/// assert_eq!(trace, buffoonery_component::score_seeded(board, 7).unwrap());
+/// ```
+pub fn score_seeded(spec: &str, seed: u64) -> Result<String, String> {
+    let spec = read_spec(spec).map_err(|e| e.to_string())?;
+    let board = BuffoonBoard::try_from(&spec).map_err(|e| e.to_string())?;
+    serde_json::to_string(&board.score_traced_with_seed(seed)).map_err(|e| e.to_string())
 }
 
 /// Reads a [`BoardSpec`] as JSON or YAML and writes it back as JSON, so a host
@@ -107,6 +129,10 @@ mod bindings {
     impl exports::imperialbower::solver::calculator::Guest for Component {
         fn score(spec: String) -> Result<String, String> {
             super::score(&spec)
+        }
+
+        fn score_seeded(spec: String, seed: u64) -> Result<String, String> {
+            super::score_seeded(&spec, seed)
         }
 
         fn parse(spec: String) -> Result<String, String> {

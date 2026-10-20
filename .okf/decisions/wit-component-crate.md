@@ -3,7 +3,7 @@ type: decision
 title: The WIT component is its own workspace crate, tested through jco
 description: "component/ (buffoonery-component, unpublished) holds the WIT boundary so the engine crate carries no wit-bindgen or JSON code; it builds with plain cargo for wasm32-wasip2, is shrunk by jco opt, and is tested in Node through the jco-transpiled module."
 tags: [wit, wasm, component, decision, epic-05]
-timestamp: '2026-10-19T18:00:00Z'
+timestamp: '2026-10-20T11:07:00Z'
 resource: component/
 ---
 
@@ -12,7 +12,7 @@ resource: component/
 The WIT component (EPIC-05 Story 4) is a separate crate in a Cargo
 workspace: `component/`, package `buffoonery-component`, `publish = false`.
 
-* **Adapter, not engine.** It owns the formats; it exports `score`, `parse` (added in Story 8: a spec as JSON or YAML in, JSON out), `catalog` and `version`. `score` reads a `BoardSpec`
+* **Adapter, not engine.** It owns the formats; it exports `score`, `score-seeded` (added in Milestone D: `score` with a `u64` seed, so chances roll; +8 KiB), `parse` (added in Story 8: a spec as JSON or YAML in, JSON out), `catalog` and `version`. The seed is a function argument, not a `BoardSpec` field: a seed is how to score a board, not part of it. `score` reads a `BoardSpec`
   as JSON (input starting with `{`) or YAML, and writes the `ScoreTrace` as
   JSON. The engine crate gained only `buffoonery::VERSION`.
 * **Plain cargo builds it.** `cargo build -p buffoonery-component --target
@@ -50,5 +50,5 @@ member's path dependency carries a version, so `wildcards` stays quiet.
 
 # Size
 
-467 KiB after `jco opt -Oz` (166 KiB gzipped), against a 500 KiB budget that
+475 KiB after `jco opt -Oz` (169 KiB gzipped), against a 500 KiB budget that
 `golden.test.mjs` checks. Figures in `component/README.md`.

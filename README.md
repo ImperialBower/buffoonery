@@ -38,7 +38,7 @@ rustup target add wasm32-wasip2
 
 [`component/`](component/README.md) wraps the engine in a WIT interface:
 score a board written as JSON or YAML, get the step-by-step trace back as
-JSON. The optimized component is 467 KiB (166 KiB gzipped); the budget is
+JSON. The optimized component is 475 KiB (169 KiB gzipped); the budget is
 500 KiB.
 
 ## Joker Calculator

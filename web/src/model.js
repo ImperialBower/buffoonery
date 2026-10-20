@@ -88,8 +88,40 @@ export function initialState() {
     // Board fields the page has no control for (money, discards_left,
     // hands_left, blind), kept so a loaded board scores as it was written.
     board: {},
+    // The seed as a BigInt, or `null`: no seed scores every chance at its floor.
+    seed: null,
     showAll: false,
   };
+}
+
+const MAX_SEED = 2n ** 64n - 1n;
+
+/**
+ * A seed from the seed field: `null` when blank, else a `BigInt`, since the
+ * component's seed is a WIT `u64`. Throws unless it is a whole number that fits.
+ */
+export function parseSeed(text) {
+  const trimmed = text.trim();
+  if (trimmed === '') return null;
+  const seed = /^\d+$/.test(trimmed) ? BigInt(trimmed) : -1n;
+  if (seed < 0n || seed > MAX_SEED) throw new Error(`A seed is a whole number from 0 to ${MAX_SEED}.`);
+  return seed;
+}
+
+/** The link's hash for a spec and seed: `#board=…`, or `#seed=7&board=…`. */
+export function boardHash(spec, seed) {
+  const board = `board=${encodeURIComponent(JSON.stringify(spec))}`;
+  return seed === null ? `#${board}` : `#seed=${seed}&${board}`;
+}
+
+/**
+ * The board text and seed in a link's hash, or `null` if it holds no board.
+ * The seed comes first, so the board can be anything to the end of the link.
+ */
+export function readHash(hash) {
+  const match = /^#(?:seed=(\d+)&)?board=(.*)$/s.exec(hash);
+  if (!match) return null;
+  return { board: decodeURIComponent(match[2]), seed: match[1] === undefined ? null : parseSeed(match[1]) };
 }
 
 /**
@@ -309,7 +341,11 @@ export function rows(trace, jokerNames, showAll = false) {
         source = `${jokerNames[index] ?? 'Joker'} · slot ${index + 1}`;
         group = `Joker ${index}`;
       }
-      const detail = [step.part === 'Effect' ? '' : step.part.toLowerCase(), step.retrigger ? `retrigger ${step.retrigger}` : '']
+      const detail = [
+        step.part === 'Effect' ? '' : step.part.toLowerCase(),
+        step.retrigger ? `retrigger ${step.retrigger}` : '',
+        step.rolled ? 'rolled' : '',
+      ]
         .filter(Boolean)
         .join(', ');
       return {
@@ -320,6 +356,7 @@ export function rows(trace, jokerNames, showAll = false) {
         effect: step.fired ? formatOp(step.op) : quietEffect(step),
         kind: opKind(step.op),
         fired: step.fired,
+        rolled: step.rolled,
         chips: step.after.chips,
         mult: step.after.mult,
         score: handScore(step.after),

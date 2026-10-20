@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { calculator } from '../src/pkg/buffoonery_component.js';
 import {
   EDITIONS,
+  boardHash,
   HAND_TYPES,
   MAX_HELD,
   MAX_PLAYED,
@@ -20,6 +21,8 @@ import {
   initialState,
   opHeadline,
   overrideEnhancement,
+  parseSeed,
+  readHash,
   rows,
   slotView,
   specToState,
@@ -219,6 +222,35 @@ test('a board the page cannot show is an error', () => {
   assert.throws(() => specToState({ played: ['AS'], jokers: six }), /at most 5 jokers/);
   assert.throws(() => specToState({ played: [] }), /at least 1 played card/);
   assert.throws(() => specToState({ played: ['AS'], held: Array(9).fill('2C') }), /at most 8 held/);
+});
+
+test('a seed is a whole number that fits a u64, or nothing', () => {
+  assert.equal(parseSeed(''), null);
+  assert.equal(parseSeed('  '), null);
+  assert.equal(parseSeed('7'), 7n);
+  assert.equal(parseSeed(' 007 '), 7n);
+  assert.equal(parseSeed('18446744073709551615'), 2n ** 64n - 1n);
+  for (const bad of ['18446744073709551616', '-1', '1.5', 'abc', '1e3']) {
+    assert.throws(() => parseSeed(bad), /whole number from 0 to 18446744073709551615/, bad);
+  }
+});
+
+test('the link holds the board, and the seed when there is one', () => {
+  const spec = { played: ['AS'], jokers: [] };
+  assert.equal(boardHash(spec, null), `#board=${encodeURIComponent(JSON.stringify(spec))}`);
+  assert.equal(boardHash(spec, 7n), `#seed=7&board=${encodeURIComponent(JSON.stringify(spec))}`);
+  assert.deepEqual(readHash(boardHash(spec, 7n)), { board: JSON.stringify(spec), seed: 7n });
+  assert.deepEqual(readHash(boardHash(spec, null)), { board: JSON.stringify(spec), seed: null });
+  assert.deepEqual(readHash(`#board=${encodeURIComponent('a: b&c')}`), { board: 'a: b&c', seed: null });
+  assert.equal(readHash('#other'), null);
+  assert.equal(readHash(''), null);
+});
+
+test('a seeded score marks its rolled rows', () => {
+  const yaml = readFileSync(join(golden, '11_inert_jokers.yaml'), 'utf8');
+  const marked = (trace) => rows(trace, [], true).filter((row) => row.rolled).map((row) => row.detail);
+  assert.deepEqual(marked(JSON.parse(calculator.score(yaml))), []);
+  assert.deepEqual(marked(JSON.parse(calculator.scoreSeeded(yaml, 7n))), ['special, rolled', 'rolled']);
 });
 
 test('text formats match the engine', () => {

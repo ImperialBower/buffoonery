@@ -80,6 +80,13 @@ button:disabled { opacity: .45; cursor: default; }
 .remove { height: 36px; font-size: 18px; line-height: 1; }
 .add { min-height: 46px; padding: 0 14px; border-style: dashed; color: var(--muted); }
 .level-editor { display: grid; grid-template-columns: minmax(0, 1fr) 80px; gap: 8px; }
+.seed-editor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.seed-editor button { padding: 0 12px; }
+input[type=text] {
+  width: 100%; height: 44px; padding: 0 10px; border: 1px solid var(--input-line); border-radius: 6px;
+  background: var(--well); color: var(--text); font: 14px var(--mono);
+}
+input[aria-invalid=true] { border-color: var(--mult); }
 .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .readout { min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: var(--well); border: 1px solid var(--line); font-weight: 700; }
 

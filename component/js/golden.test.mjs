@@ -43,6 +43,20 @@ test('a bad spec throws its error message', () => {
   );
 });
 
+test('score-seeded rolls the chances, and a seed repeats', () => {
+  const yaml = readFileSync(join(golden, '11_inert_jokers.yaml'), 'utf8');
+  const rolled = (trace) => JSON.parse(trace).steps.filter((step) => step.rolled).length;
+  assert.equal(rolled(calculator.score(yaml)), 0);
+  // WIT u64 is a BigInt in JavaScript.
+  assert.equal(rolled(calculator.scoreSeeded(yaml, 7n)), 2);
+  assert.equal(calculator.scoreSeeded(yaml, 7n), calculator.scoreSeeded(yaml, 7n));
+  assert.ok(calculator.scoreSeeded(yaml, 2n ** 64n - 1n));
+  assert.throws(
+    () => calculator.scoreSeeded('played: [AS, ZZ]', 1n),
+    (error) => error.payload === 'played[1]: unknown card "ZZ"',
+  );
+});
+
 test('catalog lists every joker', () => {
   const catalog = JSON.parse(calculator.catalog());
   assert.equal(catalog.length, 112);

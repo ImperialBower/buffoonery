@@ -1,5 +1,5 @@
-// The Joker Calculator page (EPIC-05 Stories 6–7). It draws what model.js
-// derives from the engine's trace; it scores nothing itself.
+// The Joker Calculator page (EPIC-05 Stories 6–8, Milestone D). It draws
+// what model.js derives from the engine's trace; it scores nothing itself.
 import './style.css';
 import { calculator } from './pkg/buffoonery_component.js';
 import {
@@ -11,6 +11,7 @@ import {
   RANKS,
   SLOT_COUNT,
   SUITS,
+  boardHash,
   buildSpec,
   fmtNum,
   formatMPip,
@@ -19,6 +20,8 @@ import {
   handSummary,
   initialState,
   opKind,
+  parseSeed,
+  readHash,
   rows,
   slotView,
   specToState,
@@ -31,25 +34,31 @@ const pickerOrder = [...catalog].sort((a, b) => a.name.localeCompare(b.name));
 const $ = (id) => document.getElementById(id);
 
 // A board can come from the link: `#board=` and a BoardSpec as JSON or YAML,
-// URL-encoded. The page keeps the link up to date, so the address bar always
-// holds the board on screen.
+// URL-encoded, after an optional `seed=7&`. The page keeps the link up to
+// date, so the address bar always holds the board and seed on screen.
 let loadError = null;
+
+/** The trace for a spec: seeded when there is a seed, so chances roll. */
+function scoreSpec(spec, seed) {
+  const json = JSON.stringify(spec);
+  return JSON.parse(seed === null ? calculator.score(json) : calculator.scoreSeeded(json, seed));
+}
 
 /** Page state for a board as YAML or JSON. Throws with the reason it cannot open. */
 function openBoard(text) {
   const opened = specToState(JSON.parse(calculator.parse(text)));
   // `parse` checks the shape only; scoring once names an unknown joker or card.
-  calculator.score(JSON.stringify(buildSpec(opened).spec));
+  scoreSpec(buildSpec(opened).spec, null);
   return opened;
 }
 
 const reason = (error) => error.payload ?? error.message;
 
 function loadFromHash() {
-  const match = /^#board=(.*)$/s.exec(window.location.hash);
-  if (!match) return null;
   try {
-    return openBoard(decodeURIComponent(match[1]));
+    const link = readHash(window.location.hash);
+    if (!link) return null;
+    return { ...openBoard(link.board), seed: link.seed };
   } catch (error) {
     loadError = `The board in the link could not be opened: ${reason(error)}`;
     return null;
@@ -163,11 +172,34 @@ $('copy-link').addEventListener('click', () => copy(window.location.href, 'Link 
 $('paste-open').addEventListener('click', () => {
   try {
     const opened = openBoard($('paste-text').value);
-    update((s) => Object.assign(s, opened, { showAll: s.showAll }));
+    update((s) => Object.assign(s, opened, { seed: s.seed, showAll: s.showAll }));
     $('paste-status').textContent = 'Opened.';
   } catch (error) {
     $('paste-status').textContent = `Could not open it: ${reason(error)}`;
   }
+});
+
+// ---- Seed -------------------------------------------------------------------
+
+const seedInput = $('seed');
+const SEED_HINT = {
+  none: 'No seed: Lucky cards and Misprint score their lowest.',
+  set: 'Seeded: chances roll, the same way each time. Rolled steps say "rolled".',
+};
+seedInput.addEventListener('input', () => {
+  try {
+    const seed = parseSeed(seedInput.value);
+    seedInput.removeAttribute('aria-invalid');
+    update((s) => { s.seed = seed; });
+  } catch (error) {
+    // Keep scoring with the last good seed until the field holds one again.
+    seedInput.setAttribute('aria-invalid', 'true');
+    $('seed-hint').textContent = error.message;
+  }
+});
+$('new-seed').addEventListener('click', () => {
+  seedInput.removeAttribute('aria-invalid');
+  update((s) => { s.seed = BigInt(crypto.getRandomValues(new Uint32Array(1))[0]); });
 });
 
 $('show-all').addEventListener('change', (e) => update((s) => { s.showAll = e.target.checked; }));
@@ -279,10 +311,10 @@ function render() {
   const { spec, jokerIndex } = buildSpec(state);
   let trace;
   try {
-    trace = JSON.parse(calculator.score(JSON.stringify(spec)));
+    trace = scoreSpec(spec, state.seed);
     if (loadError) showError(loadError);
     else $('error').hidden = true;
-    window.history.replaceState(null, '', `#board=${encodeURIComponent(JSON.stringify(spec))}`);
+    window.history.replaceState(null, '', boardHash(spec, state.seed));
   } catch (error) {
     showError(error.payload ?? String(error));
     return;
@@ -296,6 +328,8 @@ function render() {
   const editing = state.levelHand ?? lastHand.type;
   levelHand.value = editing;
   if (document.activeElement !== levelInput) levelInput.value = String(state.levels[editing] ?? 1);
+  if (document.activeElement !== seedInput) seedInput.value = state.seed === null ? '' : String(state.seed);
+  if (seedInput.getAttribute('aria-invalid') !== 'true') $('seed-hint').textContent = SEED_HINT[state.seed === null ? 'none' : 'set'];
 
   const jokerNames = spec.jokers.map((j) => byIdent.get(j.ident)?.name ?? j.ident);
   const jokerSteps = (index) => trace.steps.filter((s) => s.phase === 'Joker' && s.source.Joker.index === index);
@@ -333,6 +367,7 @@ function render() {
   }
   $('footnote').textContent = `Every number comes from the buffoonery engine ${calculator.version()}, through its WebAssembly component. `
     + 'The breakdown groups the steps by the card or joker that made them; steps that changed nothing are hidden unless you ask. '
+    + 'With a seed, chances roll from it; without one, each chance scores its lowest. '
     + 'Known gaps: every played card scores, so a kicker adds chips that Balatro would not; A-2-3-4-5 is not a straight.';
 }
 

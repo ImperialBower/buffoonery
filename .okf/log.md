@@ -1,5 +1,8 @@
 # Update Log
 
+## 2026-10-20
+* **Seeded mode (EPIC-05 Milestone D).** Component: new export `score-seeded(spec, seed: u64)` (`score_traced_with_seed`); component 475 KiB after `jco opt` (+8 KiB, `StdRng`). `web/`: a seed field and a "New seed" button; rows of rolled steps say "rolled"; the link is `#seed=7&board=…`. Tests: 3 native, 1 component JS, 3 model, 1 browser. Updated [WIT component crate](decisions/wit-component-crate.md) and [web calculator](decisions/web-calculator.md).
+
 ## 2026-10-19
 * **Joker edition picker (EPIC-05 Milestone D).** `web/`: an edition menu per joker card (`EDITIONS` in model.js: none, Foil, Holographic, Polychrome, Negative); `buildSpec` drops `edition: None`. Two Node tests (each edition's op against the engine; `None` leaves the spec alone) and one browser test. Fixed a flaky browser test: a bad link reached by hash change was overwritten by the page's own board before `reload()`; it now loads fresh from `about:blank`. Updated [web calculator](decisions/web-calculator.md).
 * **Copy and paste boards (EPIC-05 Milestone D, export item).** `web/`: Copy board (JSON), Copy link, Paste a board (YAML or JSON). Links and pastes go through `openBoard`, which now scores once before accepting, so a link or paste with an unknown joker or card is refused with the engine's message. 18 Playwright tests (2 new). [Decision](decisions/web-calculator.md) updated.

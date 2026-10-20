@@ -74,6 +74,14 @@
             <input id="level" type="number" min="1" step="1" aria-label="Level">
           </div>
         </div>
+        <div class="field">
+          <label for="seed">Seed</label>
+          <div class="seed-editor">
+            <input id="seed" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="none" aria-describedby="seed-hint">
+            <button type="button" id="new-seed">New seed</button>
+          </div>
+          <span class="muted small" id="seed-hint" role="status">No seed: Lucky cards and Misprint score their lowest.</span>
+        </div>
       </div>
     </section>
 

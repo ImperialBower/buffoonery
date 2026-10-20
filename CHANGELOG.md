@@ -66,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Copy link", and "Paste a board" (YAML or JSON) in the calculator.
 - **Joker edition picker** (EPIC-05 Milestone D): each joker card in the
   calculator has an edition menu (Foil, Holographic, Polychrome, Negative).
+- **Seeded scoring in the component and the calculator** (EPIC-05
+  Milestone D): the WIT export `score-seeded(spec, seed)` rolls Lucky cards
+  and Misprint from a `u64` seed. The calculator has a seed field, marks
+  rolled steps, and keeps the seed in the link (`#seed=7&board=…`).
 - A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
   it; the calculator's "+ Chips" override does.
 
