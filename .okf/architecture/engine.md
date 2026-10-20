@@ -3,7 +3,7 @@ type: architecture
 title: The engine — Balatro-style cards and scoring
 description: What buffoonery models (jokers, planets, tarots, spectrals as MPip data; four-phase scoring; shop, vouchers, editions, blinds), where it lives, and where it came from.
 tags: [engine, balatro, scoring, architecture]
-timestamp: '2026-10-19T18:00:00Z'
+timestamp: '2026-10-20T11:49:00Z'
 ---
 
 # What it is
@@ -28,7 +28,7 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   to right; never panics. Open effects go through `EffectRegistry`
   (`src/types/effect.rs`). `Score` keeps fractional mult and floors once
   ([decision](/decisions/fractional-score.md)). `score_traced()` and its
-  seeded/registry twins return a `ScoreTrace` (`src/types/trace.rs`): one
+  seeded, registry, and seeded-and-registry twins return a `ScoreTrace` (`src/types/trace.rs`): one
   `ScoreStep` per `ScoreOp` applied. Every fold applies ops through
   `trace::apply_step`, so tracing cannot change a number.
 * **Decks** (`src/decks/`) — basic decks, 112 jokers (`Joker::ALL_JOKERS`;
@@ -42,8 +42,8 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   ([decision](/decisions/board-spec-yaml.md)).
 * **Economy** — `Shop`, `Voucher`, editions, blinds with boss blinds.
 * **WIT component** (`component/`, its own crate) — the engine behind
-  `imperialbower:solver/calculator` on `wasm32-wasip2`: `score`, `catalog`,
-  `version`, strings in and out. The engine crate has no WIT or JSON code
+  `imperialbower:solver/calculator` on `wasm32-wasip2`: `score`, `score-with`
+  (seed and custom effects), `parse`, `catalog`, `version`, strings in and out. The engine crate has no WIT or JSON code
   ([decision](/decisions/wit-component-crate.md)).
 * **Joker Calculator** (`web/`, Vite) — the page over the component.
   `web/src/model.js` maps page state to a `BoardSpec` and the trace to the

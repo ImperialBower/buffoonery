@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-10-20
+* **Custom effects (EPIC-05 Milestone D, last item).** Engine: `score_traced_with_rng_and_registry` and `score_traced_with_seed_and_registry`. Component: `score-with(spec, score-options)` (optional seed, custom effects as id + `ScoreOp` JSON, a fixed-op `Effect` per id) replaces `score-seeded`; 488 KiB after `jco opt`, 12 KiB under budget. `web/`: override kind "Custom" with typed ops (`parseOp`); the link carries `effects=[…]`. Updated [engine](architecture/engine.md), [WIT component crate](decisions/wit-component-crate.md), [web calculator](decisions/web-calculator.md).
 * **`make setup`.** One-time setup for `make ayce`: `wasm32-wasip2`, `cargo-deny`, `cargo-audit`, `npm ci` in `component/js/` and `web/`, and Playwright's Chromium (`--with-deps` on Linux). The devcontainer runs it. Updated [quality gate](processes/quality-gate.md) (setup section; phases now include the workspace, the wasm clippy and `e2e`) and [toolchain](decisions/toolchain.md).
 * **Seeded mode (EPIC-05 Milestone D).** Component: new export `score-seeded(spec, seed: u64)` (`score_traced_with_seed`); component 475 KiB after `jco opt` (+8 KiB, `StdRng`). `web/`: a seed field and a "New seed" button; rows of rolled steps say "rolled"; the link is `#seed=7&board=…`. Tests: 3 native, 1 component JS, 3 model, 1 browser. Updated [WIT component crate](decisions/wit-component-crate.md) and [web calculator](decisions/web-calculator.md).
 

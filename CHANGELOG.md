@@ -69,10 +69,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`make setup`**: one-time setup for `make ayce` (the wasm target,
   `cargo-deny`, `cargo-audit`, npm packages, and Chromium for the browser
   tests). The devcontainer runs it.
-- **Seeded scoring in the component and the calculator** (EPIC-05
-  Milestone D): the WIT export `score-seeded(spec, seed)` rolls Lucky cards
-  and Misprint from a `u64` seed. The calculator has a seed field, marks
-  rolled steps, and keeps the seed in the link (`#seed=7&board=…`).
+- **Seeded scoring and custom effects in the component and the calculator**
+  (EPIC-05 Milestone D): the WIT export `score-with(spec, options)` rolls
+  Lucky cards and Misprint from an optional `u64` seed, and scores each
+  `MPip::Custom(id)` with a `ScoreOp` given as JSON. The calculator has a
+  seed field, marks rolled steps, has a "Custom" effect kind where you type
+  an effect (`+20 Chips, ×2 Mult`), and keeps the seed and the effects in
+  the link.
+- `BuffoonBoard::score_traced_with_rng_and_registry` and
+  `score_traced_with_seed_and_registry`: chances and custom effects in one
+  traced score.
 - A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
   it; the calculator's "+ Chips" override does.
 

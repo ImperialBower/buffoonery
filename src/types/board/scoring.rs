@@ -840,6 +840,34 @@ impl BuffoonBoard {
         self.trace_with::<StdRng>(None, Some(registry))
     }
 
+    /// Like [`score_traced_with_seed`](Self::score_traced_with_seed) and
+    /// [`score_traced_with_registry`](Self::score_traced_with_registry) at
+    /// once: chances roll from `seed`, and `MPip::Custom(id)` effects resolve
+    /// through `registry`.
+    #[must_use]
+    pub fn score_traced_with_seed_and_registry(
+        &self,
+        seed: u64,
+        registry: &EffectRegistry,
+    ) -> ScoreTrace {
+        self.score_traced_with_rng_and_registry(&mut StdRng::seed_from_u64(seed), registry)
+    }
+
+    /// Like [`score_traced_with_rng`](Self::score_traced_with_rng) and
+    /// [`score_traced_with_registry`](Self::score_traced_with_registry) at
+    /// once: chances roll from `rng`, and `MPip::Custom(id)` effects resolve
+    /// through `registry`. The RNG is drawn in the same order as in
+    /// [`score_with_rng`](Self::score_with_rng), so the rolls match a seeded
+    /// score of the same board.
+    #[must_use]
+    pub fn score_traced_with_rng_and_registry<R: Rng + ?Sized>(
+        &self,
+        rng: &mut R,
+        registry: &EffectRegistry,
+    ) -> ScoreTrace {
+        self.trace_with(Some(rng), Some(registry))
+    }
+
     /// The traced pipeline: the base step, then the same three folds the
     /// untraced entry points use, each given the step list. The RNG is drawn in
     /// the same order as [`score_with_rng`](Self::score_with_rng) (played
@@ -1358,5 +1386,53 @@ mod funky__types__board__scoring_tests {
             .filter(|s| s.op == ScoreOp::TimesMult(2.0))
             .count();
         assert_eq!(custom_steps, 2, "the held card and the joker");
+    }
+
+    #[test]
+    fn score_traced_with_rng_and_registry__rolls_and_resolves_custom_effects() {
+        let mut registry = EffectRegistry::new();
+        registry.register(7, DoubleMult);
+        let mut board = lucky_ace_board();
+        board.push_joker(card::MISPRINT);
+        board.push_joker(enhanced(card::JOKER, MPip::Custom(7)));
+
+        for seed in 0..8 {
+            let rng = &mut StdRng::seed_from_u64(seed);
+            let trace = board.score_traced_with_rng_and_registry(rng, &registry);
+            let seeded = board.score_traced_with_seed(seed);
+            assert_replays(&trace);
+            let rolled = |t: &ScoreTrace| -> Vec<ScoreOp> {
+                t.steps
+                    .iter()
+                    .filter(|s| s.rolled)
+                    .map(|s| s.op.clone())
+                    .collect()
+            };
+            assert_eq!(
+                rolled(&trace),
+                rolled(&seeded),
+                "seed {seed} rolls the same"
+            );
+            let last = trace
+                .steps
+                .iter()
+                .rfind(|s| s.part == StepPart::Effect)
+                .unwrap();
+            assert_eq!(last.op, ScoreOp::TimesMult(2.0), "seed {seed}");
+            assert_eq!(trace.total, seeded.total.multi_mult(2.0), "seed {seed}");
+        }
+
+        assert_eq!(
+            board.score_traced_with_seed_and_registry(5, &registry),
+            board.score_traced_with_rng_and_registry(&mut StdRng::seed_from_u64(5), &registry),
+        );
+
+        let empty = EffectRegistry::new();
+        let trace = board.score_traced_with_rng_and_registry(&mut StdRng::seed_from_u64(3), &empty);
+        assert_eq!(
+            trace,
+            board.score_traced_with_seed(3),
+            "no registry entry: as seeded"
+        );
     }
 }

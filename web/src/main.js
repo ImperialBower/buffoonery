@@ -15,11 +15,13 @@ import {
   buildSpec,
   fmtNum,
   formatMPip,
+  formatOp,
   groupRows,
   handScore,
   handSummary,
   initialState,
   opKind,
+  parseOp,
   parseSeed,
   readHash,
   rows,
@@ -34,21 +36,25 @@ const pickerOrder = [...catalog].sort((a, b) => a.name.localeCompare(b.name));
 const $ = (id) => document.getElementById(id);
 
 // A board can come from the link: `#board=` and a BoardSpec as JSON or YAML,
-// URL-encoded, after an optional `seed=7&`. The page keeps the link up to
-// date, so the address bar always holds the board and seed on screen.
+// URL-encoded, after an optional `seed=7&` and `effects=[…]&`. The page keeps
+// the link up to date, so the address bar always holds what is on screen.
 let loadError = null;
 
-/** The trace for a spec: seeded when there is a seed, so chances roll. */
-function scoreSpec(spec, seed) {
-  const json = JSON.stringify(spec);
-  return JSON.parse(seed === null ? calculator.score(json) : calculator.scoreSeeded(json, seed));
+/** The trace for a spec: chances roll when there is a seed; custom effects resolve. */
+function scoreSpec(spec, seed, effects) {
+  const options = {
+    seed: seed ?? undefined,
+    effects: effects.map(({ id, op }) => ({ id, op: JSON.stringify(op) })),
+  };
+  return JSON.parse(calculator.scoreWith(JSON.stringify(spec), options));
 }
 
 /** Page state for a board as YAML or JSON. Throws with the reason it cannot open. */
-function openBoard(text) {
-  const opened = specToState(JSON.parse(calculator.parse(text)));
+function openBoard(text, effects = []) {
+  const opened = specToState(JSON.parse(calculator.parse(text)), effects);
   // `parse` checks the shape only; scoring once names an unknown joker or card.
-  scoreSpec(buildSpec(opened).spec, null);
+  const built = buildSpec(opened);
+  scoreSpec(built.spec, null, built.effects);
   return opened;
 }
 
@@ -58,7 +64,7 @@ function loadFromHash() {
   try {
     const link = readHash(window.location.hash);
     if (!link) return null;
-    return { ...openBoard(link.board), seed: link.seed };
+    return { ...openBoard(link.board, link.effects), seed: link.seed };
   } catch (error) {
     loadError = `The board in the link could not be opened: ${reason(error)}`;
     return null;
@@ -209,6 +215,8 @@ $('show-all').addEventListener('change', (e) => update((s) => { s.showAll = e.ta
 /** The number an op carries for an override kind, to seed the value box. */
 function seedValue(steps, kind) {
   const effect = steps.find((s) => s.part === 'Effect');
+  // A custom effect starts as the effect the joker had, written out.
+  if (kind === 'custom') return effect ? formatOp(effect.op) : 'nothing';
   const defaults = { chips: 0, mult: 0, xmult: 1 };
   if (!effect || opKind(effect.op) !== kind) return defaults[kind];
   const op = effect.op;
@@ -219,6 +227,9 @@ function seedValue(steps, kind) {
   return defaults[kind];
 }
 
+// A custom effect box that does not read as an effect: its message, per slot.
+const customErrors = [];
+
 const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
   const picker = el('select', { 'aria-label': `Joker in slot ${i + 1}` }, [
     el('option', { value: '', text: 'Empty slot' }),
@@ -228,6 +239,7 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
   const kind = el('select', { 'aria-label': `Effect override, slot ${i + 1}` },
     OVERRIDE_KINDS.map((k) => el('option', { value: k.kind ?? '', text: k.label })));
   const value = el('input', { type: 'number', step: 'any', min: '0', 'aria-label': `Override value, slot ${i + 1}` });
+  const editors = el('div', { class: 'editors' }, [kind, value]);
   const edition = el('select', { 'aria-label': `Edition, slot ${i + 1}` },
     EDITIONS.map((e) => el('option', { value: e.edition ?? '', text: e.label })));
   const headline = el('span', { class: 'headline' });
@@ -245,7 +257,7 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
       picker,
       el('div', { class: 'effect' }, [headline, kindLabel, badge]),
       note,
-      el('div', { class: 'editors' }, [kind, value]),
+      editors,
       el('div', { class: 'flags' }, [
         edition,
         el('label', { class: 'check small' }, [debuff, el('span', { text: 'debuffed' })]),
@@ -253,7 +265,12 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
     ]),
   ]);
 
+  const clearCustomError = () => {
+    delete customErrors[i];
+    value.removeAttribute('aria-invalid');
+  };
   picker.addEventListener('change', () => update((s) => {
+    clearCustomError();
     s.slots[i] = { ident: picker.value || null, override: null, debuffed: false };
   }));
   debuff.addEventListener('change', () => update((s) => { s.slots[i].debuffed = debuff.checked; }));
@@ -263,16 +280,33 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
   }));
   kind.addEventListener('change', () => update((s) => {
     const chosen = kind.value || null;
-    s.slots[i].override = chosen ? { kind: chosen, value: seedValue(lastSteps[i] ?? [], chosen) } : null;
+    const seeded = chosen && seedValue(lastSteps[i] ?? [], chosen);
+    clearCustomError();
+    if (chosen === 'custom') s.slots[i].override = { kind: chosen, text: seeded };
+    else s.slots[i].override = chosen ? { kind: chosen, value: seeded } : null;
     // A link's override with no editor kind is dropped once you pick one.
     delete s.slots[i].enhancement;
   }));
-  value.addEventListener('input', () => update((s) => {
-    if (s.slots[i].override) s.slots[i].override.value = value.value;
-  }));
+  value.addEventListener('input', () => {
+    if (state.slots[i].override?.kind !== 'custom') {
+      update((s) => { if (s.slots[i].override) s.slots[i].override.value = value.value; });
+      return;
+    }
+    try {
+      parseOp(value.value);
+    } catch (error) {
+      // Keep scoring the last good effect until the box holds one again.
+      customErrors[i] = error.message;
+      value.setAttribute('aria-invalid', 'true');
+      note.textContent = error.message;
+      return;
+    }
+    clearCustomError();
+    update((s) => { s.slots[i].override.text = value.value; });
+  });
 
   $('slots').append(card);
-  return { card, picker, debuff, edition, kind, value, headline, kindLabel, status, badge, note };
+  return { card, picker, debuff, edition, kind, value, editors, headline, kindLabel, status, badge, note };
 });
 
 // ---- Render ---------------------------------------------------------------
@@ -308,13 +342,13 @@ function render() {
   renderPile('played');
   renderPile('held');
 
-  const { spec, jokerIndex } = buildSpec(state);
+  const { spec, jokerIndex, effects } = buildSpec(state);
   let trace;
   try {
-    trace = scoreSpec(spec, state.seed);
+    trace = scoreSpec(spec, state.seed, effects);
     if (loadError) showError(loadError);
     else $('error').hidden = true;
-    window.history.replaceState(null, '', boardHash(spec, state.seed));
+    window.history.replaceState(null, '', boardHash(spec, state.seed, effects));
   } catch (error) {
     showError(error.payload ?? String(error));
     return;
@@ -346,7 +380,7 @@ function render() {
     nodes.kindLabel.textContent = view.kindLabel;
     nodes.status.textContent = view.empty ? '' : slot.debuffed ? 'debuffed' : view.fired ? 'fired ✓' : 'did not fire';
     nodes.badge.hidden = !view.overridden;
-    nodes.note.textContent = view.note;
+    nodes.note.textContent = customErrors[i] ?? view.note;
     nodes.debuff.checked = Boolean(slot.debuffed);
     nodes.debuff.disabled = view.empty;
     nodes.edition.value = slot.edition && slot.edition !== 'None' ? slot.edition : '';
@@ -354,6 +388,10 @@ function render() {
     nodes.kind.value = slot.override?.kind ?? '';
     nodes.kind.disabled = view.empty;
     nodes.value.disabled = !slot.override;
+    const custom = slot.override?.kind === 'custom';
+    nodes.editors.classList.toggle('custom', custom);
+    nodes.value.type = custom ? 'text' : 'number';
+    nodes.value.placeholder = custom ? '+20 Chips, ×2 Mult' : '';
     if (document.activeElement !== nodes.value) nodes.value.value = slot.override ? String(view.overrideValue) : '';
   });
 

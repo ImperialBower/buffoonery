@@ -113,6 +113,7 @@ input[aria-invalid=true] { border-color: var(--mult); }
 .note { min-height: 34px; font-size: 12px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
 .editors { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 8px; }
 .editors select { padding: 0 6px; }
+.editors.custom { grid-template-columns: minmax(0, 1fr); }
 .flags { display: grid; gap: 10px; }
 .flags .check { justify-self: start; }
 .flags select { height: 36px; padding: 0 6px; font-size: 13px; }

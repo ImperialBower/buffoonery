@@ -117,7 +117,7 @@ test('the edition picker puts an edition on a joker, and the engine scores it', 
 test('a seed rolls the chances, and the link keeps it', async ({ page }) => {
   const yaml = readFileSync(join(golden, '11_inert_jokers.yaml'), 'utf8');
   const spec = JSON.parse(calculator.parse(yaml));
-  const seeded = JSON.parse(calculator.scoreSeeded(JSON.stringify(spec), 7n));
+  const seeded = JSON.parse(calculator.scoreWith(JSON.stringify(spec), { seed: 7n, effects: [] }));
 
   await page.goto(`/#board=${encodeURIComponent(yaml)}`);
   await page.check('#show-all');
@@ -143,4 +143,38 @@ test('a seed rolls the chances, and the link keeps it', async ({ page }) => {
   await page.fill('#seed', '');
   await expect(page.locator('#breakdown .detail', { hasText: 'rolled' })).toHaveCount(0);
   expect(new URL(page.url()).hash).toMatch(/^#board=/);
+});
+
+test('a custom effect scores the op you type, and the link keeps it', async ({ page }) => {
+  const state = initialState();
+  state.slots[1].override = { kind: 'custom', text: '+20 Chips, ×2 Mult' };
+  const { spec, effects } = buildSpec(state);
+  const options = { effects: effects.map(({ id, op }) => ({ id, op: JSON.stringify(op) })) };
+  const trace = JSON.parse(calculator.scoreWith(JSON.stringify(spec), options));
+
+  await page.goto('/');
+  await page.check('#show-all');
+  await page.selectOption('[aria-label="Effect override, slot 2"]', 'custom');
+  const box = page.locator('[aria-label="Override value, slot 2"]');
+  await expect(box).toHaveValue('+10 Mult');
+  await box.fill('+20 Chips, ×2 Mult');
+  await expect(page.locator('#final-score')).toHaveText(fmtNum(handScore(trace.total)));
+  expect(await shownCells(page)).toEqual(expectedCells(trace));
+  const slot = page.locator('.slot').nth(1);
+  await expect(slot.locator('.headline')).toHaveText('+20 ×2');
+  await expect(slot.locator('.note')).toContainText('Custom: +20 Chips, ×2 Mult');
+
+  // A box that is not an effect says so, and the page keeps the last good one.
+  await box.fill('+20 Chips, ×2');
+  await expect(box).toHaveAttribute('aria-invalid', 'true');
+  await expect(slot.locator('.note')).toHaveText('Type an effect like "+20 Chips, ×2 Mult".');
+  await expect(page.locator('#final-score')).toHaveText(fmtNum(handScore(trace.total)));
+
+  // The link alone brings the effect back.
+  const link = page.url();
+  expect(new URL(link).hash).toMatch(/^#effects=/);
+  await page.goto('about:blank');
+  await page.goto(link);
+  await expect(page.locator('[aria-label="Override value, slot 2"]')).toHaveValue('+20 Chips, ×2 Mult');
+  await expect(page.locator('#final-score')).toHaveText(fmtNum(handScore(trace.total)));
 });

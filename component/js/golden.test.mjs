@@ -43,17 +43,30 @@ test('a bad spec throws its error message', () => {
   );
 });
 
-test('score-seeded rolls the chances, and a seed repeats', () => {
+test('score-with rolls the chances from a seed, and a seed repeats', () => {
   const yaml = readFileSync(join(golden, '11_inert_jokers.yaml'), 'utf8');
   const rolled = (trace) => JSON.parse(trace).steps.filter((step) => step.rolled).length;
-  assert.equal(rolled(calculator.score(yaml)), 0);
-  // WIT u64 is a BigInt in JavaScript.
-  assert.equal(rolled(calculator.scoreSeeded(yaml, 7n)), 2);
-  assert.equal(calculator.scoreSeeded(yaml, 7n), calculator.scoreSeeded(yaml, 7n));
-  assert.ok(calculator.scoreSeeded(yaml, 2n ** 64n - 1n));
+  // WIT u64 is a BigInt in JavaScript; an absent option is `undefined`.
+  const seeded = (seed) => ({ seed, effects: [] });
+  assert.equal(rolled(calculator.scoreWith(yaml, seeded(undefined))), 0);
+  assert.equal(calculator.scoreWith(yaml, seeded(undefined)), calculator.score(yaml));
+  assert.equal(rolled(calculator.scoreWith(yaml, seeded(7n))), 2);
+  assert.equal(calculator.scoreWith(yaml, seeded(7n)), calculator.scoreWith(yaml, seeded(7n)));
+  assert.ok(calculator.scoreWith(yaml, seeded(2n ** 64n - 1n)));
   assert.throws(
-    () => calculator.scoreSeeded('played: [AS, ZZ]', 1n),
+    () => calculator.scoreWith('played: [AS, ZZ]', seeded(1n)),
     (error) => error.payload === 'played[1]: unknown card "ZZ"',
+  );
+});
+
+test('score-with scores a custom effect as its op', () => {
+  const board = 'played: [AS]\njokers: [{ident: JOKER, enhancement: !Custom 3}]';
+  const op = { Seq: [{ AddChips: 20 }, { TimesMult: 2 }] };
+  const trace = JSON.parse(calculator.scoreWith(board, { effects: [{ id: 3, op: JSON.stringify(op) }] }));
+  assert.deepEqual(trace.total, { chips: 36, mult: 2 });
+  assert.throws(
+    () => calculator.scoreWith(board, { effects: [{ id: 3, op: '{"AddChips": -1}' }] }),
+    (error) => error.payload.startsWith('effects[0].op: '),
   );
 });
 

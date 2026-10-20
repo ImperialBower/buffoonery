@@ -32,7 +32,7 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestones A an
 | Story 6 — the page calls the engine | **Complete** (`buffoonery` `1cf72e5` and `393cc67`, merged in `53550da`, 2026-10-19; CI green on `main`) |
 | Story 7 — played and held cards | **Complete** (`buffoonery` `e32881a`, 2026-10-19; branch `epic05-status`, not yet merged) |
 | Story 8 — parity test | **Complete** (`buffoonery` `9ee8495`, 2026-10-19; branch `epic05-status`, not yet merged). Milestone C is met |
-| Milestone D — polish | In progress: export (`585bfd4`) and edition picker (`e3fe092`) done; seeded mode (`fedb407`) done; custom effects open |
+| Milestone D — polish | All four items done: export (`585bfd4`), edition picker (`e3fe092`), seeded mode (`fedb407`); custom effects built 2026-10-20, not yet committed |
 
 ## Current state
 
@@ -71,7 +71,7 @@ Sources (cardpack): `src/funky/types/{board,score,effect,mpip,buffoon_card}.rs`,
 
 - Playing Balatro. No shop, no antes, no run loop in the calculator. `BuffoonBoard` already has them; the calculator ignores them.
 - Pixel-accurate joker art. The simplified card stays simplified.
-- Modded jokers (`MPip::Custom` / `EffectRegistry`) in v1. The seam exists; wiring it into the UI is a follow-on.
+- Modded jokers (`MPip::Custom` / `EffectRegistry`) in v1. The seam exists; wiring it into the UI is a follow-on. (Done in Milestone D as fixed, typed ops: "Custom effects".)
 - Filling the 8 `Blank` jokers. They render as "not modelled" with their stated reason.
 - WIT in cardpack. The WIT boundary belongs to the solver repo. Cardpack's verdict against WIT ([`.okf/architecture/domain-kernel.md`](https://github.com/ImperialBower/cardpack.rs/blob/main/.okf/architecture/domain-kernel.md)) still holds for cardpack, which has no game state.
 - New effect *behavior* from YAML. YAML sets data: any `MPip` variant and its numbers. A new kind of effect needs Rust code in an `EffectRegistry`.
@@ -279,10 +279,10 @@ Built 2026-10-19 with Playwright 1.64.1 (Chromium) in `web/e2e/parity.spec.mjs`;
 
 ### Milestone D — polish
 
-- [x] Seeded mode: a seed field switches to `score_traced_with_seed`. The trace marks rolled steps. Done 2026-10-20: the component exports `score-seeded(spec, seed: u64)` next to `score`; the seed is an argument, not a `BoardSpec` field, since it says how to score a board, not what is on it. The page has a seed field (blank = no seed, every chance at its floor) and a "New seed" button. Rows of rolled steps (Lucky, Misprint) say "rolled". The link carries the seed as `#seed=7&board=…`; old links still open. The component grew 8 KiB (the seeded RNG) to 475 KiB. Tests: native totals equal `score_with_seed` for every fixture at 3 seeds; fixture 11 has 2 rolled steps seeded and none unseeded, in Rust, in the JS component and in the page
+- [x] Seeded mode: a seed field switches to `score_traced_with_seed`. The trace marks rolled steps. Done 2026-10-20: the component exported `score-seeded(spec, seed: u64)` next to `score` (folded into `score-with` by the custom effects item); the seed is an argument, not a `BoardSpec` field, since it says how to score a board, not what is on it. The page has a seed field (blank = no seed, every chance at its floor) and a "New seed" button. Rows of rolled steps (Lucky, Misprint) say "rolled". The link carries the seed as `#seed=7&board=…`; old links still open. The component grew 8 KiB (the seeded RNG) to 475 KiB. Tests: native totals equal `score_with_seed` for every fixture at 3 seeds; fixture 11 has 2 rolled steps seeded and none unseeded, in Rust, in the JS component and in the page
 - [x] Edition picker (Foil / Holo / Poly) per joker, rendered as a corner mark on the simplified card. Done 2026-10-19: each joker card has an edition menu (No edition, Foil, Holographic, Polychrome, Negative), each labelled with what it adds. The engine scores it as the joker's Edition step; the card's note reads e.g. "Edition: ×1.5 Mult" and the breakdown shows the row. No corner mark: the note already names the edition and its effect. Negative is offered because links carry it; it scores nothing, and the page does not model the slot it frees. A Node test checks each edition's op against the engine; a browser test picks Polychrome and compares the table with the engine's trace. Picking another joker clears the edition, as it clears the override
 - [x] Export: copy the current `BoardSpec` JSON; paste one to restore a board. Done 2026-10-19: the link always holds the board (Story 8); "Copy board" copies the `BoardSpec` as pretty JSON and "Copy link" the link; "Paste a board" opens a board written as YAML or JSON. A board opens only if the engine can score it, so an unknown joker or card is reported at once and the page keeps its board. With no clipboard, the text lands in the paste box, selected. Two browser tests cover paste and copy
-- [ ] Custom effects: a `MPip::Custom(id)` entry whose `ScoreOp` the user types, routed through an `EffectRegistry` in the adapter
+- [x] Custom effects: a `MPip::Custom(id)` entry whose `ScoreOp` the user types, routed through an `EffectRegistry` in the adapter. Done 2026-10-20: each joker's override menu has "Custom"; you type an effect the way the breakdown writes one (`+20 Chips, ×2 Mult`, `×1.5 Mult`, `nothing`). The page sends `{Custom: id}` on the joker and `{id, op}` to the component's new `score-with(spec, options)`, which registers each op as a fixed `Effect` and scores through the registry. `score-with` also takes the seed and replaced `score-seeded`; the engine gained `score_traced_with_rng_and_registry` and `score_traced_with_seed_and_registry`, so seed and custom effects work together. The link carries the effects (`#effects=[…]&board=…`). A typed effect is fixed: it reads nothing from the board, so it cannot express a condition (non-goal: new effect *behavior* needs Rust). Custom ids on cards pass through from links but have no editor. The component grew 13 KiB to 488 KiB, 12 KiB under budget
 
 ## Open questions and risks
 
