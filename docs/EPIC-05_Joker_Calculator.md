@@ -14,7 +14,7 @@ The design bundle (Design artifact pages, architecture diagram) lives in [`docs/
 
 ## Status
 
-As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A runs in `buffoonery`.
+As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestones A and B, and Story 6, are merged in `buffoonery` (PR #2, `53550da`).
 
 | Component | Status |
 | --- | --- |
@@ -27,9 +27,9 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A run
 | Story 1 — `ScoreTrace` | **Complete** (`buffoonery` `622fd9e`, 2026-10-19) |
 | Story 2 — joker catalog | **Complete** (`buffoonery` `00e088e`, 2026-10-19) |
 | Story 3 — `BoardSpec` (Rust and YAML) | **Complete** (`buffoonery` `00e088e`, 2026-10-19). Milestone A is met |
-| Story 4 — WIT component | Built (2026-10-19; 20 component tests green through `jco`), not yet committed. Its browser test moved to Story 8 |
-| Story 5 — golden fixtures | Built (2026-10-19; 14 fixtures, `tests/golden.rs` green), not yet committed |
-| Story 6 — the page calls the engine | Built (2026-10-19; `web/`, 9 model tests green, checked in Chrome), not yet committed |
+| Story 4 — WIT component | **Complete** (`buffoonery` `b344160`, merged in `53550da`, 2026-10-19). Its browser test moved to Story 8 |
+| Story 5 — golden fixtures | **Complete** (`buffoonery` `051ebb8`, merged in `53550da`, 2026-10-19). Milestone B is met |
+| Story 6 — the page calls the engine | **Complete** (`buffoonery` `1cf72e5` and `393cc67`, merged in `53550da`, 2026-10-19; CI green on `main`) |
 | Stories 7–8 — hand editor, parity test | Planned |
 | Milestone D — polish | Planned |
 
