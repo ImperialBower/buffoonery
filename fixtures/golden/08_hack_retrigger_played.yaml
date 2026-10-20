@@ -1,0 +1,5 @@
+# Hack retriggers each played 2, 3, 4 and 5 once; the 6 is scored once.
+played: [2S, 3H, 4D, 5C, 6S]
+jokers:
+  - ident: HACK
+  - ident: CRAZY_JOKER

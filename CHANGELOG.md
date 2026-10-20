@@ -36,6 +36,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PokerHands::set_level(hand_type, level)`.
 - `ScoreOp` implements `Display` (`+4 Mult`, `+80 Chips`, `×3 Mult`) and
   gains `ScoreOp::is_noop()`.
+- **Golden fixtures** (EPIC-05 Story 5): 14 boards in
+  `fixtures/golden/` as `BoardSpec` YAML, each with the `ScoreTrace` JSON the
+  engine must return. `tests/golden.rs` checks them;
+  `BLESS=1 cargo test --test golden` rewrites the JSON after a deliberate
+  scoring change. They are the shared contract for the WIT component and the
+  calculator.
+- **WIT component** (EPIC-05 Story 4): the new workspace crate
+  `component/` (`buffoonery-component`, not published) builds a
+  `wasm32-wasip2` component exporting `imperialbower:solver/calculator`:
+  `score` (a `BoardSpec` as JSON or YAML in, a `ScoreTrace` as JSON out),
+  `catalog` and `version`. `make component` shrinks it with `jco opt`,
+  transpiles it with `jco`, and runs the golden fixtures through it in Node;
+  CI does the same. 467 KiB after optimization (166 KiB gzipped).
+- `buffoonery::VERSION`, the crate version.
+- **The Joker Calculator page** (EPIC-05 Story 6), in `web/`: pick a hand,
+  slot jokers, override their effects or debuff them; every number comes
+  from the WIT component's trace. `make web` tests and builds it.
+- A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
+  it; the calculator's "+ Chips" override does.
 
 ### Changed
 
@@ -55,6 +74,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Requires cardpack 0.11.2.** cardpack 0.11.2 dropped a stale wasm-only
   `getrandom` 0.3 pin, so `buffoonery` no longer gets two copies of
   `getrandom`. The `getrandom` and `r-efi` skips in `deny.toml` are removed.
+
+### Fixed
+
+- A debuffed joker no longer scores: its effect and edition are no-op trace
+  steps, and it adds no retriggers, hand-rule changes or odds. Before, the
+  `debuffed` flag was never read while scoring.
 
 ### Added
 

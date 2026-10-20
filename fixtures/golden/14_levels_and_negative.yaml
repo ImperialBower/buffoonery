@@ -1,0 +1,7 @@
+# A level-3 Pair, and a Negative joker: Negative takes no slot and scores
+# nothing as an edition, so its Edition step is a no-op.
+hand_levels: { Pair: 3 }
+played: [5S, 5D]
+jokers:
+  - ident: JOLLY_JOKER
+    edition: Negative

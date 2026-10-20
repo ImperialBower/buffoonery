@@ -1,0 +1,3 @@
+# The smallest board: one played card, no jokers. Pins the base step and a
+# played card's three parts (effect, special, edition), the last two no-ops.
+played: [AS]

@@ -1,0 +1,10 @@
+# Mime retriggers held cards: each held Steel card applies x1.5 twice
+# (retrigger 0 and 1).
+played: [8S, 8C]
+held:
+  - card: KH
+    enhancement: !MultTimes1Dot 15
+  - card: KC
+    enhancement: !MultTimes1Dot 15
+jokers:
+  - ident: MIME

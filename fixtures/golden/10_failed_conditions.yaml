@@ -1,0 +1,9 @@
+# High card: every joker's condition fails. Jolly and The Duo want a Pair;
+# Mystic Summit wants 0 discards left (3 remain). Each is a step with
+# `fired: false`. One card only: the engine scores kickers, Balatro does not
+# (EPIC-05 risk 7), so a second card would pin a known-wrong total.
+played: [QD]
+jokers:
+  - ident: JOLLY_JOKER
+  - ident: THE_DUO
+  - ident: MYSTIC_SUMMIT

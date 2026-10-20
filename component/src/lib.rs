@@ -1,0 +1,103 @@
+//! The buffoonery engine as a WebAssembly component (EPIC-05 Story 4).
+//!
+//! The component exports the `calculator` interface in `wit/world.wit`. This
+//! crate is the adapter: it owns the formats (JSON and YAML in, JSON out) and
+//! does no scoring of its own. The engine crate knows nothing about WIT.
+//!
+//! Build it with
+//!
+//! ```text
+//! cargo build -p buffoonery-component --target wasm32-wasip2 --profile component
+//! ```
+//!
+//! The three functions below are the exports. They are plain Rust, so the
+//! native tests check them against `fixtures/golden/` without a wasm runtime;
+//! the `js/` tests check the built component itself.
+
+use buffoonery::prelude::*;
+
+/// Scores a board: a [`BoardSpec`] as JSON or YAML in, its [`ScoreTrace`] as
+/// JSON out. Input that starts with `{` is read as JSON, anything else as
+/// YAML.
+///
+/// # Errors
+///
+/// The [`BoardSpecError`] message, which names the bad field: a parse error,
+/// an unknown joker ident or card index, too many cards or jokers, or a bad
+/// hand level.
+///
+/// # Examples
+///
+/// ```
+/// let trace = buffoonery_component::score("played: [AS]").unwrap();
+/// assert!(trace.contains(r#""hand_type":"HighCard""#));
+///
+/// let error = buffoonery_component::score("jokers: [{ident: NOPE}]").unwrap_err();
+/// assert_eq!(error, r#"jokers[0]: unknown joker ident "NOPE""#);
+/// ```
+pub fn score(spec: &str) -> Result<String, String> {
+    let spec = read_spec(spec).map_err(|e| e.to_string())?;
+    let board = BuffoonBoard::try_from(&spec).map_err(|e| e.to_string())?;
+    serde_json::to_string(&board.score_traced()).map_err(|e| e.to_string())
+}
+
+fn read_spec(spec: &str) -> Result<BoardSpec, BoardSpecError> {
+    if spec.trim_start().starts_with('{') {
+        serde_json::from_str(spec).map_err(|e| BoardSpecError::Parse(e.to_string()))
+    } else {
+        BoardSpec::from_yaml(spec)
+    }
+}
+
+/// Every joker as a JSON array of [`JokerInfo`], in [`Joker::ALL_JOKERS`]
+/// order.
+///
+/// # Examples
+///
+/// ```
+/// let catalog = buffoonery_component::catalog();
+/// assert!(catalog.contains(r#""ident":"JOLLY_JOKER""#));
+/// ```
+#[must_use]
+pub fn catalog() -> String {
+    // `JokerInfo` holds only strings, numbers and an `MPip`, so serializing it
+    // cannot fail; the empty array is never reached.
+    serde_json::to_string(&Joker::catalog()).unwrap_or_else(|_| String::from("[]"))
+}
+
+/// The version of the buffoonery engine that scores the boards.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(buffoonery_component::version(), buffoonery::VERSION);
+/// ```
+#[must_use]
+pub fn version() -> String {
+    buffoonery::VERSION.to_string()
+}
+
+#[cfg(target_arch = "wasm32")]
+// The generated lift code rebuilds a `Vec` with length == capacity, on purpose.
+#[allow(clippy::same_length_and_capacity)]
+mod bindings {
+    wit_bindgen::generate!({ world: "joker-calculator", path: "wit" });
+
+    struct Component;
+
+    impl exports::imperialbower::solver::calculator::Guest for Component {
+        fn score(spec: String) -> Result<String, String> {
+            super::score(&spec)
+        }
+
+        fn catalog() -> String {
+            super::catalog()
+        }
+
+        fn version() -> String {
+            super::version()
+        }
+    }
+
+    export!(Component);
+}

@@ -1,0 +1,16 @@
+package imperialbower:solver@0.1.0;
+
+/// Score a Balatro board and explain the score (EPIC-05 Story 4).
+interface calculator {
+    /// A `BoardSpec` as JSON or YAML in; its `ScoreTrace` as JSON out. The
+    /// error names the bad field, e.g. `jokers[1]: unknown joker ident "X"`.
+    score: func(spec: string) -> result<string, string>;
+    /// Every joker as JSON: ident, name, rarity, cost, effect, blank reason.
+    catalog: func() -> string;
+    /// The buffoonery engine version that scores the boards.
+    version: func() -> string;
+}
+
+world joker-calculator {
+    export calculator;
+}

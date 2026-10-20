@@ -25,10 +25,12 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A run
 | Story S1 — fractional `Score` | **Complete** (`buffoonery` `bf779a4`, 2026-10-19) |
 | Story S2 — scoring folds out of `board.rs` | **Complete** (`buffoonery` `6fa2c8d`, 2026-10-19) |
 | Story 1 — `ScoreTrace` | **Complete** (`buffoonery` `622fd9e`, 2026-10-19) |
-| Story 2 — joker catalog | Built (2026-10-19; 513 lib tests green), not yet committed |
-| Story 3 — `BoardSpec` (Rust and YAML) | Built (2026-10-19; 539 lib tests green), not yet committed. Milestone A is met |
-| Stories 4–5 — WIT component, golden fixtures | Planned |
-| Stories 6–8 — calculator renders the engine | Planned |
+| Story 2 — joker catalog | **Complete** (`buffoonery` `00e088e`, 2026-10-19) |
+| Story 3 — `BoardSpec` (Rust and YAML) | **Complete** (`buffoonery` `00e088e`, 2026-10-19). Milestone A is met |
+| Story 4 — WIT component | Built (2026-10-19; 20 component tests green through `jco`), not yet committed. Its browser test moved to Story 8 |
+| Story 5 — golden fixtures | Built (2026-10-19; 14 fixtures, `tests/golden.rs` green), not yet committed |
+| Story 6 — the page calls the engine | Built (2026-10-19; `web/`, 9 model tests green, checked in Chrome), not yet committed |
+| Stories 7–8 — hand editor, parity test | Planned |
 | Milestone D — polish | Planned |
 
 ## Current state
@@ -232,26 +234,28 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 
 **Story 4: WIT component**
 
-- [ ] `wit/` holds the interface from the Design sketch; build with `cargo component` or `wit-bindgen`, target `wasm32-wasip2`
-- [ ] Exports: `score(spec) -> result<string, string>`, `catalog() -> string`, `version() -> string`
-- [ ] Run the golden boards against the built component in CI (for example with `wasmtime`), not only as native Rust tests
-- [ ] `jco transpile` produces an ES module, and a headless browser test loads it and scores one golden board
-- [ ] Size budget recorded in the README after `wasm-opt -Oz`; `i18n` and `colored-display` off in cardpack
+- [x] `wit/` holds the interface from the Design sketch; build with `cargo component` or `wit-bindgen`, target `wasm32-wasip2`. Done: a new workspace crate, `component/` (`buffoonery-component`, `publish = false`), with `component/wit/world.wit` exactly as sketched. `wit-bindgen` 0.63; plain `cargo build --target wasm32-wasip2` makes the component, so `cargo component` is not needed. The engine crate has no WIT or JSON code; it gained only `buffoonery::VERSION`. A `component` cargo profile (`opt-level = "z"`, LTO, `panic = "abort"`) leaves the engine's release build alone
+- [x] Exports: `score(spec) -> result<string, string>`, `catalog() -> string`, `version() -> string`. Done. `score` reads JSON when the input starts with `{`, YAML otherwise; its error is the `BoardSpecError` message (`jokers[0]: unknown joker ident "NOPE"`). `version` is the engine's version. The three are plain Rust functions; the bindings (only on `wasm32`) call them
+- [x] Run the golden boards against the built component in CI (for example with `wasmtime`), not only as native Rust tests. Done with Node instead of `wasmtime`: `component/js/golden.test.mjs` runs every fixture through the `jco`-transpiled component, the same ES module a browser loads (installed `wasmtime` 24 cannot invoke component exports). New CI job `component`; `make component`, part of `make ayce`. The native twin is `component/tests/golden.rs` (YAML and JSON input)
+- [x] `jco transpile` produces an ES module, and a headless browser test loads it and scores one golden board. Done for the module: `jco transpile` produces it and Node tests it. **The headless browser test moved to Story 8** (decided 2026-10-19): it needs a page that loads the module (an import map for `@bytecodealliance/preview2-shim`), and that page is Milestone C's web host (open question 3). A test page built now would be thrown away
+- [x] Size budget recorded in the README after `wasm-opt -Oz`; `i18n` and `colored-display` off in cardpack. Done: 571 KiB raw / 170 KiB gzip, and 467 KiB / 166 KiB after `jco opt -Oz` (which runs `wasm-opt` on the core modules; plain `wasm-opt` cannot read a component). Budget 500 KiB, checked by a test. cardpack's default features are empty, so `i18n` and `colored-display` were already off. Figures in [`component/README.md`](../component/README.md)
 
 **Story 5: golden fixtures shared across the boundary**
 
-- [ ] `fixtures/golden/`: 10–15 `BoardSpec` (YAML) + expected `ScoreTrace` (JSON) pairs, checked into the solver repo and consumed verbatim by the Rust tests, the component tests and the UI tests
-- [ ] At least one fixture per `ScoreOp` variant, one with a failed condition, one with a retrigger, one with an edition, one with a `Blank` joker
+- [x] `fixtures/golden/`: 10–15 `BoardSpec` (YAML) + expected `ScoreTrace` (JSON) pairs, checked into the solver repo and consumed verbatim by the Rust tests, the component tests and the UI tests. Done: 14 pairs, read by `tests/golden.rs`, which compares each trace to its JSON as a `serde_json::Value`, reads the JSON back into the same `ScoreTrace`, and checks `trace.total == score()`. `BLESS=1 cargo test --test golden` rewrites the JSON after a deliberate change ([`fixtures/golden/README.md`](../fixtures/golden/README.md)). Every total was checked by hand against Balatro's rules before it was committed. The component and UI tests (Stories 4 and 8) still have to read them
+- [x] At least one fixture per `ScoreOp` variant, one with a failed condition, one with a retrigger, one with an edition, one with a `Blank` joker. Done, and enforced by `golden__coverage`: `Nothing`, `AddChips`, `AddMult`, `Add`, `TimesMult`; a failed joker condition; played and held retriggers (Hack, Hanging Chad + Sock and Buskin stacked, Mime); editions firing on a card and on jokers; DNA (`Blank`). **Not covered: `Seq`.** Only a registered custom effect returns it, and a `BoardSpec` cannot carry a registry. No fixture plays a kicker (risk 7)
 
 ### Milestone C — the calculator renders the engine (Design artifact / web)
 
 **Story 6: replace the JS math with the wasm call**
 
-- [ ] Load the `jco`-transpiled component. On any edit, build a `BoardSpec` from UI state and call `score`
-- [ ] Delete `HANDS`, `JOKERS` and the step loop from the artboard. The breakdown table maps 1:1 onto `ScoreTrace.steps`
-- [ ] Joker picker populated from `catalog()`. The card's note shows the real `MPip` and, for `Blank`, the reason
-- [ ] The "active" checkbox becomes read-only `fired` state computed by the kernel. A manual override remains only as the `debuffed` flag
-- [ ] Editing the value or effect type writes a `JokerSpec.enhancement` override and shows an "overridden" badge on the card
+Built 2026-10-19 in `web/` (open question 3), with Vite: `make web` tests the model and builds `web/dist`; `make dev` serves it with live reload. `web/src/model.js` turns page state into a `BoardSpec` and the trace into what the page shows; `web/src/main.js` only draws. The page's one sum is `floor(chips × mult)` for the running score, the same expression as `Score::score()`.
+
+- [x] Load the `jco`-transpiled component. On any edit, build a `BoardSpec` from UI state and call `score`. Done; a bad spec shows the engine's error message in a banner
+- [x] Delete `HANDS`, `JOKERS` and the step loop from the artboard. The breakdown table maps 1:1 onto `ScoreTrace.steps`. Done in the page, which has none of the three; the artboard stays as the design reference. One row per step; rows that changed nothing are hidden, except a joker's effect row (so "did not fire" stays visible), and "Show every step" shows them all. Until Story 7 the hand-type menu picks a sample hand (cards only; the engine finds the type and its base). No Royal Flush entry: the engine scores one as a Straight Flush, as Balatro does
+- [x] Joker picker populated from `catalog()`. The card's note shows the real `MPip` and, for `Blank`, the reason. Done; the picker lists all 112 by name
+- [x] The "active" checkbox becomes read-only `fired` state computed by the kernel. A manual override remains only as the `debuffed` flag. Done: the band reads "fired ✓", "did not fire" or "debuffed". **Engine change:** `debuffed` was never read in scoring, so a debuffed joker still scored. Now a debuffed joker's effect and edition are no-op steps, and it adds no retriggers, rule changes (Four Fingers, Shortcut, Smeared, Pareidolia) or odds (Oops! All 6s). Out-of-scoring readers (boss disabling, draws, rerolls) still ignore the flag
+- [x] Editing the value or effect type writes a `JokerSpec.enhancement` override and shows an "overridden" badge on the card. Done. An override is unconditional: `+ Chips` → `Chips(n)`, `+ Mult` → `MultPlus(n)`, `× Mult` → `MultTimes(n)`, or `MultTimes1Dot` (tenths) for a fraction, so ×1.25 rounds to ×1.3. The note shows the override and the printed effect. **Engine change:** a joker with `Chips(n)` scored nothing; it now adds n chips (no Balatro joker carries `Chips`, so no score moved)
 
 **Story 7: played and held cards**
 
@@ -261,6 +265,7 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 
 **Story 8: parity test**
 
+- [ ] A headless browser test loads the `jco`-transpiled component and scores one golden board (moved here from Story 4 on 2026-10-19)
 - [ ] A browser test renders each golden fixture and asserts the table's cells equal the fixture's trace
 
 ### Milestone D — polish
@@ -280,6 +285,7 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
    - **Built 2026-10-19:** `{ chips: u64, mult: f64 }`, floored once in `score()`. `blind_target` is still `usize` (follow-up under S1).
 2. **Engine placement.** ~~A `funky-wasm` adapter crate, in cardpack's workspace or a sibling repo.~~ **Decided 2026-10-18 (0h):** the engine itself moves to its own repo, which becomes the solver foundation ([EPIC-06](https://github.com/ImperialBower/cardpack.rs/blob/main/docs/EPIC-06_Funky_Extraction.md)). This also avoids the cargo-deny trap a workspace member would have hit (cardpack [`.okf/decisions/examples-flag-free-alias.md`](https://github.com/ImperialBower/cardpack.rs/blob/main/.okf/decisions/examples-flag-free-alias.md)).
 3. **Where the calculator lives.** The Design artifact cannot load a `.wasm` from the canvas page today, so Milestone C needs a real web host (a static page in the repo, `examples/wasm.rs` style). The artboard stays as the design reference.
+   - **Decided 2026-10-19:** a `web/` folder in this repo, hosted on GitHub Pages. The page sits next to `component/` and `fixtures/golden/`, so the Story 8 parity test reads the fixtures directly and one CI run builds and tests both. Rejected: a separate `-web` repo (the pattern of `pkkuhn-web` and others), because it needs the component published (npm or a release file) and the fixtures copied across repos. The page can move to its own repo later, once the WIT interface has settled.
 4. ~~**`funky` requires `std`**, which rules out a `no_std` component.~~ **Resolved:** the WIT component targets `wasm32-wasip2`, which supports `std`.
 5. **Display names.** No joker names exist in the i18n resources (Story 2). The const name title-cased is wrong for several ("Dna", "Oops All 6s"), so a hand-checked table of all 112 is needed. **Resolved 2026-10-19:** a hand-written table in `src/decks/joker_catalog.rs` (Story 2).
 6. **Trace size.** One played card makes up to 3 steps per pass. Retriggers on a 5-card hand with Hack + Sock and Buskin can produce 40+ steps. The table needs grouping by card (Story 7).
@@ -310,8 +316,8 @@ cargo fmt --check
 cargo clippy --all-targets -- -Dclippy::all -Dclippy::pedantic
 cargo test
 cargo run --example buffoon                      # prints a trace
-cargo component build --release                  # or the wit-bindgen equivalent
-npx jco transpile target/wasm32-wasip2/release/buffoonery.wasm -o web/pkg
+rustup target add wasm32-wasip2
+make component                                   # builds, shrinks and transpiles the component; runs the fixtures through it
 ```
 
 Milestone 0 (cardpack, `c762538`) was checked on 2026-10-18 with:

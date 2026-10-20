@@ -2,3 +2,7 @@
 .idea/
 # Re-include bin/: a global gitignore may exclude it, and bin/security-scan must be committed.
 !/bin/
+# Re-include the toolchain pins: a global gitignore may exclude them, and CI
+# reads Node's version from .tool-versions. CLAUDE.md keeps them in step.
+!/.tool-versions
+!/.devcontainer/

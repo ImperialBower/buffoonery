@@ -1,0 +1,27 @@
+[package]
+name = "buffoonery-component"
+description = "The buffoonery engine as a WebAssembly component, behind a WIT boundary"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99.1"
+license = "Apache-2.0"
+repository = "https://github.com/ImperialBower/buffoonery"
+publish = false
+
+[lib]
+# cdylib is the component; rlib lets the native tests call the adapter.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+buffoonery = { path = "..", version = "0.0.1" }
+serde_json = "1"
+
+# The bindings exist only in the wasm build; native builds test the adapter.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wit-bindgen = "0.63"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"

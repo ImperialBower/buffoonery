@@ -1,0 +1,13 @@
+# Jokers that read the board: Banner (+30 chips per discard left), Bull (+2
+# chips per dollar), Abstract (+3 mult per joker), Gros Michel (+15 mult),
+# Raised Fist (+2 x the lowest held rank).
+money: 20
+discards_left: 2
+played: [AS, AD, AH]
+held: [3C, 9D]
+jokers:
+  - ident: BANNER
+  - ident: BULL
+  - ident: ABSTRACT_JOKER
+  - ident: GROS_MICHEL
+  - ident: RAISED_FIST

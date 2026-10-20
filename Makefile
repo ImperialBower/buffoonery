@@ -1,4 +1,4 @@
-.PHONY: default help clean fmt build test lint security-scan docs ayce
+.PHONY: default help clean fmt build test lint security-scan docs component web dev ayce
 default: ayce
 
 help:  ## self-documenting: every target has a '## comment' printed here
@@ -11,22 +11,35 @@ fmt: ## format all sources
 	cargo fmt
 
 build: ## compile/build
-	cargo build
+	cargo build --workspace
 
 test: ## run all tests
-	cargo test
+	cargo test --workspace
 
 lint: ## static analysis at the pedantic end
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy --workspace --all-targets -- -D warnings
+	cargo clippy -p buffoonery-component --target wasm32-wasip2 -- -D warnings
 	cargo deny check
 
 security-scan: ## dependency vulnerability scan
 	./bin/security-scan
 
 docs: ## build docs, fail on warnings
-	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
+	RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 
-ayce: clean fmt build test lint security-scan docs ## all-you-can-eat: full pre-push sweep
+component: ## build the WIT component, run the golden fixtures against it (needs wasm32-wasip2, node)
+	cargo build -p buffoonery-component --target wasm32-wasip2 --profile component
+	cd component/js && npm ci && npm test
+
+web: component ## test and build the Joker Calculator page into web/dist (needs node)
+	cd web && npm ci && npm test && npx vite build
+
+dev: ## serve the Joker Calculator with live reload; rerun after a Rust change (needs wasm32-wasip2, node)
+	cargo build -p buffoonery-component --target wasm32-wasip2 --profile component
+	cd component/js && { [ -d node_modules ] || npm ci; } && npm run opt
+	cd web && { [ -d node_modules ] || npm ci; } && npm run dev
+
+ayce: clean fmt build test lint security-scan docs web ## all-you-can-eat: full pre-push sweep
 
 .PHONY: watch install-tools
 

@@ -1,0 +1,5 @@
+# A played Glass card: its x2 is the card's Special step, at its position.
+played:
+  - card: 7S
+    enhancement: !Glass [2, 4]
+  - 7H

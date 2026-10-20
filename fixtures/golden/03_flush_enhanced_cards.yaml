@@ -1,0 +1,14 @@
+# A level-2 Flush. Two played cards carry their own enhancement (Bonus: +30
+# chips; Mult: +4 mult), and two flush jokers fire.
+hand_levels: { Flush: 2 }
+played:
+  - card: AH
+    enhancement: !Chips 30
+  - card: JH
+    enhancement: !MultPlus 4
+  - 9H
+  - 6H
+  - 3H
+jokers:
+  - ident: DROLL_JOKER
+  - ident: CRAFTY_JOKER

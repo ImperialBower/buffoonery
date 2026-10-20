@@ -1,0 +1,6 @@
+# Joker order matters: Joker's +4 mult lands before The Duo's x2, so the x2
+# doubles it.
+played: [JS, JH]
+jokers:
+  - ident: JOKER
+  - ident: THE_DUO
