@@ -73,6 +73,9 @@ export function initialState() {
     // The hand type the level editor shows; `null` follows the hand played.
     levelHand: null,
     slots: [slot('JOKER'), slot('DROLL_JOKER'), slot('CRAFTY_JOKER'), slot('CAVENDISH'), slot(null)],
+    // Board fields the page has no control for (money, discards_left,
+    // hands_left, blind), kept so a loaded board scores as it was written.
+    board: {},
     showAll: false,
   };
 }
@@ -109,7 +112,11 @@ export function overrideEnhancement(override) {
  * became (`null` for an empty slot). Empty slots are left out of the spec.
  */
 export function buildSpec(state) {
-  const index = (card) => `${card.rank}${card.suit}`;
+  const index = (card) => {
+    const name = `${card.rank}${card.suit}`;
+    if (!card.enhancement && !card.edition) return name;
+    return { card: name, ...pick(card, ['enhancement', 'edition']) };
+  };
   const levels = Object.entries(state.levels).filter(([, level]) => Number(level) !== 1);
   const jokers = [];
   const jokerIndex = state.slots.map((slot) => {
@@ -117,6 +124,8 @@ export function buildSpec(state) {
     const joker = { ident: slot.ident };
     const override = slot.override && overrideEnhancement(slot.override);
     if (override) joker.enhancement = override.enhancement;
+    else if (slot.enhancement) joker.enhancement = slot.enhancement;
+    if (slot.edition) joker.edition = slot.edition;
     if (slot.debuffed) joker.debuffed = true;
     jokers.push(joker);
     return jokers.length - 1;
@@ -125,7 +134,64 @@ export function buildSpec(state) {
   if (state.held.length) spec.held = state.held.map(index);
   if (levels.length) spec.hand_levels = Object.fromEntries(levels.map(([type, level]) => [type, Number(level)]));
   spec.jokers = jokers;
+  Object.assign(spec, pick(state.board ?? {}, BOARD_FIELDS));
   return { spec, jokerIndex };
+}
+
+const BOARD_FIELDS = ['money', 'discards_left', 'hands_left', 'blind'];
+
+/** The fields of `object` named in `keys` that are set. */
+function pick(object, keys) {
+  return Object.fromEntries(keys.filter((key) => object[key] !== undefined && object[key] !== null).map((key) => [key, object[key]]));
+}
+
+/** The editor override an `MPip` stands for, or `null` if it is no override kind. */
+function overrideFromEnhancement(mpip) {
+  if (typeof mpip !== 'object' || mpip === null) return null;
+  if ('Chips' in mpip) return { kind: 'chips', value: mpip.Chips };
+  if ('MultPlus' in mpip) return { kind: 'mult', value: mpip.MultPlus };
+  if ('MultTimes' in mpip) return { kind: 'xmult', value: mpip.MultTimes };
+  if ('MultTimes1Dot' in mpip) return { kind: 'xmult', value: mpip.MultTimes1Dot / 10 };
+  return null;
+}
+
+function cardFromSpec(card) {
+  const index = typeof card === 'string' ? card : card.card;
+  const [parsed] = cards(index);
+  return typeof card === 'string' ? parsed : { ...parsed, ...pick(card, ['enhancement', 'edition']) };
+}
+
+function slotFromSpec(joker) {
+  const override = joker.enhancement ? overrideFromEnhancement(joker.enhancement) : null;
+  const slot = { ident: joker.ident, override, debuffed: Boolean(joker.debuffed) };
+  if (joker.enhancement && !override) slot.enhancement = joker.enhancement;
+  if (joker.edition) slot.edition = joker.edition;
+  return slot;
+}
+
+/**
+ * Page state for a `BoardSpec` (as JSON, e.g. from the component's `parse`),
+ * so a board from a link opens in the page. Fields the page has no control
+ * for are kept. Throws when the page cannot show the board.
+ */
+export function specToState(spec) {
+  const played = (spec.played ?? []).map(cardFromSpec);
+  const held = (spec.held ?? []).map(cardFromSpec);
+  const jokers = spec.jokers ?? [];
+  if (played.length < 1) throw new Error('A board needs at least 1 played card.');
+  if (played.length > MAX_PLAYED) throw new Error(`The page plays at most ${MAX_PLAYED} cards.`);
+  if (held.length > MAX_HELD) throw new Error(`The page shows at most ${MAX_HELD} held cards.`);
+  if (jokers.length > SLOT_COUNT) throw new Error(`The page shows at most ${SLOT_COUNT} jokers.`);
+  const slots = jokers.map(slotFromSpec);
+  while (slots.length < SLOT_COUNT) slots.push({ ident: null, override: null, debuffed: false });
+  return {
+    ...initialState(),
+    played,
+    held,
+    levels: { ...spec.hand_levels },
+    slots,
+    board: pick(spec, BOARD_FIELDS),
+  };
 }
 
 /** The hand the engine found: its type, level, and base chips and mult. */
@@ -277,7 +343,7 @@ export function slotView(slot, info, steps) {
   const effect = steps.find((s) => s.part === 'Effect');
   const edition = steps.find((s) => s.part === 'Edition' && s.fired);
   const kind = effect ? opKind(effect.op) : 'none';
-  const override = slot.override && overrideEnhancement(slot.override);
+  const override = slot.override ? overrideEnhancement(slot.override) : slot.enhancement ? { enhancement: slot.enhancement } : null;
   const printed = formatMPip(info.enhancement);
   let kindLabel;
   if (slot.debuffed) kindLabel = 'debuffed';
@@ -286,6 +352,7 @@ export function slotView(slot, info, steps) {
   const notes = [override ? `Overridden: ${formatMPip(override.enhancement)} (printed: ${printed})` : printed];
   if (info.blank_reason) notes.push(`Not wired yet: ${info.blank_reason}`);
   if (edition) notes.push(`Edition: ${formatOp(edition.op)}`);
+  else if (slot.edition && slot.edition !== 'None') notes.push(`Edition: ${slot.edition}`);
   return {
     empty: false,
     headline: effect && !slot.debuffed ? opHeadline(effect.op) : '—',

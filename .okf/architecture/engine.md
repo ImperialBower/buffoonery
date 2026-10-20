@@ -68,7 +68,7 @@ EPIC-06 Funky Extraction), stay in the cardpack repo. EPIC-05 moved here on
 
 EPIC-05's stories run here: a fractional `Score` (done, S1), moving the scoring folds out
 of `board.rs` (done, S2), a `ScoreTrace` (done, Story 1), a `BoardSpec` written in Rust or YAML (done, Story 3), a
-joker catalog (done, Story 2), golden fixtures (done, Story 5), a WIT component (built, Story 4; its browser test moved to Story 8), the calculator page (Story 6) and its hand editor (built, Story 7). Story 8, the browser parity test, is next.
+joker catalog (done, Story 2), golden fixtures (done, Story 5), a WIT component (built, Story 4; its browser test moved to Story 8), the calculator page (Story 6), its hand editor (Story 7) and the browser parity test (Story 8): Milestone C is built. Milestone D (polish) is next.
 
 # Try it
 

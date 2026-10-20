@@ -28,6 +28,14 @@ test('a JSON spec scores like its YAML', () => {
   assert.deepEqual(trace.total, { chips: 32, mult: 10 });
 });
 
+test('parse turns a YAML board into JSON that scores the same', () => {
+  for (const name of specs) {
+    const yaml = readFileSync(join(golden, name), 'utf8');
+    const json = calculator.parse(yaml);
+    assert.deepEqual(JSON.parse(calculator.score(json)), JSON.parse(calculator.score(yaml)), name);
+  }
+});
+
 test('a bad spec throws its error message', () => {
   assert.throws(
     () => calculator.score('jokers: [{ident: NOPE}]'),

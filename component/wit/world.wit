@@ -5,6 +5,10 @@ interface calculator {
     /// A `BoardSpec` as JSON or YAML in; its `ScoreTrace` as JSON out. The
     /// error names the bad field, e.g. `jokers[1]: unknown joker ident "X"`.
     score: func(spec: string) -> result<string, string>;
+    /// A `BoardSpec` as JSON or YAML in; the same spec as JSON out, so a host
+    /// can read a YAML board without a YAML parser. Checks the shape only:
+    /// an unknown joker or card is reported by `score`.
+    parse: func(spec: string) -> result<string, string>;
     /// Every joker as JSON: ident, name, rarity, cost, effect, blank reason.
     catalog: func() -> string;
     /// The buffoonery engine version that scores the boards.

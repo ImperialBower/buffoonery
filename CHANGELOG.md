@@ -57,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and 8 held cards by rank and suit; the engine finds the hand type, and a
   level editor sets any hand's level. The breakdown groups its rows by the
   card or joker that made them.
+- **Boards in links, and the browser parity test** (EPIC-05 Story 8). The
+  component exports `parse`: a `BoardSpec` as JSON or YAML in, the same spec
+  as JSON out. The calculator opens a board from `#board=` in its link and
+  keeps the link up to date. `make e2e` opens every golden fixture in the
+  page with Playwright and checks every table cell against its trace.
 - A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
   it; the calculator's "+ Chips" override does.
 

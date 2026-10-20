@@ -2,6 +2,8 @@
 // `npm test` transpiles the component into src/pkg first.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { calculator } from '../src/pkg/buffoonery_component.js';
 import {
   HAND_TYPES,
@@ -19,6 +21,7 @@ import {
   overrideEnhancement,
   rows,
   slotView,
+  specToState,
 } from '../src/model.js';
 
 const score = (spec) => JSON.parse(calculator.score(JSON.stringify(spec)));
@@ -150,6 +153,47 @@ test('rows are grouped by the card or joker that made them', () => {
   // A group whose rows are all hidden is left out.
   const quiet = groupRows(rows(trace, ['Hack'], false));
   assert.deepEqual(quiet.map((g) => g.key), ['Base', 'Played 0', 'Played 1', 'Joker 0']);
+});
+
+const golden = join(import.meta.dirname, '../../fixtures/golden');
+const fixtures = readdirSync(golden).filter((name) => name.endsWith('.yaml')).sort();
+
+test('every golden board survives the trip through page state', () => {
+  assert.ok(fixtures.length >= 10);
+  for (const name of fixtures) {
+    const spec = JSON.parse(calculator.parse(readFileSync(join(golden, name), 'utf8')));
+    const expected = JSON.parse(readFileSync(join(golden, name.replace(/\.yaml$/, '.trace.json')), 'utf8'));
+    assert.deepEqual(score(buildSpec(specToState(spec)).spec), expected, name);
+  }
+});
+
+test('a card keeps its enhancement and edition', () => {
+  const state = specToState({ played: [{ card: 'AH', enhancement: { Chips: 30 }, edition: 'Foil' }, 'KS'] });
+  assert.deepEqual(state.played, [{ rank: 'A', suit: 'H', enhancement: { Chips: 30 }, edition: 'Foil' }, { rank: 'K', suit: 'S' }]);
+  assert.deepEqual(buildSpec(state).spec.played, [{ card: 'AH', enhancement: { Chips: 30 }, edition: 'Foil' }, 'KS']);
+});
+
+test('a joker override the editor knows becomes an override; any other stays as it is', () => {
+  const state = specToState({ played: ['AS'], jokers: [
+    { ident: 'JOKER', enhancement: { MultPlus: 7 } },
+    { ident: 'JOLLY_JOKER', enhancement: { MultPlusOnPair: 9 }, edition: 'Negative', debuffed: true },
+  ] });
+  assert.deepEqual(state.slots[0], { ident: 'JOKER', override: { kind: 'mult', value: 7 }, debuffed: false });
+  assert.deepEqual(state.slots[1], { ident: 'JOLLY_JOKER', override: null, enhancement: { MultPlusOnPair: 9 }, edition: 'Negative', debuffed: true });
+  assert.equal(state.slots.length, 5);
+  assert.deepEqual(buildSpec(state).spec.jokers[1], { ident: 'JOLLY_JOKER', enhancement: { MultPlusOnPair: 9 }, edition: 'Negative', debuffed: true });
+});
+
+test('the board fields the page has no control for are kept', () => {
+  const spec = { played: ['AS'], money: 20, discards_left: 0, hands_left: 2, blind: 'Small' };
+  assert.deepEqual(buildSpec(specToState(spec)).spec, { played: ['AS'], jokers: [], money: 20, discards_left: 0, hands_left: 2, blind: 'Small' });
+});
+
+test('a board the page cannot show is an error', () => {
+  const six = Array.from({ length: 6 }, () => ({ ident: 'JOKER' }));
+  assert.throws(() => specToState({ played: ['AS'], jokers: six }), /at most 5 jokers/);
+  assert.throws(() => specToState({ played: [] }), /at least 1 played card/);
+  assert.throws(() => specToState({ played: ['AS'], held: Array(9).fill('2C') }), /at most 8 held/);
 });
 
 test('text formats match the engine', () => {

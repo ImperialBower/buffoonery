@@ -10,7 +10,7 @@
 //! cargo build -p buffoonery-component --target wasm32-wasip2 --profile component
 //! ```
 //!
-//! The three functions below are the exports. They are plain Rust, so the
+//! The four functions below are the exports. They are plain Rust, so the
 //! native tests check them against `fixtures/golden/` without a wasm runtime;
 //! the `js/` tests check the built component itself.
 
@@ -39,6 +39,25 @@ pub fn score(spec: &str) -> Result<String, String> {
     let spec = read_spec(spec).map_err(|e| e.to_string())?;
     let board = BuffoonBoard::try_from(&spec).map_err(|e| e.to_string())?;
     serde_json::to_string(&board.score_traced()).map_err(|e| e.to_string())
+}
+
+/// Reads a [`BoardSpec`] as JSON or YAML and writes it back as JSON, so a host
+/// without a YAML parser can load a YAML board. It checks the shape only; an
+/// unknown joker ident or card index is reported by [`score`].
+///
+/// # Errors
+///
+/// The [`BoardSpecError::Parse`] message when the text is not a spec.
+///
+/// # Examples
+///
+/// ```
+/// let json = buffoonery_component::parse("played: [AS]").unwrap();
+/// assert_eq!(json, r#"{"played":["AS"]}"#);
+/// ```
+pub fn parse(spec: &str) -> Result<String, String> {
+    let spec = read_spec(spec).map_err(|e| e.to_string())?;
+    serde_json::to_string(&spec).map_err(|e| e.to_string())
 }
 
 fn read_spec(spec: &str) -> Result<BoardSpec, BoardSpecError> {
@@ -88,6 +107,10 @@ mod bindings {
     impl exports::imperialbower::solver::calculator::Guest for Component {
         fn score(spec: String) -> Result<String, String> {
             super::score(&spec)
+        }
+
+        fn parse(spec: String) -> Result<String, String> {
+            super::parse(&spec)
         }
 
         fn catalog() -> String {

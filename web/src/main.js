@@ -12,6 +12,7 @@ import {
   SUITS,
   buildSpec,
   fmtNum,
+  formatMPip,
   groupRows,
   handScore,
   handSummary,
@@ -19,17 +20,40 @@ import {
   opKind,
   rows,
   slotView,
+  specToState,
 } from './model.js';
 
 const catalog = JSON.parse(calculator.catalog());
 const byIdent = new Map(catalog.map((joker) => [joker.ident, joker]));
 const pickerOrder = [...catalog].sort((a, b) => a.name.localeCompare(b.name));
 
-let state = initialState();
+const $ = (id) => document.getElementById(id);
+
+// A board can come from the link: `#board=` and a BoardSpec as JSON or YAML,
+// URL-encoded. The page keeps the link up to date, so the address bar always
+// holds the board on screen.
+let loadError = null;
+
+function loadFromHash() {
+  const match = /^#board=(.*)$/s.exec(window.location.hash);
+  if (!match) return null;
+  try {
+    return specToState(JSON.parse(calculator.parse(decodeURIComponent(match[1]))));
+  } catch (error) {
+    loadError = `The board in the link could not be opened: ${error.payload ?? error.message}`;
+    return null;
+  }
+}
+
+let state = loadFromHash() ?? initialState();
 let lastSteps = [];
 let lastHand = null;
 
-const $ = (id) => document.getElementById(id);
+window.addEventListener('hashchange', () => {
+  const loaded = loadFromHash();
+  if (loaded) state = loaded;
+  render();
+});
 
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -43,6 +67,7 @@ function el(tag, attrs = {}, children = []) {
 }
 
 function update(change) {
+  loadError = null;
   change(state);
   render();
 }
@@ -61,11 +86,14 @@ function cardEditor(pile, i) {
   const suit = el('select', { 'aria-label': `Suit, ${pile.name} card ${n}` },
     SUITS.map((s) => el('option', { value: s.suit, text: s.label, title: s.name })));
   const remove = el('button', { type: 'button', class: 'remove', 'aria-label': `Remove ${pile.name} card ${n}`, text: '×' });
+  // Enhancement and edition have no editor yet (Milestone D); a board from a
+  // link can carry them, so they show as a label.
+  const tag = el('span', { class: 'tag' });
   const key = pile.name;
   rank.addEventListener('change', () => update((s) => { s[key][i].rank = rank.value; }));
   suit.addEventListener('change', () => update((s) => { s[key][i].suit = suit.value; }));
   remove.addEventListener('click', () => update((s) => { s[key].splice(i, 1); }));
-  return Object.assign(el('div', { class: 'card-edit' }, [rank, suit, remove]), { rank, suit, remove });
+  return Object.assign(el('div', { class: 'card-edit' }, [rank, suit, remove, tag]), { rank, suit, remove, tag });
 }
 
 function renderPile(key) {
@@ -83,6 +111,9 @@ function renderPile(key) {
     editor.rank.value = card.rank;
     editor.suit.value = card.suit;
     editor.dataset.suit = card.suit;
+    const tags = [card.enhancement && formatMPip(card.enhancement), card.edition !== 'None' && card.edition].filter(Boolean);
+    editor.tag.textContent = tags.join(' · ');
+    editor.tag.hidden = tags.length === 0;
     editor.remove.disabled = pileCards.length <= pile.min;
   });
   pile.add.disabled = pileCards.length >= pile.max;
@@ -153,6 +184,8 @@ const slotNodes = Array.from({ length: SLOT_COUNT }, (_, i) => {
   kind.addEventListener('change', () => update((s) => {
     const chosen = kind.value || null;
     s.slots[i].override = chosen ? { kind: chosen, value: seedValue(lastSteps[i] ?? [], chosen) } : null;
+    // A link's override with no editor kind is dropped once you pick one.
+    delete s.slots[i].enhancement;
   }));
   value.addEventListener('input', () => update((s) => {
     if (s.slots[i].override) s.slots[i].override.value = value.value;
@@ -199,7 +232,9 @@ function render() {
   let trace;
   try {
     trace = JSON.parse(calculator.score(JSON.stringify(spec)));
-    $('error').hidden = true;
+    if (loadError) showError(loadError);
+    else $('error').hidden = true;
+    window.history.replaceState(null, '', `#board=${encodeURIComponent(JSON.stringify(spec))}`);
   } catch (error) {
     showError(error.payload ?? String(error));
     return;

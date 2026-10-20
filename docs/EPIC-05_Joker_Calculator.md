@@ -31,7 +31,7 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestones A an
 | Story 5 — golden fixtures | **Complete** (`buffoonery` `051ebb8`, merged in `53550da`, 2026-10-19). Milestone B is met |
 | Story 6 — the page calls the engine | **Complete** (`buffoonery` `1cf72e5` and `393cc67`, merged in `53550da`, 2026-10-19; CI green on `main`) |
 | Story 7 — played and held cards | Built (2026-10-19; 13 model tests green, checked in Chrome), not yet committed |
-| Story 8 — parity test | Planned |
+| Story 8 — parity test | Built (2026-10-19; 16 Playwright tests green, all 14 fixtures), not yet committed. Milestone C is met |
 | Milestone D — polish | Planned |
 
 ## Current state
@@ -133,6 +133,8 @@ package imperialbower:solver@0.1.0;
 interface calculator {
     /// A BoardSpec as JSON or YAML in; a ScoreTrace as JSON out.
     score: func(spec: string) -> result<string, string>;
+    /// A BoardSpec as JSON or YAML in; the same spec as JSON out (added in Story 8).
+    parse: func(spec: string) -> result<string, string>;
     /// The joker catalog as JSON.
     catalog: func() -> string;
     version: func() -> string;
@@ -266,14 +268,20 @@ Built 2026-10-19 in `web/` (open question 3), with Vite: `make web` tests the mo
 
 **Story 8: parity test**
 
-- [ ] A headless browser test loads the `jco`-transpiled component and scores one golden board (moved here from Story 4 on 2026-10-19)
-- [ ] A browser test renders each golden fixture and asserts the table's cells equal the fixture's trace
+Built 2026-10-19 with Playwright 1.64.1 (Chromium) in `web/e2e/parity.spec.mjs`; `make e2e` (part of `make ayce`) and the CI component job run it against the built page. Decided the same day: the page opens a board from its link, so all 14 fixtures reach the page, not only the 6 its editors can build. That needed:
+
+- a fourth component export, `parse(spec) -> result<string, string>`: a `BoardSpec` as JSON or YAML in, the same spec as JSON out, so the page reads YAML without a YAML parser (shape check only; `score` reports unknown jokers and cards);
+- `#board=` plus a URL-encoded `BoardSpec` (JSON or YAML) in the link. The page rewrites the link as JSON on every edit, so the address bar always holds the board on screen;
+- page state that keeps what it has no editor for: card enhancements and editions (shown as a gold label on the card), joker editions, joker effects that are not an editor override kind, and `money`, `discards_left`, `hands_left`, `blind`. `specToState` reads a spec into page state; every fixture survives the trip through page state and back unchanged (a Node test).
+
+- [x] A headless browser test loads the `jco`-transpiled component and scores one golden board (moved here from Story 4 on 2026-10-19). Done: the opening board scores 8,316 in headless Chromium, and each fixture test scores one board
+- [x] A browser test renders each golden fixture and asserts the table's cells equal the fixture's trace. Done: for each of the 14 fixtures, opened from a link with "Show every step" on, the table has one row per step and every row's #, effect, chips, mult and running score equal those built from the fixture's JSON (not from a fresh score); the final score matches too. A broken number in a fixture fails the test (checked). A link that is not a board shows the parse error and the opening board
 
 ### Milestone D — polish
 
 - [ ] Seeded mode: a seed field switches to `score_traced_with_seed`. The trace marks rolled steps
 - [ ] Edition picker (Foil / Holo / Poly) per joker, rendered as a corner mark on the simplified card
-- [ ] Export: copy the current `BoardSpec` JSON; paste one to restore a board
+- [ ] Export: copy the current `BoardSpec` JSON; paste one to restore a board. **Partly done in Story 8:** the link always holds the board as JSON, and a link with a board in JSON or YAML opens it. A copy button and a paste box are still open
 - [ ] Custom effects: a `MPip::Custom(id)` entry whose `ScoreOp` the user types, routed through an `EffectRegistry` in the adapter
 
 ## Open questions and risks

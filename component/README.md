@@ -6,6 +6,7 @@ the `calculator` interface in [`wit/world.wit`](wit/world.wit):
 | Export | In | Out |
 | --- | --- | --- |
 | `score` | a `BoardSpec` as JSON or YAML | its `ScoreTrace` as JSON, or an error naming the bad field |
+| `parse` | a `BoardSpec` as JSON or YAML | the same spec as JSON (shape check only) |
 | `catalog` | — | every joker as JSON |
 | `version` | — | the engine version |
 

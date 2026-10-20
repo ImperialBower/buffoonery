@@ -4,7 +4,7 @@
 #![allow(non_snake_case, clippy::expect_used, clippy::unwrap_used)]
 
 use buffoonery::prelude::*;
-use buffoonery_component::{catalog, score, version};
+use buffoonery_component::{catalog, parse, score, version};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -48,6 +48,23 @@ fn score__json_fixtures_match() {
         let trace = score(&json).unwrap_or_else(|e| panic!("{}: {e}", spec.display()));
         assert_eq!(parsed(&trace), expected(&spec), "{}", spec.display());
     }
+}
+
+#[test]
+fn parse__yaml_fixtures_become_json_that_scores_the_same() {
+    for spec in fixtures() {
+        let yaml = fs::read_to_string(&spec).expect("readable fixture");
+        let json = parse(&yaml).unwrap_or_else(|e| panic!("{}: {e}", spec.display()));
+        assert!(json.starts_with('{'), "{}: {json}", spec.display());
+        assert_eq!(parse(&json).unwrap(), json, "parse is idempotent");
+        let trace = score(&json).unwrap_or_else(|e| panic!("{}: {e}", spec.display()));
+        assert_eq!(parsed(&trace), expected(&spec), "{}", spec.display());
+    }
+}
+
+#[test]
+fn parse__errors_name_the_field() {
+    assert!(parse("colour: red").unwrap_err().starts_with("parse: "));
 }
 
 #[test]

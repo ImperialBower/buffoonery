@@ -50,6 +50,7 @@ step. It does no scoring of its own.
 ```shell
 make web                 # builds the component, tests the page, builds web/dist
 make dev                 # serves it with live reload
+make e2e                 # opens every golden fixture in Chromium and checks the table
 ```
 
 ## What's in the box

@@ -63,6 +63,8 @@ input[type=checkbox] { width: 20px; height: 20px; margin: 0; accent-color: var(-
 .card-edit { display: grid; grid-template-columns: 52px 52px 32px; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--input-line); border-radius: 8px; background: var(--well); }
 .card-edit select { height: 36px; padding: 0 4px; font-size: 16px; font-weight: 700; text-align: center; }
 .card-edit[data-suit=H] select, .card-edit[data-suit=D] select { color: var(--mult); }
+.card-edit .tag { grid-column: 1 / -1; padding: 0 2px; font-size: 11px; color: var(--gold); overflow-wrap: anywhere; }
+.card-edit .tag[hidden] { display: none; }
 button { font: 14px var(--mono); color: var(--text); background: var(--well); border: 1px solid var(--input-line); border-radius: 6px; cursor: pointer; }
 button:hover:not(:disabled) { border-color: var(--chips); }
 button:focus-visible { outline: 2px solid var(--chips); outline-offset: 1px; }

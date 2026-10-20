@@ -12,7 +12,7 @@ resource: component/
 The WIT component (EPIC-05 Story 4) is a separate crate in a Cargo
 workspace: `component/`, package `buffoonery-component`, `publish = false`.
 
-* **Adapter, not engine.** It owns the formats: `score` reads a `BoardSpec`
+* **Adapter, not engine.** It owns the formats; it exports `score`, `parse` (added in Story 8: a spec as JSON or YAML in, JSON out), `catalog` and `version`. `score` reads a `BoardSpec`
   as JSON (input starting with `{`) or YAML, and writes the `ScoreTrace` as
   JSON. The engine crate gained only `buffoonery::VERSION`.
 * **Plain cargo builds it.** `cargo build -p buffoonery-component --target

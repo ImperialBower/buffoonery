@@ -3,7 +3,7 @@ type: decision
 title: The Joker Calculator lives in web/, built with Vite
 description: "EPIC-05 open question 3 and the stack: the calculator page is a web/ folder in this repo (GitHub Pages later), bundled by Vite so the jco output and preview2-shim resolve without an import map; model.js is pure and tested in Node against the real component."
 tags: [web, vite, calculator, decision, epic-05]
-timestamp: '2026-10-19T22:00:00Z'
+timestamp: '2026-10-19T23:30:00Z'
 resource: web/
 ---
 
@@ -30,6 +30,17 @@ resource: web/
 * **Rows are grouped by source** (`groupRows`): one `<tbody>` per hand, card
   or joker, keyed `Base`, `Played 0`, `Held 2`, `Joker 1`. Card editors are
   rebuilt only when a card is added or removed.
+* **Boards come from the link (Story 8).** `#board=` + a URL-encoded
+  `BoardSpec` (JSON or YAML) opens a board; the component's `parse` turns
+  YAML into JSON, and `specToState` turns that into page state. State keeps
+  what the page cannot edit (card enhancement/edition, joker edition, joker
+  effects that are no override kind, `money`, `discards_left`, `hands_left`,
+  `blind`). The page rewrites the link as JSON on every edit, with
+  `history.replaceState`, so it never adds history entries.
+* **Browser parity** (`web/e2e/parity.spec.mjs`, Playwright, Chromium):
+  each fixture opens from a link, and the table must equal rows built from
+  the fixture's JSON. Expected rows use `rows()` from `model.js`; the
+  formatting itself is covered by the Node tests.
 * **No scoring in the page.** Its one sum is `floor(chips × mult)` for the
   running score, the same expression as `Score::score()`.
 
