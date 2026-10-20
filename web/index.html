@@ -27,18 +27,61 @@
 
     <p class="error" id="error" role="alert" hidden></p>
 
+    <section class="board-io" aria-label="Board">
+      <div class="io-row">
+        <button type="button" id="copy-board">Copy board</button>
+        <button type="button" id="copy-link">Copy link</button>
+        <span class="muted small">The address bar always holds this board.</span>
+        <span class="muted small" id="copy-status" role="status"></span>
+      </div>
+      <details class="paste" id="paste">
+        <summary>Paste a board</summary>
+        <div class="paste-body">
+          <label for="paste-text">A board as YAML or JSON</label>
+          <textarea id="paste-text" rows="8" spellcheck="false" placeholder="played: [AS, AH]&#10;jokers:&#10;  - ident: JOLLY_JOKER"></textarea>
+          <div class="io-row">
+            <button type="button" id="paste-open">Open</button>
+            <span class="muted small" id="paste-status" role="status"></span>
+          </div>
+        </div>
+      </details>
+    </section>
+
     <section class="panel hand">
-      <div class="field">
-        <label for="hand-type">Hand type</label>
-        <select id="hand-type"></select>
+      <div class="hand-cards">
+        <div class="field">
+          <div class="field-head"><span class="label" id="played-label">Played cards</span><span class="muted small" id="played-count"></span></div>
+          <div class="cards" id="played" role="group" aria-labelledby="played-label"></div>
+        </div>
+        <div class="field">
+          <div class="field-head"><span class="label" id="held-label">Held in hand</span><span class="muted small" id="held-count"></span></div>
+          <div class="cards" id="held" role="group" aria-labelledby="held-label"></div>
+        </div>
       </div>
-      <div class="field">
-        <span class="label">Played cards</span>
-        <div class="readout" id="played"></div>
-      </div>
-      <div class="field">
-        <span class="label">Base from hand</span>
-        <div class="readout"><span class="chips" id="base-chips">0 Chips</span><span class="muted">×</span><span class="mult" id="base-mult">0 Mult</span></div>
+      <div class="hand-side">
+        <div class="field">
+          <span class="label">Hand</span>
+          <div class="readout"><span id="hand-name">—</span><span class="muted" id="hand-level"></span></div>
+        </div>
+        <div class="field">
+          <span class="label">Base from hand</span>
+          <div class="readout"><span class="chips" id="base-chips">0 Chips</span><span class="muted">×</span><span class="mult" id="base-mult">0 Mult</span></div>
+        </div>
+        <div class="field">
+          <label for="level-hand">Hand level</label>
+          <div class="level-editor">
+            <select id="level-hand"></select>
+            <input id="level" type="number" min="1" step="1" aria-label="Level">
+          </div>
+        </div>
+        <div class="field">
+          <label for="seed">Seed</label>
+          <div class="seed-editor">
+            <input id="seed" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="none" aria-describedby="seed-hint">
+            <button type="button" id="new-seed">New seed</button>
+          </div>
+          <span class="muted small" id="seed-hint" role="status">No seed: Lucky cards and Misprint score their lowest.</span>
+        </div>
       </div>
     </section>
 
@@ -56,11 +99,11 @@
         <label class="check"><input type="checkbox" id="show-all"> <span>Show every step</span></label>
       </div>
       <div class="table-wrap">
-        <table class="breakdown">
+        <table class="breakdown" id="breakdown">
           <thead>
             <tr><th scope="col">#</th><th scope="col">Source</th><th scope="col">Effect</th><th scope="col">Chips</th><th scope="col">Mult</th><th scope="col">Running score</th></tr>
           </thead>
-          <tbody id="steps"></tbody>
+          <!-- main.js inserts one <tbody class="group"> per card or joker here. -->
           <tfoot>
             <tr>
               <td></td>

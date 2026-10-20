@@ -22,23 +22,23 @@ feature.
 ```shell
 git clone https://github.com/ImperialBower/buffoonery.git
 cd buffoonery
+make setup
 make ayce
 ```
 
 `make ayce` runs the whole quality gate. `make help` lists every target.
 
-`make ayce` also builds the WebAssembly component and tests it. That step
-needs the `wasm32-wasip2` target and Node (see `.tool-versions`):
-
-```shell
-rustup target add wasm32-wasip2
-```
+`make setup` runs once. It needs rustup and Node (versions in
+`.tool-versions`). It adds the `wasm32-wasip2` target, installs
+`cargo-deny` and `cargo-audit`, installs the npm packages, and installs
+Chromium for the browser tests. On Linux, Chromium's system libraries need
+sudo. The devcontainer runs it for you.
 
 ## WebAssembly component
 
 [`component/`](component/README.md) wraps the engine in a WIT interface:
 score a board written as JSON or YAML, get the step-by-step trace back as
-JSON. The optimized component is 467 KiB (166 KiB gzipped); the budget is
+JSON. The optimized component is 475 KiB (169 KiB gzipped); the budget is
 500 KiB.
 
 ## Joker Calculator
@@ -50,6 +50,7 @@ step. It does no scoring of its own.
 ```shell
 make web                 # builds the component, tests the page, builds web/dist
 make dev                 # serves it with live reload
+make e2e                 # opens every golden fixture in Chromium and checks the table
 ```
 
 ## What's in the box

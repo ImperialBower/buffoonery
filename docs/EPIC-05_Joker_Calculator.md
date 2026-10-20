@@ -14,7 +14,7 @@ The design bundle (Design artifact pages, architecture diagram) lives in [`docs/
 
 ## Status
 
-As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A runs in `buffoonery`.
+As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestones A and B, and Story 6, are merged in `buffoonery` (PR #2, `53550da`).
 
 | Component | Status |
 | --- | --- |
@@ -27,11 +27,12 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestone A run
 | Story 1 — `ScoreTrace` | **Complete** (`buffoonery` `622fd9e`, 2026-10-19) |
 | Story 2 — joker catalog | **Complete** (`buffoonery` `00e088e`, 2026-10-19) |
 | Story 3 — `BoardSpec` (Rust and YAML) | **Complete** (`buffoonery` `00e088e`, 2026-10-19). Milestone A is met |
-| Story 4 — WIT component | Built (2026-10-19; 20 component tests green through `jco`), not yet committed. Its browser test moved to Story 8 |
-| Story 5 — golden fixtures | Built (2026-10-19; 14 fixtures, `tests/golden.rs` green), not yet committed |
-| Story 6 — the page calls the engine | Built (2026-10-19; `web/`, 9 model tests green, checked in Chrome), not yet committed |
-| Stories 7–8 — hand editor, parity test | Planned |
-| Milestone D — polish | Planned |
+| Story 4 — WIT component | **Complete** (`buffoonery` `b344160`, merged in `53550da`, 2026-10-19). Its browser test moved to Story 8 |
+| Story 5 — golden fixtures | **Complete** (`buffoonery` `051ebb8`, merged in `53550da`, 2026-10-19). Milestone B is met |
+| Story 6 — the page calls the engine | **Complete** (`buffoonery` `1cf72e5` and `393cc67`, merged in `53550da`, 2026-10-19; CI green on `main`) |
+| Story 7 — played and held cards | **Complete** (`buffoonery` `e32881a`, 2026-10-19; branch `epic05-status`, not yet merged) |
+| Story 8 — parity test | **Complete** (`buffoonery` `9ee8495`, 2026-10-19; branch `epic05-status`, not yet merged). Milestone C is met |
+| Milestone D — polish | In progress: export (`585bfd4`) and edition picker (`e3fe092`) done; seeded mode (`fedb407`) done; custom effects open |
 
 ## Current state
 
@@ -132,6 +133,8 @@ package imperialbower:solver@0.1.0;
 interface calculator {
     /// A BoardSpec as JSON or YAML in; a ScoreTrace as JSON out.
     score: func(spec: string) -> result<string, string>;
+    /// A BoardSpec as JSON or YAML in; the same spec as JSON out (added in Story 8).
+    parse: func(spec: string) -> result<string, string>;
     /// The joker catalog as JSON.
     catalog: func() -> string;
     version: func() -> string;
@@ -259,20 +262,26 @@ Built 2026-10-19 in `web/` (open question 3), with Vite: `make web` tests the mo
 
 **Story 7: played and held cards**
 
-- [ ] A hand editor (rank + suit per card, up to 5 played, up to 8 held) replaces the single "played card chips" number
-- [ ] Hand type comes from the trace, not a dropdown. The dropdown becomes a hand-level editor per `HandType`
-- [ ] Group trace rows by card (one card can make 3 steps per pass, times its retriggers)
+- [x] A hand editor (rank + suit per card, up to 5 played, up to 8 held) replaces the single "played card chips" number. Done: each card is a rank menu, a suit menu and a remove button; "+ Add card" stops at the limit. At least 1 card is always played: the engine scores an empty hand as High Card (5), which Balatro never plays. The sample hands from Story 6 are gone. Cards carry no enhancement or edition yet (Milestone D)
+- [x] Hand type comes from the trace, not a dropdown. The dropdown becomes a hand-level editor per `HandType`. Done: the "Hand" box shows the type and level from the trace's base step. The level editor is a hand-type menu (12 types, no Royal Flush) and a level box; it follows the played hand until you pick another type. Only changed levels go into `hand_levels`
+- [x] Group trace rows by card (one card can make 3 steps per pass, times its retriggers). Done: one `<tbody>` per hand, card or joker, labelled once; the group's other rows show only their part and retrigger. Groups with no visible row are left out. A card part that changed nothing reads "nothing"; a joker that changed nothing reads "did not fire" or "debuffed"
 
 **Story 8: parity test**
 
-- [ ] A headless browser test loads the `jco`-transpiled component and scores one golden board (moved here from Story 4 on 2026-10-19)
-- [ ] A browser test renders each golden fixture and asserts the table's cells equal the fixture's trace
+Built 2026-10-19 with Playwright 1.64.1 (Chromium) in `web/e2e/parity.spec.mjs`; `make e2e` (part of `make ayce`) and the CI component job run it against the built page. Decided the same day: the page opens a board from its link, so all 14 fixtures reach the page, not only the 6 its editors can build. That needed:
+
+- a fourth component export, `parse(spec) -> result<string, string>`: a `BoardSpec` as JSON or YAML in, the same spec as JSON out, so the page reads YAML without a YAML parser (shape check only; `score` reports unknown jokers and cards);
+- `#board=` plus a URL-encoded `BoardSpec` (JSON or YAML) in the link. The page rewrites the link as JSON on every edit, so the address bar always holds the board on screen;
+- page state that keeps what it has no editor for: card enhancements and editions (shown as a gold label on the card), joker editions, joker effects that are not an editor override kind, and `money`, `discards_left`, `hands_left`, `blind`. `specToState` reads a spec into page state; every fixture survives the trip through page state and back unchanged (a Node test).
+
+- [x] A headless browser test loads the `jco`-transpiled component and scores one golden board (moved here from Story 4 on 2026-10-19). Done: the opening board scores 8,316 in headless Chromium, and each fixture test scores one board
+- [x] A browser test renders each golden fixture and asserts the table's cells equal the fixture's trace. Done: for each of the 14 fixtures, opened from a link with "Show every step" on, the table has one row per step and every row's #, effect, chips, mult and running score equal those built from the fixture's JSON (not from a fresh score); the final score matches too. A broken number in a fixture fails the test (checked). A link that is not a board shows the parse error and the opening board
 
 ### Milestone D — polish
 
-- [ ] Seeded mode: a seed field switches to `score_traced_with_seed`. The trace marks rolled steps
-- [ ] Edition picker (Foil / Holo / Poly) per joker, rendered as a corner mark on the simplified card
-- [ ] Export: copy the current `BoardSpec` JSON; paste one to restore a board
+- [x] Seeded mode: a seed field switches to `score_traced_with_seed`. The trace marks rolled steps. Done 2026-10-20: the component exports `score-seeded(spec, seed: u64)` next to `score`; the seed is an argument, not a `BoardSpec` field, since it says how to score a board, not what is on it. The page has a seed field (blank = no seed, every chance at its floor) and a "New seed" button. Rows of rolled steps (Lucky, Misprint) say "rolled". The link carries the seed as `#seed=7&board=…`; old links still open. The component grew 8 KiB (the seeded RNG) to 475 KiB. Tests: native totals equal `score_with_seed` for every fixture at 3 seeds; fixture 11 has 2 rolled steps seeded and none unseeded, in Rust, in the JS component and in the page
+- [x] Edition picker (Foil / Holo / Poly) per joker, rendered as a corner mark on the simplified card. Done 2026-10-19: each joker card has an edition menu (No edition, Foil, Holographic, Polychrome, Negative), each labelled with what it adds. The engine scores it as the joker's Edition step; the card's note reads e.g. "Edition: ×1.5 Mult" and the breakdown shows the row. No corner mark: the note already names the edition and its effect. Negative is offered because links carry it; it scores nothing, and the page does not model the slot it frees. A Node test checks each edition's op against the engine; a browser test picks Polychrome and compares the table with the engine's trace. Picking another joker clears the edition, as it clears the override
+- [x] Export: copy the current `BoardSpec` JSON; paste one to restore a board. Done 2026-10-19: the link always holds the board (Story 8); "Copy board" copies the `BoardSpec` as pretty JSON and "Copy link" the link; "Paste a board" opens a board written as YAML or JSON. A board opens only if the engine can score it, so an unknown joker or card is reported at once and the page keeps its board. With no clipboard, the text lands in the paste box, selected. Two browser tests cover paste and copy
 - [ ] Custom effects: a `MPip::Custom(id)` entry whose `ScoreOp` the user types, routed through an `EffectRegistry` in the adapter
 
 ## Open questions and risks
@@ -288,9 +297,9 @@ Built 2026-10-19 in `web/` (open question 3), with Vite: `make web` tests the mo
    - **Decided 2026-10-19:** a `web/` folder in this repo, hosted on GitHub Pages. The page sits next to `component/` and `fixtures/golden/`, so the Story 8 parity test reads the fixtures directly and one CI run builds and tests both. Rejected: a separate `-web` repo (the pattern of `pkkuhn-web` and others), because it needs the component published (npm or a release file) and the fixtures copied across repos. The page can move to its own repo later, once the WIT interface has settled.
 4. ~~**`funky` requires `std`**, which rules out a `no_std` component.~~ **Resolved:** the WIT component targets `wasm32-wasip2`, which supports `std`.
 5. **Display names.** No joker names exist in the i18n resources (Story 2). The const name title-cased is wrong for several ("Dna", "Oops All 6s"), so a hand-checked table of all 112 is needed. **Resolved 2026-10-19:** a hand-written table in `src/decks/joker_catalog.rs` (Story 2).
-6. **Trace size.** One played card makes up to 3 steps per pass. Retriggers on a 5-card hand with Hack + Sock and Buskin can produce 40+ steps. The table needs grouping by card (Story 7).
+6. **Trace size.** One played card makes up to 3 steps per pass. Retriggers on a 5-card hand with Hack + Sock and Buskin can produce 40+ steps. The table needs grouping by card (Story 7). **Addressed 2026-10-19:** rows are grouped by card, and no-op rows are hidden by default.
 7. **Every played card scores.** The engine has no scoring-card vs kicker split (`src/types/mpip.rs:60-61`). In Balatro, a kicker in a Pair does not add chips. The calculator will show kicker rows that Balatro would not. Fix in the engine (its own story) or show it as a known gap.
-8. **No Ace-low straights** (`src/types/buffoon_pile.rs:472-474`). `A-2-3-4-5` is not a straight here. The hand editor in Story 7 makes this easy to hit.
+8. **No Ace-low straights** (`src/types/buffoon_pile.rs:472-474`). `A-2-3-4-5` is not a straight here. The hand editor in Story 7 makes this easy to hit. **Still open;** the page's footnote names it with the kicker gap (risk 7).
 9. ~~**Crate name.**~~ **Decided 2026-10-18:** `buffoonery`, for the repo and the crate (`funky` and `buffoon` are taken on crates.io).
 10. **Typed WIT records.** v1 passes `BoardSpec` and `ScoreTrace` as strings (Design). A typed `score-step` record would let non-JS hosts read the trace without a JSON parser. Worth it once the trace shape settles after Story 1; `MPip` likely stays a string.
 11. **YAML is a second contract.** Once boards are written as YAML, renaming an `MPip` variant breaks users' files. Story 3 pins the shape; renames then need a version bump or a serde alias. **Pinned 2026-10-19** (`yaml__mpip_and_edition_format`).

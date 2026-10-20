@@ -53,6 +53,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Joker Calculator page** (EPIC-05 Story 6), in `web/`: pick a hand,
   slot jokers, override their effects or debuff them; every number comes
   from the WIT component's trace. `make web` tests and builds it.
+- **The calculator's hand editor** (EPIC-05 Story 7): choose up to 5 played
+  and 8 held cards by rank and suit; the engine finds the hand type, and a
+  level editor sets any hand's level. The breakdown groups its rows by the
+  card or joker that made them.
+- **Boards in links, and the browser parity test** (EPIC-05 Story 8). The
+  component exports `parse`: a `BoardSpec` as JSON or YAML in, the same spec
+  as JSON out. The calculator opens a board from `#board=` in its link and
+  keeps the link up to date. `make e2e` opens every golden fixture in the
+  page with Playwright and checks every table cell against its trace.
+- **Copy and paste boards** (EPIC-05 Milestone D): "Copy board" (JSON),
+  "Copy link", and "Paste a board" (YAML or JSON) in the calculator.
+- **Joker edition picker** (EPIC-05 Milestone D): each joker card in the
+  calculator has an edition menu (Foil, Holographic, Polychrome, Negative).
+- **`make setup`**: one-time setup for `make ayce` (the wasm target,
+  `cargo-deny`, `cargo-audit`, npm packages, and Chromium for the browser
+  tests). The devcontainer runs it.
+- **Seeded scoring in the component and the calculator** (EPIC-05
+  Milestone D): the WIT export `score-seeded(spec, seed)` rolls Lucky cards
+  and Misprint from a `u64` seed. The calculator has a seed field, marks
+  rolled steps, and keeps the seed in the link (`#seed=7&board=…`).
 - A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
   it; the calculator's "+ Chips" override does.
 

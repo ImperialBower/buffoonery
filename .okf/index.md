@@ -10,6 +10,6 @@ okf_version: '0.1'
 * [WIT component crate](decisions/wit-component-crate.md) - why the WIT boundary is its own crate, how it builds, shrinks and is tested through `jco`.
 * [BoardSpec YAML](decisions/board-spec-yaml.md) - the `yaml` feature, `serde_norway`, the MIT exception, and why `CardSpec` parses by hand.
 * [Toolchain choices](decisions/toolchain.md) - which tools the quality gate uses, at which version, and why.
-* [Quality gate (make ayce)](processes/quality-gate.md) - what each phase runs and what green means.
+* [Quality gate (make ayce)](processes/quality-gate.md) - the one-time `make setup`, what each phase runs and what green means.
 * [EPIC-05 — Joker Calculator](references/epic-05-joker-calculator.md) - the active EPIC (`docs/EPIC-05_Joker_Calculator.md`); pointer only.
 * [The engine](architecture/engine.md) - what buffoonery models, where it lives, and where it came from.

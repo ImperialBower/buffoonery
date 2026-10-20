@@ -28,10 +28,32 @@ test('a JSON spec scores like its YAML', () => {
   assert.deepEqual(trace.total, { chips: 32, mult: 10 });
 });
 
+test('parse turns a YAML board into JSON that scores the same', () => {
+  for (const name of specs) {
+    const yaml = readFileSync(join(golden, name), 'utf8');
+    const json = calculator.parse(yaml);
+    assert.deepEqual(JSON.parse(calculator.score(json)), JSON.parse(calculator.score(yaml)), name);
+  }
+});
+
 test('a bad spec throws its error message', () => {
   assert.throws(
     () => calculator.score('jokers: [{ident: NOPE}]'),
     (error) => error.payload === 'jokers[0]: unknown joker ident "NOPE"',
+  );
+});
+
+test('score-seeded rolls the chances, and a seed repeats', () => {
+  const yaml = readFileSync(join(golden, '11_inert_jokers.yaml'), 'utf8');
+  const rolled = (trace) => JSON.parse(trace).steps.filter((step) => step.rolled).length;
+  assert.equal(rolled(calculator.score(yaml)), 0);
+  // WIT u64 is a BigInt in JavaScript.
+  assert.equal(rolled(calculator.scoreSeeded(yaml, 7n)), 2);
+  assert.equal(calculator.scoreSeeded(yaml, 7n), calculator.scoreSeeded(yaml, 7n));
+  assert.ok(calculator.scoreSeeded(yaml, 2n ** 64n - 1n));
+  assert.throws(
+    () => calculator.scoreSeeded('played: [AS, ZZ]', 1n),
+    (error) => error.payload === 'played[1]: unknown card "ZZ"',
   );
 });
 
