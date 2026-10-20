@@ -2475,7 +2475,9 @@ mod funky__decks__joker_tests {
     fn scores_hand(mpip: MPip) -> bool {
         match mpip {
             // --- deterministic hand-score contributions ---
-            MPip::AddBaseChips(_)
+            // Splash: every played card scores, so a kicker adds its chips.
+            MPip::AllPlayedCardsScore
+            | MPip::AddBaseChips(_)
             | MPip::Chips(_)
             | MPip::ChipsMultPlus(_, _)
             | MPip::ChipsMultPlusOnHand(_, _, _)
@@ -2658,9 +2660,6 @@ mod funky__decks__joker_tests {
             // amplifies the face-reading jokers (Scary Face, Sock and Buskin),
             // so on its own it changes nothing and is intentionally non-scoring.
             | MPip::AllCardsAreFaces
-            // Splash: inert here — this engine already scores every played card,
-            // so "all played cards score" is a no-op, not a silent-zero bug.
-            | MPip::AllPlayedCardsScore
             // Oops! All 6s: only affects the probabilistic (seeded-RNG) path, so
             // it is invisible to the pure-score reachability guard — a modifier,
             // not a deterministic scorer.

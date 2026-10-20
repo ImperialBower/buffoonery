@@ -69,15 +69,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`make setup`**: one-time setup for `make ayce` (the wasm target,
   `cargo-deny`, `cargo-audit`, npm packages, and Chromium for the browser
   tests). The devcontainer runs it.
-- **Seeded scoring in the component and the calculator** (EPIC-05
-  Milestone D): the WIT export `score-seeded(spec, seed)` rolls Lucky cards
-  and Misprint from a `u64` seed. The calculator has a seed field, marks
-  rolled steps, and keeps the seed in the link (`#seed=7&board=…`).
+- **Seeded scoring and custom effects in the component and the calculator**
+  (EPIC-05 Milestone D): the WIT export `score-with(spec, options)` rolls
+  Lucky cards and Misprint from an optional `u64` seed, and scores each
+  `MPip::Custom(id)` with a `ScoreOp` given as JSON. The calculator has a
+  seed field, marks rolled steps, has a "Custom" effect kind where you type
+  an effect (`+20 Chips, ×2 Mult`), and keeps the seed and the effects in
+  the link.
+- `BuffoonBoard::score_traced_with_rng_and_registry` and
+  `score_traced_with_seed_and_registry`: chances and custom effects in one
+  traced score.
 - A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
   it; the calculator's "+ Chips" override does.
 
 ### Changed
 
+- The WIT component's size budget is 600 KiB after `jco opt` (was 500 KiB;
+  it is 494 KiB). `component/README.md` records where the size goes: YAML
+  parsing is the largest part.
 - **Scoring lives in `src/types/board/scoring.rs`** (EPIC-05 Story S2), moved
   out of `board.rs` word for word. No public API or behavior change.
 - **Breaking: `Score` keeps fractional mult** (EPIC-05 Story S1). `Score` is
@@ -97,6 +106,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Kickers no longer score** (EPIC-05 risk 7). As in Balatro, only the
+  played cards that make the hand score: the highest card of a High Card,
+  the matched ranks of a Pair to Four of a Kind, the run of a Straight, the
+  suit of a Flush. Stone cards always score, and Splash makes every card
+  score (it did nothing before). Retriggers, the per-scored-card jokers
+  (suit jokers, Fibonacci, Scholar, Scary Face, Triboulet, Ancient, …),
+  Hiker and Vampire see only scoring cards. New:
+  `BuffoonPile::scoring_mask_with`, `BuffoonBoard::scoring_mask`,
+  `BuffoonBoard::scored_cards`.
+- **A-2-3-4-5 is a straight** (EPIC-05 risk 8): the Ace plays high and low.
+  A straight must also be one unbroken run, so under Four Fingers `2-3-4`
+  plus `9-10` is no longer a straight. `BuffoonPile::connectors` now counts
+  the links of the longest run.
+- The "contains a Flush / Straight" +chips and +mult jokers (Crafty, Droll,
+  Devious, Crazy, …) honour Four Fingers, Shortcut and Smeared, as the hand
+  type and the ×mult jokers already did. New:
+  `BuffoonPile::calculate_plus_with` (and `_chips_with`, `_mult_with`).
 - A debuffed joker no longer scores: its effect and edition are no-op trace
   steps, and it adds no retriggers, hand-rule changes or odds. Before, the
   `debuffed` flag was never read while scoring.

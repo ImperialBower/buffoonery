@@ -1,7 +1,7 @@
 use crate::prelude::{MPip, Score};
 use crate::types::buffoon_card::BuffoonCard;
 use crate::types::hands::HandType;
-use cardpack::prelude::{BasicPile, CardError, FrenchRank, Pip, Ranged};
+use cardpack::prelude::{BasicPile, CardError, FrenchRank, Ranged};
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng, rng};
@@ -64,19 +64,35 @@ impl BuffoonPile {
 
     #[must_use]
     pub fn calculate_plus(&self, enhancer: &BuffoonCard) -> Score {
+        self.calculate_plus_with(enhancer, HandRules::default())
+    }
+
+    /// [`calculate_plus`](Self::calculate_plus) under the given [`HandRules`],
+    /// so the "contains a Flush / Straight" bonuses (Crafty, Droll, Devious,
+    /// Crazy, …) see the hand the way its hand type does: Four Fingers,
+    /// Shortcut and Smeared widen them.
+    #[must_use]
+    pub fn calculate_plus_with(&self, enhancer: &BuffoonCard, rules: HandRules) -> Score {
         Score::from_usize(
-            self.calculate_plus_chips(enhancer),
-            self.calculate_plus_mult(enhancer),
+            self.calculate_plus_chips_with(enhancer, rules),
+            self.calculate_plus_mult_with(enhancer, rules),
         )
     }
 
     #[must_use]
     pub fn calculate_plus_chips(&self, enhancer: &BuffoonCard) -> usize {
+        self.calculate_plus_chips_with(enhancer, HandRules::default())
+    }
+
+    /// [`calculate_plus_chips`](Self::calculate_plus_chips) under the given
+    /// [`HandRules`].
+    #[must_use]
+    pub fn calculate_plus_chips_with(&self, enhancer: &BuffoonCard, rules: HandRules) -> usize {
         match enhancer.enhancement {
-            MPip::ChipsOnFlush(m) => self.funky_num(m, Self::has_flush),
+            MPip::ChipsOnFlush(m) if self.has_flush_with(rules) => m,
             MPip::ChipsOnPair(m) => self.funky_num(m, Self::has_pair),
             MPip::ChipsOn2Pair(m) => self.funky_num(m, Self::has_2pair),
-            MPip::ChipsOnStraight(m) => self.funky_num(m, Self::has_straight),
+            MPip::ChipsOnStraight(m) if self.has_straight_with(rules) => m,
             MPip::ChipsOnTrips(m) => self.funky_num(m, Self::has_trips),
             // Per-card, rank-conditional (e.g. Odd Todd): sum each played
             // card's own contribution.
@@ -96,13 +112,20 @@ impl BuffoonPile {
     /// effects (Fibonacci, the suit jokers) are summed over the played cards.
     #[must_use]
     pub fn calculate_plus_mult(&self, enhancer: &BuffoonCard) -> usize {
+        self.calculate_plus_mult_with(enhancer, HandRules::default())
+    }
+
+    /// [`calculate_plus_mult`](Self::calculate_plus_mult) under the given
+    /// [`HandRules`].
+    #[must_use]
+    pub fn calculate_plus_mult_with(&self, enhancer: &BuffoonCard, rules: HandRules) -> usize {
         match enhancer.enhancement {
             // **DIARY** How do we make this simpler?
             MPip::MultPlus(m) => m,
-            MPip::MultPlusOnFlush(m) => self.funky_num(m, Self::has_flush),
+            MPip::MultPlusOnFlush(m) if self.has_flush_with(rules) => m,
             MPip::MultPlusOnPair(m) => self.funky_num(m, Self::has_pair),
             MPip::MultPlusOn2Pair(m) => self.funky_num(m, Self::has_2pair),
-            MPip::MultPlusOnStraight(m) => self.funky_num(m, Self::has_straight),
+            MPip::MultPlusOnStraight(m) if self.has_straight_with(rules) => m,
             MPip::MultPlusOnTrips(m) => self.funky_num(m, Self::has_trips),
             // Per-card, rank/suit-conditional (e.g. Fibonacci, Even Steven,
             // the suit jokers): sum each played card's own contribution.
@@ -123,11 +146,16 @@ impl BuffoonPile {
         self.0.clear();
     }
 
-    /// Returns the number of connectors based on the distance between ranks. For a collection
-    /// of five cards, if 4 is returned, that's a straight. Allows for the scenarios where a
-    /// player has the [`Four Fingers Joker`](https://balatrogame.fandom.com/wiki/Four_Fingers)
-    /// and only needs a four card straight. It also supports when the player has the
-    /// [`Shortcut Joker`](https://balatrogame.fandom.com/wiki/Shortcut).
+    /// The links in the longest unbroken run of ranks, where neighbours are at
+    /// most `distance` ranks apart. For five cards, 4 is a straight. Allows for
+    /// the scenarios where a player has the
+    /// [`Four Fingers Joker`](https://balatrogame.fandom.com/wiki/Four_Fingers)
+    /// and only needs a four card straight. It also supports when the player
+    /// has the [`Shortcut Joker`](https://balatrogame.fandom.com/wiki/Shortcut).
+    ///
+    /// An Ace plays high and low, so `A-2-3-4-5` is a run; a run never wraps
+    /// past the Ace (`K-A-2` is not one). Links must be one run: `2-3-4` and
+    /// `9-T` are two runs, so they are not a Four Fingers straight.
     ///
     /// ```
     /// use buffoonery::prelude::*;
@@ -135,8 +163,10 @@ impl BuffoonPile {
     /// // Royal Flush
     /// assert_eq!(bcards!("AS KS QS JS TS").connectors(1), 4);
     ///
-    ///
     /// assert_eq!(bcards!("AS KS QS JS TS AC 3D 5S").connectors(1), 4);
+    ///
+    /// // Ace-low.
+    /// assert_eq!(bcards!("AS 2D 3C 4H 5S").connectors(1), 4);
     ///
     /// // A Stone card has no rank, so it is not a link in a straight.
     /// let mut stony = bcards!("3C 4D 5S 6H");
@@ -148,28 +178,142 @@ impl BuffoonPile {
     /// Stone cards are skipped — see [`detectable`](Self::detectable).
     #[must_use]
     pub fn connectors(&self, distance: usize) -> usize {
-        let mut ranks = self
+        self.longest_run(distance).map_or(0, |(_, _, links)| links)
+    }
+
+    /// The step of the Ace played high, the top of the straight ladder.
+    const ACE_HIGH_STEP: usize = FrenchRank::ACE.weight - FrenchRank::DEUCE.weight + 1;
+
+    /// A card's places on the straight ladder: its rank, counted from the Two
+    /// at 1, and 0 as well for an Ace, which also plays low.
+    fn straight_steps(card: &BuffoonCard) -> impl Iterator<Item = usize> {
+        let high = card.rank.weight.saturating_sub(FrenchRank::DEUCE.weight) + 1;
+        let low = (card.rank.index == 'A').then_some(0);
+        std::iter::once(high).chain(low)
+    }
+
+    /// The longest unbroken run of ranks as `(lowest step, highest step,
+    /// links)`; of two equal runs, the higher. `None` for no ranked cards.
+    fn longest_run(&self, distance: usize) -> Option<(usize, usize, usize)> {
+        let mut steps: Vec<usize> = self
             .detectable()
-            .0
             .iter()
-            .map(|card| card.rank)
-            .collect::<Vec<_>>();
-        ranks.sort();
-
-        let mut count = 0;
-        let mut fopt: Option<Pip> = None;
-
-        for rank in ranks {
-            if fopt.is_none() {
-                fopt = Some(rank);
-            } else if let Some(first) = fopt {
-                if (first.distance(&rank) <= distance) && (first.distance(&rank) != 0) {
-                    count += 1;
+            .flat_map(Self::straight_steps)
+            .collect();
+        steps.sort_unstable();
+        steps.dedup();
+        let mut best: Option<(usize, usize, usize)> = None;
+        let mut start = 0;
+        for end in 1..=steps.len() {
+            if end == steps.len() || steps[end] - steps[end - 1] > distance {
+                let links = end - 1 - start;
+                if best.is_none_or(|(_, _, longest)| links >= longest) {
+                    best = Some((steps[start], steps[end - 1], links));
                 }
-                fopt = Some(rank);
+                start = end;
             }
         }
-        count
+        best
+    }
+
+    /// Which cards score for `hand_type` under `rules`, by position: the cards
+    /// that make the hand. The rest are kickers and score nothing, as in
+    /// Balatro.
+    ///
+    /// * High Card — the highest card.
+    /// * Pair, Two Pair, Three and Four of a Kind — the cards of the matched
+    ///   ranks. Full House — both groups.
+    /// * Straight — the cards of the run (every copy of a rank in it); Flush —
+    ///   the cards of the flush suit (or colour, under Smeared); Straight Flush
+    ///   — both, which under Four Fingers can be different cards.
+    /// * Five of a Kind, Flush House, Flush Five — every card.
+    ///
+    /// Stone cards are in no hand, so they are never marked here; the board
+    /// scores them anyway, and scores every card under Splash
+    /// ([`BuffoonBoard::scoring_mask`](crate::types::board::BuffoonBoard::scoring_mask)).
+    ///
+    /// ```
+    /// use buffoonery::prelude::*;
+    ///
+    /// let pair = bcards!("KS KD 4C");
+    /// assert_eq!(pair.scoring_mask_with(HandType::Pair, HandRules::default()), vec![true, true, false]);
+    /// ```
+    #[must_use]
+    pub fn scoring_mask_with(&self, hand_type: HandType, rules: HandRules) -> Vec<bool> {
+        match hand_type {
+            HandType::FlushFive | HandType::FlushHouse => {
+                self.iter().map(|card| !card.is_stone()).collect()
+            }
+            HandType::FiveOfAKind => self.rank_group_mask(5),
+            HandType::FourOfAKind => self.rank_group_mask(4),
+            HandType::ThreeOfAKind => self.rank_group_mask(3),
+            HandType::FullHouse | HandType::TwoPair | HandType::Pair => self.rank_group_mask(2),
+            HandType::StraightFlush | HandType::RoyalFlush => self
+                .straight_mask(rules)
+                .into_iter()
+                .zip(self.flush_mask(rules))
+                .map(|(straight, flush)| straight || flush)
+                .collect(),
+            HandType::Straight => self.straight_mask(rules),
+            HandType::Flush => self.flush_mask(rules),
+            HandType::HighCard => self.high_card_mask(),
+        }
+    }
+
+    /// The cards whose rank appears at least `n` times.
+    fn rank_group_mask(&self, n: usize) -> Vec<bool> {
+        let seen = self.detectable();
+        let count = |rank: char| seen.iter().filter(|c| c.rank.index == rank).count();
+        self.iter()
+            .map(|card| !card.is_stone() && count(card.rank.index) >= n)
+            .collect()
+    }
+
+    /// The cards in the longest run, if that run is a straight under `rules`.
+    fn straight_mask(&self, rules: HandRules) -> Vec<bool> {
+        let run = self
+            .longest_run(rules.straight_distance)
+            .filter(|&(_, _, links)| links >= rules.straight_connectors);
+        self.iter()
+            .map(|card| {
+                !card.is_stone()
+                    && run.is_some_and(|(low, high, _)| {
+                        Self::straight_steps(card).any(|step| (low..=high).contains(&step))
+                    })
+            })
+            .collect()
+    }
+
+    /// The cards of the suit (or, under Smeared, the colour) that makes the
+    /// flush under `rules`.
+    fn flush_mask(&self, rules: HandRules) -> Vec<bool> {
+        let group = |card: &BuffoonCard| match card.suit.index {
+            'H' | 'D' if rules.smeared => 'R',
+            'S' | 'C' if rules.smeared => 'B',
+            suit => suit,
+        };
+        let seen = self.detectable();
+        let flush = seen
+            .iter()
+            .map(group)
+            .find(|&key| seen.iter().filter(|c| group(c) == key).count() >= rules.flush_len);
+        self.iter()
+            .map(|card| !card.is_stone() && flush == Some(group(card)))
+            .collect()
+    }
+
+    /// The first card of the highest rank.
+    fn high_card_mask(&self) -> Vec<bool> {
+        let highest = self
+            .iter()
+            .enumerate()
+            .filter(|(_, card)| !card.is_stone())
+            .rev()
+            .max_by_key(|(_, card)| card.rank.weight)
+            .map(|(index, _)| index);
+        (0..self.len())
+            .map(|index| Some(index) == highest)
+            .collect()
     }
 
     #[must_use]
@@ -468,21 +612,16 @@ impl BuffoonPile {
         self.has_royal_flush_with(HandRules::default())
     }
 
-    /// A Royal Flush is the top [straight flush](Self::has_straight_flush): it
-    /// spans Ace down to Ten in a single suit. This engine has no Ace-low
-    /// straights — [`connectors`](Self::connectors) never bridges the Ace to a
-    /// low card, so `A-2-3-4-5` is not a straight — which means a straight flush
-    /// holding **both an Ace and a King** can only be `A-K-Q-J-10`. Testing for
-    /// those two anchor ranks is order-independent (unlike reading the sorted
-    /// top card) and stays correct when [`HandRules`] shortens the straight.
+    /// A Royal Flush is the top [straight flush](Self::has_straight_flush): its
+    /// run ends at the Ace played high (`A-K-Q-J-10`). An Ace-low straight
+    /// flush (`A-2-3-4-5`) is not one, even with a King beside it under Four
+    /// Fingers. The scoring normalises it to Straight Flush either way.
     #[must_use]
     pub fn has_royal_flush_with(&self, rules: HandRules) -> bool {
-        if !self.has_straight_flush_with(rules) {
-            return false;
-        }
-        let ranks = self.detectable();
-        ranks.iter().any(|c| c.rank == FrenchRank::ACE)
-            && ranks.iter().any(|c| c.rank == FrenchRank::KING)
+        self.has_straight_flush_with(rules)
+            && self
+                .longest_run(rules.straight_distance)
+                .is_some_and(|(_, high, _)| high == Self::ACE_HIGH_STEP)
     }
 
     /// Whether the pile forms a straight. Vanilla Balatro (gap-free, five cards)
@@ -951,6 +1090,12 @@ mod funky__types__buffoon_pile_tests {
     #[case("9S 9S 9S 7S 6C", HandType::ThreeOfAKind)]
     #[case("9S 9S 7D 7S 6C", HandType::TwoPair)]
     #[case("9S 9S 7D 3S 6C", HandType::Pair)]
+    // Ace-low: the Ace counts as 1 too (risk 8). No wrapping past the Ace.
+    #[case("AS 2D 3C 4H 5S", HandType::Straight)]
+    #[case("5S 4D 3C 2H AS", HandType::Straight)]
+    #[case("AS 2S 3S 4S 5S", HandType::StraightFlush)]
+    #[case("QS KD AC 2H 3S", HandType::HighCard)]
+    #[case("KS AD 2C 3H 4S", HandType::HighCard)]
     fn determine_hand_type(#[case] input: &str, #[case] expected: HandType) {
         assert_eq!(bcards!(input).determine_hand_type(), expected);
     }
@@ -964,6 +1109,85 @@ mod funky__types__buffoon_pile_tests {
     #[case("9S KS QS JS TS", HandType::RoyalFlush)]
     fn determine_hand_type__negative(#[case] input: &str, #[case] expected: HandType) {
         assert_ne!(bcards!(input).determine_hand_type(), expected);
+    }
+
+    const FOUR_FINGERS: HandRules = HandRules {
+        straight_distance: 1,
+        straight_connectors: 3,
+        flush_len: 4,
+        smeared: false,
+    };
+
+    /// Four Fingers wants four cards **in a row**, not four links anywhere:
+    /// `2-3-4` and `9-T` are two runs, not a straight.
+    #[rstest]
+    #[case("2S 3D 4C 9H TS", HandType::HighCard)]
+    #[case("2S 3D 4C 5H 9S", HandType::Straight)]
+    #[case("AS 2D 3C 4H 9S", HandType::Straight)]
+    #[case("AS 2H 3H 4H KH", HandType::StraightFlush)]
+    fn determine_hand_type__four_fingers(#[case] input: &str, #[case] expected: HandType) {
+        assert_eq!(
+            bcards!(input).determine_hand_type_with(FOUR_FINGERS),
+            expected
+        );
+    }
+
+    /// Only an Ace-high run is a Royal Flush; under Four Fingers an Ace-low
+    /// straight flush with a King beside it is not.
+    #[test]
+    fn has_royal_flush_with__needs_an_ace_high_run() {
+        assert!(!bcards!("AH 2H 3H 4H KH").has_royal_flush_with(FOUR_FINGERS));
+        assert!(bcards!("AH KH QH JH 2S").has_royal_flush_with(FOUR_FINGERS));
+        assert!(!bcards!("AS 2S 3S 4S 5S").has_royal_flush());
+    }
+
+    /// Which played cards score (risk 7): the cards that make the hand. The
+    /// rest are kickers.
+    #[rstest]
+    #[case("AS 2D", HandRules::default(), "TF")]
+    #[case("2D AS", HandRules::default(), "FT")]
+    #[case("KS KD 4C", HandRules::default(), "TTF")]
+    #[case("KS KD 4C 4H 9S", HandRules::default(), "TTTTF")]
+    #[case("9S 2H 9D 3S 9C", HandRules::default(), "TFTFT")]
+    #[case("9S 9D 9C 9H 3S", HandRules::default(), "TTTTF")]
+    #[case("9S 9D 9C 3H 3S", HandRules::default(), "TTTTT")]
+    #[case("AS 2D 3C 4H 5S", HandRules::default(), "TTTTT")]
+    #[case("2H 5H 8H TH KH", HandRules::default(), "TTTTT")]
+    #[case("9S 9S 9S 9S 9S", HandRules::default(), "TTTTT")]
+    #[case("2H 5H 8H TH KS", FOUR_FINGERS, "TTTTF")]
+    #[case("2S 3D 4C 5H 9S", FOUR_FINGERS, "TTTTF")]
+    #[case("2S 3D 3C 4H 5S", FOUR_FINGERS, "TTTTT")]
+    #[case("AS 2D 3C 4H 9S", FOUR_FINGERS, "TTTTF")]
+    #[case("2H 3H 4H 5H 9S", FOUR_FINGERS, "TTTTF")]
+    #[case("2H 3S 4H 5H 9H", FOUR_FINGERS, "TTTTT")]
+    #[case("2H 5D 8H TD KD", HandRules { smeared: true, ..HandRules::default() }, "TTTTT")]
+    fn scoring_mask_with(#[case] input: &str, #[case] rules: HandRules, #[case] expected: &str) {
+        let pile = bcards!(input);
+        let hand_type = pile.determine_hand_type_with(rules);
+        let mask: String = pile
+            .scoring_mask_with(hand_type, rules)
+            .iter()
+            .map(|&scores| if scores { 'T' } else { 'F' })
+            .collect();
+        assert_eq!(mask, expected, "{input} as {hand_type:?}");
+    }
+
+    /// A Stone card is in no hand, so the pile never marks it; the board adds
+    /// it back (a Stone card always scores).
+    #[test]
+    fn scoring_mask_with__a_stone_card_is_not_part_of_the_hand() {
+        let mut pile = bcards!("KS KD");
+        pile.push(STONE_CARD);
+        assert_eq!(
+            pile.scoring_mask_with(HandType::Pair, HandRules::default()),
+            vec![true, true, false]
+        );
+        let mut lone = BuffoonPile::default();
+        lone.push(STONE_CARD);
+        assert_eq!(
+            lone.scoring_mask_with(HandType::HighCard, HandRules::default()),
+            vec![false]
+        );
     }
 
     #[test]
@@ -981,12 +1205,15 @@ mod funky__types__buffoon_pile_tests {
         assert_eq!(bcards!("AS KS QS JS TS").connectors(1), 4);
         assert_eq!(bcards!("AS KS QS JS TS AC 3D 5S").connectors(1), 4);
         assert_eq!(bcards!("AS KS QS JS TS").connectors(2), 4);
-        assert_eq!(bcards!("AS KS KD JS TS").connectors(1), 2);
+        // Links in the longest unbroken run: A-K and J-T are two runs of one.
+        assert_eq!(bcards!("AS KS KD JS TS").connectors(1), 1);
         assert_eq!(bcards!("AS KS KD JS TS").connectors(2), 3);
         assert_eq!(bcards!("JD QS TC 9S KH").connectors(1), 4);
         assert_eq!(bcards!("JD QS TC 8S KH").connectors(2), 4);
         assert_eq!(bcards!("JD QS TC 8S KH").connectors(2), 4);
         assert_eq!(bcards!("JD JC JH 8S 8H").connectors(1), 0);
+        assert_eq!(bcards!("AS 2D 3C 4H 5S").connectors(1), 4);
+        assert_eq!(bcards!("2S 3D 4C 9H TS").connectors(1), 2);
     }
 
     #[test]

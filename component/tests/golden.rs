@@ -4,7 +4,9 @@
 #![allow(non_snake_case, clippy::expect_used, clippy::unwrap_used)]
 
 use buffoonery::prelude::*;
-use buffoonery_component::{catalog, parse, score, score_seeded, version};
+use buffoonery_component::{
+    CustomEffect, ScoreOptions, catalog, parse, score, score_with, version,
+};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,6 +28,20 @@ fn fixtures() -> Vec<PathBuf> {
 fn expected(spec: &Path) -> Value {
     let text = fs::read_to_string(spec.with_extension("trace.json")).expect("expected trace");
     serde_json::from_str(&text).expect("valid JSON")
+}
+
+fn seeded(seed: u64) -> ScoreOptions {
+    ScoreOptions {
+        seed: Some(seed),
+        effects: Vec::new(),
+    }
+}
+
+fn custom(id: u32, op: &str) -> CustomEffect {
+    CustomEffect {
+        id,
+        op: op.to_string(),
+    }
 }
 
 fn parsed(trace: &str) -> Value {
@@ -85,12 +101,12 @@ fn score__errors_name_the_field() {
 }
 
 #[test]
-fn score_seeded__totals_match_the_engine() {
+fn score_with__seed_totals_match_the_engine() {
     for spec in fixtures() {
         let yaml = fs::read_to_string(&spec).expect("readable fixture");
         let board = BuffoonBoard::try_from(&BoardSpec::from_yaml(&yaml).unwrap()).unwrap();
         for seed in [0, 7, u64::MAX] {
-            let trace = parsed(&score_seeded(&yaml, seed).unwrap());
+            let trace = parsed(&score_with(&yaml, &seeded(seed)).unwrap());
             let total: Score = serde_json::from_value(trace["total"].clone()).unwrap();
             assert_eq!(
                 total,
@@ -103,7 +119,7 @@ fn score_seeded__totals_match_the_engine() {
 }
 
 #[test]
-fn score_seeded__marks_rolled_steps() {
+fn score_with__a_seed_marks_rolled_steps() {
     let yaml = fs::read_to_string(fixtures_dir().join("11_inert_jokers.yaml")).unwrap();
     let rolled = |trace: &Value| {
         trace["steps"]
@@ -115,19 +131,87 @@ fn score_seeded__marks_rolled_steps() {
     };
     assert_eq!(rolled(&parsed(&score(&yaml).unwrap())), 0);
     // The Lucky card's special and Misprint's effect.
-    assert_eq!(rolled(&parsed(&score_seeded(&yaml, 7).unwrap())), 2);
+    assert_eq!(rolled(&parsed(&score_with(&yaml, &seeded(7)).unwrap())), 2);
     assert_eq!(
-        score_seeded(&yaml, 7),
-        score_seeded(&yaml, 7),
+        score_with(&yaml, &seeded(7)),
+        score_with(&yaml, &seeded(7)),
         "a seed repeats"
     );
 }
 
 #[test]
-fn score_seeded__errors_name_the_field() {
+fn score_with__no_options_is_score() {
+    for spec in fixtures() {
+        let yaml = fs::read_to_string(&spec).expect("readable fixture");
+        assert_eq!(
+            score_with(&yaml, &ScoreOptions::default()),
+            score(&yaml),
+            "{}",
+            spec.display()
+        );
+    }
+}
+
+#[test]
+fn score_with__a_custom_effect_scores_its_op() {
+    let board = "played: [AS]\njokers: [{ident: JOKER, enhancement: !Custom 3}]";
+    let options = ScoreOptions {
+        seed: None,
+        effects: vec![custom(
+            3,
+            r#"{"Seq": [{"AddChips": 20}, {"TimesMult": 2.0}]}"#,
+        )],
+    };
+    let trace = parsed(&score_with(board, &options).unwrap());
+    let joker = trace["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|step| step["phase"] == "Joker" && step["part"] == "Effect")
+        .unwrap();
     assert_eq!(
-        score_seeded("played: [AS, ZZ]", 1).unwrap_err(),
+        joker["op"],
+        serde_json::json!({"Seq": [{"AddChips": 20}, {"TimesMult": 2.0}]})
+    );
+    assert_eq!(joker["fired"], true);
+    // High Card: 5 + 11 chips, 1 mult; then +20 chips, x2 mult.
+    assert_eq!(
+        trace["total"],
+        serde_json::json!({"chips": 36, "mult": 2.0})
+    );
+
+    let unregistered = parsed(&score_with(board, &ScoreOptions::default()).unwrap());
+    assert_eq!(
+        unregistered["total"],
+        serde_json::json!({"chips": 16, "mult": 1.0})
+    );
+}
+
+#[test]
+fn score_with__errors_name_the_field() {
+    assert_eq!(
+        score_with("played: [AS, ZZ]", &seeded(1)).unwrap_err(),
         r#"played[1]: unknown card "ZZ""#
+    );
+    let bad_op = ScoreOptions {
+        seed: None,
+        effects: vec![
+            custom(1, r#"{"AddMult": 2}"#),
+            custom(2, r#"{"AddChips": -5}"#),
+        ],
+    };
+    let error = score_with("played: [AS]", &bad_op).unwrap_err();
+    assert!(error.starts_with("effects[1].op: "), "{error}");
+    let twice = ScoreOptions {
+        seed: None,
+        effects: vec![
+            custom(1, r#"{"AddMult": 2}"#),
+            custom(1, r#"{"AddMult": 3}"#),
+        ],
+    };
+    assert_eq!(
+        score_with("played: [AS]", &twice).unwrap_err(),
+        "effects[1]: id 1 is already defined"
     );
 }
 

@@ -60,7 +60,35 @@ export const OVERRIDE_KINDS = [
   { kind: 'chips', label: '+ Chips' },
   { kind: 'mult', label: '+ Mult' },
   { kind: 'xmult', label: '× Mult' },
+  { kind: 'custom', label: 'Custom' },
 ];
+
+// One part of a typed effect: `+20 Chips`, `+4 Mult`, `×1.5 Mult` (or `x`),
+// `nothing`; a comma may follow when another part comes after it.
+const OP_PART = /\s*(?:\+\s*(\d+)\s*(chips|mult)|[×x]\s*(\d+(?:\.\d+)?)\s*mult|(nothing))\s*(?:,(?=\s*\S))?/iy;
+
+/**
+ * A typed effect as the `ScoreOp` a custom effect applies: one part is that
+ * op, several are a `Seq`. It reads what `formatOp` writes. Throws when the
+ * text is not an effect.
+ */
+export function parseOp(text) {
+  const parts = [];
+  OP_PART.lastIndex = 0;
+  while (OP_PART.lastIndex < text.length) {
+    const start = OP_PART.lastIndex;
+    const match = OP_PART.exec(text);
+    if (!match || OP_PART.lastIndex === start) break;
+    const [, add, unit, times, nothing] = match;
+    if (nothing) parts.push('Nothing');
+    else if (times) parts.push({ TimesMult: Number(times) });
+    else parts.push(unit.toLowerCase() === 'chips' ? { AddChips: Number(add) } : { AddMult: Number(add) });
+  }
+  if (parts.length === 0 || text.slice(OP_PART.lastIndex).trim() !== '') {
+    throw new Error('Type an effect like "+20 Chips, ×2 Mult".');
+  }
+  return parts.length === 1 ? parts[0] : { Seq: parts };
+}
 
 /**
  * The joker editions the edition picker offers. `null` means no edition.
@@ -90,6 +118,9 @@ export function initialState() {
     board: {},
     // The seed as a BigInt, or `null`: no seed scores every chance at its floor.
     seed: null,
+    // Custom effects from a link that no joker slot edits (e.g. on a card):
+    // `{id, op}`, passed through as they came.
+    effects: [],
     showAll: false,
   };
 }
@@ -108,20 +139,47 @@ export function parseSeed(text) {
   return seed;
 }
 
-/** The link's hash for a spec and seed: `#board=…`, or `#seed=7&board=…`. */
-export function boardHash(spec, seed) {
-  const board = `board=${encodeURIComponent(JSON.stringify(spec))}`;
-  return seed === null ? `#${board}` : `#seed=${seed}&${board}`;
+/**
+ * The link's hash for a spec, seed and custom effects:
+ * `#seed=7&effects=[…]&board=…`, each part before the board only when set.
+ */
+export function boardHash(spec, seed, effects = []) {
+  const parts = [];
+  if (seed !== null) parts.push(`seed=${seed}`);
+  if (effects.length) parts.push(`effects=${encodeURIComponent(JSON.stringify(effects))}`);
+  parts.push(`board=${encodeURIComponent(JSON.stringify(spec))}`);
+  return `#${parts.join('&')}`;
+}
+
+function readEffects(text) {
+  let effects;
+  try {
+    effects = JSON.parse(text);
+  } catch {
+    effects = null;
+  }
+  const valid = Array.isArray(effects) && effects.every((e) => Number.isInteger(e?.id) && e.id >= 0 && e.op !== undefined);
+  if (!valid) throw new Error('The effects in the link are not a list of {id, op}.');
+  return effects;
 }
 
 /**
- * The board text and seed in a link's hash, or `null` if it holds no board.
- * The seed comes first, so the board can be anything to the end of the link.
+ * The board text, seed and custom effects in a link's hash, or `null` if it
+ * holds no board. The board comes last, so it can be anything to the end of
+ * the link.
  */
 export function readHash(hash) {
-  const match = /^#(?:seed=(\d+)&)?board=(.*)$/s.exec(hash);
+  const match = /^#((?:[a-z]+=[^&]*&)*)board=(.*)$/s.exec(hash);
   if (!match) return null;
-  return { board: decodeURIComponent(match[2]), seed: match[1] === undefined ? null : parseSeed(match[1]) };
+  const params = Object.fromEntries(match[1].split('&').filter(Boolean).map((part) => {
+    const at = part.indexOf('=');
+    return [part.slice(0, at), decodeURIComponent(part.slice(at + 1))];
+  }));
+  return {
+    board: decodeURIComponent(match[2]),
+    seed: params.seed === undefined ? null : parseSeed(params.seed),
+    effects: params.effects === undefined ? [] : readEffects(params.effects),
+  };
 }
 
 /**
@@ -151,9 +209,13 @@ export function overrideEnhancement(override) {
   }
 }
 
+const customId = (mpip) => (typeof mpip === 'object' && mpip !== null && 'Custom' in mpip ? mpip.Custom : undefined);
+
 /**
- * The `BoardSpec` for the page state, and which trace joker index each slot
- * became (`null` for an empty slot). Empty slots are left out of the spec.
+ * The `BoardSpec` for the page state, which trace joker index each slot
+ * became (`null` for an empty slot), and the custom effects as `{id, op}`.
+ * Empty slots are left out of the spec. A slot with a custom effect gets the
+ * lowest id no card, slot or passed-through effect uses.
  */
 export function buildSpec(state) {
   const index = (card) => {
@@ -162,12 +224,27 @@ export function buildSpec(state) {
     return { card: name, ...pick(card, ['enhancement', 'edition']) };
   };
   const levels = Object.entries(state.levels).filter(([, level]) => Number(level) !== 1);
+  const effects = [...(state.effects ?? [])];
+  const taken = new Set([
+    ...effects.map((e) => e.id),
+    ...[...state.played, ...state.held, ...state.slots].map((item) => customId(item.enhancement)),
+  ]);
+  let nextId = 1;
+  const freeId = () => {
+    while (taken.has(nextId)) nextId += 1;
+    taken.add(nextId);
+    return nextId;
+  };
   const jokers = [];
   const jokerIndex = state.slots.map((slot) => {
     if (!slot.ident) return null;
     const joker = { ident: slot.ident };
     const override = slot.override && overrideEnhancement(slot.override);
-    if (override) joker.enhancement = override.enhancement;
+    if (slot.override?.kind === 'custom') {
+      const id = freeId();
+      joker.enhancement = { Custom: id };
+      effects.push({ id, op: parseOp(slot.override.text) });
+    } else if (override) joker.enhancement = override.enhancement;
     else if (slot.enhancement) joker.enhancement = slot.enhancement;
     if (slot.edition && slot.edition !== 'None') joker.edition = slot.edition;
     if (slot.debuffed) joker.debuffed = true;
@@ -179,7 +256,7 @@ export function buildSpec(state) {
   if (levels.length) spec.hand_levels = Object.fromEntries(levels.map(([type, level]) => [type, Number(level)]));
   spec.jokers = jokers;
   Object.assign(spec, pick(state.board ?? {}, BOARD_FIELDS));
-  return { spec, jokerIndex };
+  return { spec, jokerIndex, effects };
 }
 
 const BOARD_FIELDS = ['money', 'discards_left', 'hands_left', 'blind'];
@@ -205,8 +282,20 @@ function cardFromSpec(card) {
   return typeof card === 'string' ? parsed : { ...parsed, ...pick(card, ['enhancement', 'edition']) };
 }
 
-function slotFromSpec(joker) {
-  const override = joker.enhancement ? overrideFromEnhancement(joker.enhancement) : null;
+/** The typed text for an op, if the custom editor can read it back. */
+function customText(op) {
+  if (op === undefined) return null;
+  try {
+    parseOp(formatOp(op));
+    return formatOp(op);
+  } catch {
+    return null;
+  }
+}
+
+function slotFromSpec(joker, customs) {
+  const text = customs.get(customId(joker.enhancement));
+  const override = text ? { kind: 'custom', text } : joker.enhancement ? overrideFromEnhancement(joker.enhancement) : null;
   const slot = { ident: joker.ident, override, debuffed: Boolean(joker.debuffed) };
   if (joker.enhancement && !override) slot.enhancement = joker.enhancement;
   if (joker.edition) slot.edition = joker.edition;
@@ -214,11 +303,13 @@ function slotFromSpec(joker) {
 }
 
 /**
- * Page state for a `BoardSpec` (as JSON, e.g. from the component's `parse`),
- * so a board from a link opens in the page. Fields the page has no control
- * for are kept. Throws when the page cannot show the board.
+ * Page state for a `BoardSpec` (as JSON, e.g. from the component's `parse`)
+ * and its custom effects, so a board from a link opens in the page. A joker
+ * whose custom effect the editor can show becomes a custom override; other
+ * custom effects pass through. Fields the page has no control for are kept.
+ * Throws when the page cannot show the board.
  */
-export function specToState(spec) {
+export function specToState(spec, effects = []) {
   const played = (spec.played ?? []).map(cardFromSpec);
   const held = (spec.held ?? []).map(cardFromSpec);
   const jokers = spec.jokers ?? [];
@@ -226,7 +317,10 @@ export function specToState(spec) {
   if (played.length > MAX_PLAYED) throw new Error(`The page plays at most ${MAX_PLAYED} cards.`);
   if (held.length > MAX_HELD) throw new Error(`The page shows at most ${MAX_HELD} held cards.`);
   if (jokers.length > SLOT_COUNT) throw new Error(`The page shows at most ${SLOT_COUNT} jokers.`);
-  const slots = jokers.map(slotFromSpec);
+  const customs = new Map(effects.map((e) => [e.id, customText(e.op)]).filter(([, text]) => text));
+  const slots = jokers.map((joker) => slotFromSpec(joker, customs));
+  const edited = new Set(jokers.map((j) => customId(j.enhancement)).filter((id) => customs.has(id)));
+  const onCards = new Set([...played, ...held].map((card) => customId(card.enhancement)));
   while (slots.length < SLOT_COUNT) slots.push({ ident: null, override: null, debuffed: false });
   return {
     ...initialState(),
@@ -234,6 +328,7 @@ export function specToState(spec) {
     held,
     levels: { ...spec.hand_levels },
     slots,
+    effects: effects.filter((e) => !edited.has(e.id) || onCards.has(e.id)),
     board: pick(spec, BOARD_FIELDS),
   };
 }
@@ -293,6 +388,7 @@ export function opHeadline(op) {
   if ('AddChips' in op) return `+${fmtNum(op.AddChips)}`;
   if ('AddMult' in op) return `+${fmtNum(op.AddMult)}`;
   if ('Add' in op) return `+${fmtNum(kind === 'mult' ? op.Add.mult : op.Add.chips)}`;
+  if ('Seq' in op) return op.Seq.filter((part) => opKind(part) !== 'none').map(opHeadline).join(' ');
   return formatOp(op);
 }
 
@@ -392,13 +488,22 @@ export function slotView(slot, info, steps) {
   const effect = steps.find((s) => s.part === 'Effect');
   const edition = steps.find((s) => s.part === 'Edition' && s.fired);
   const kind = effect ? opKind(effect.op) : 'none';
-  const override = slot.override ? overrideEnhancement(slot.override) : slot.enhancement ? { enhancement: slot.enhancement } : null;
+  const custom = slot.override?.kind === 'custom';
+  const override = custom ? null : slot.override ? overrideEnhancement(slot.override) : slot.enhancement ? { enhancement: slot.enhancement } : null;
   const printed = formatMPip(info.enhancement);
   let kindLabel;
   if (slot.debuffed) kindLabel = 'debuffed';
   else if (kind === 'none') kindLabel = 'did not fire';
-  else kindLabel = kind === 'chips' ? 'Chips' : 'Mult';
-  const notes = [override ? `Overridden: ${formatMPip(override.enhancement)} (printed: ${printed})` : printed];
+  else {
+    // A custom `Seq` can change both: `Chips + Mult`.
+    const parts = effect && 'Seq' in effect.op ? effect.op.Seq.map(opKind) : [kind];
+    const labels = new Set(parts.filter((k) => k !== 'none').map((k) => (k === 'chips' ? 'Chips' : 'Mult')));
+    kindLabel = [...labels].join(' + ');
+  }
+  let first = printed;
+  if (custom) first = `Custom: ${slot.override.text} (printed: ${printed})`;
+  else if (override) first = `Overridden: ${formatMPip(override.enhancement)} (printed: ${printed})`;
+  const notes = [first];
   if (info.blank_reason) notes.push(`Not wired yet: ${info.blank_reason}`);
   if (edition) notes.push(`Edition: ${formatOp(edition.op)}`);
   else if (slot.edition && slot.edition !== 'None') notes.push(`Edition: ${slot.edition}`);
@@ -408,8 +513,8 @@ export function slotView(slot, info, steps) {
     kind: slot.debuffed ? 'none' : kind,
     kindLabel,
     fired: Boolean(effect?.fired),
-    overridden: Boolean(override),
-    overrideValue: override?.value,
+    overridden: custom || Boolean(override),
+    overrideValue: custom ? slot.override.text : override?.value,
     note: notes.join(' · '),
   };
 }

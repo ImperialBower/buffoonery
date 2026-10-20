@@ -2203,9 +2203,11 @@ impl BuffoonBoard {
     /// Boards without a retrigger joker (every board today except Hack, Sock and
     /// Buskin, and Hanging Chad ones) are exact.
     pub fn on_scored(&mut self) {
-        // Vampire counts the enhancements *before* anything eats them.
-        let played = self.played.clone();
-        self.apply_growth(&GrowthEvent::Scored(&played));
+        // Vampire counts the enhancements *before* anything eats them. Only the
+        // scoring cards count; a kicker is not scored.
+        let scoring = self.scoring_mask();
+        let scored = self.scored_cards();
+        self.apply_growth(&GrowthEvent::Scored(&scored));
 
         let bump: usize = self
             .jokers
@@ -2227,6 +2229,9 @@ impl BuffoonBoard {
             let Some(card) = self.played.get(index).copied() else {
                 continue;
             };
+            if !scoring.get(index).copied().unwrap_or(false) {
+                continue;
+            }
             let mut mutated = card.add_base_chips(bump);
             if eats_enhancements {
                 mutated.enhancement = MPip::Blank;
@@ -2664,12 +2669,12 @@ mod funky__types__board__buffoon_board_tests {
 
     #[test]
     fn phase_2_dealt_hand__pair_of_aces() {
-        // 11 + 11 + 10 + 10 + 10 = 52.
+        // Only the paired Aces score: 11 + 11 = 22. Q/J/T are kickers.
         let board = board_playing("AS AD QC JS TH");
         assert_eq!(
             board.scoring_phase2_dealt_hand_scoring(Score::default()),
             Score {
-                chips: 52,
+                chips: 22,
                 mult: 0.0
             }
         );
@@ -2793,34 +2798,34 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn score__even_steven_joker_scores_end_to_end() {
         // Regression: `MultPlusOn5Ranks` jokers used to silently score 0.
-        // Play five even cards (high card) with Even Steven.
-        let mut board = board_playing("TS 8D 6C 4H 2S");
-        board.jokers.push(card::EVEN_STEVEN); // +4 mult per even card
+        // Play five even Spades (a Flush, so every card scores) with Even Steven.
+        let mut board = board_playing("TS 8S 6S 4S 2S");
+        board.jokers.push(card::EVEN_STEVEN); // +4 mult per scored even card
 
-        // Phase 1 (High Card): 5 chips, 1 mult.
+        // Phase 1 (Flush): 35 chips, 4 mult.
         // Phase 2 (cards): 10+8+6+4+2 = 30 chips.
-        // Phase 4 (Even Steven): +4 mult x 5 even cards = +20 mult.
-        // Combined: 35 chips x 21 mult = 735.
+        // Phase 4 (Even Steven): +4 mult x 5 scored even cards = +20 mult.
+        // Combined: 65 chips x 24 mult = 1560.
         let score = board.score();
         assert_eq!(
             score,
             Score {
-                chips: 35,
-                mult: 21.0
+                chips: 65,
+                mult: 24.0
             }
         );
-        assert_eq!(score.score(), 735.0);
+        assert_eq!(score.score(), 1560.0);
     }
 
     #[test]
     fn score__abstract_joker_scales_with_joker_count() {
         // +3 mult per joker on the board (counting itself).
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card (5,1) + 35 chips = 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card (5,1) + K 10 chips = 15/1
         board.jokers.push(card::ABSTRACT_JOKER);
-        assert_eq!(board.score(), Score::new(40, 4.0)); // 1 joker -> +3
+        assert_eq!(board.score(), Score::new(15, 4.0)); // 1 joker -> +3
 
         board.jokers.push(card::JOKER); // now 2 jokers; Abstract +3x2=6 then Joker +4
-        assert_eq!(board.score(), Score::new(40, 11.0));
+        assert_eq!(board.score(), Score::new(15, 11.0));
     }
 
     #[test]
@@ -2829,8 +2834,9 @@ mod funky__types__board__buffoon_board_tests {
         let mut board = board_playing("2S 5D 8C TS KH");
         assert_eq!(board.deck.len(), 52);
         board.jokers.push(card::BLUE_JOKER);
-        // High Card (5,1) + 35 card chips = 40/1; +2x52 = +104 chips -> 144/1.
-        assert_eq!(board.score(), Score::new(144, 1.0));
+        // High Card (5,1) + the King's 10 chips (the only scoring card) = 15/1;
+        // +2x52 = +104 chips -> 119/1.
+        assert_eq!(board.score(), Score::new(119, 1.0));
     }
 
     #[test]
@@ -2852,106 +2858,111 @@ mod funky__types__board__buffoon_board_tests {
 
     #[test]
     fn score__scary_face_adds_chips_per_face() {
-        // +30 chips per played face card (J/Q/K).
-        let mut board = board_playing("KS QD JC 2S 3H"); // 3 faces
+        // +30 chips per scored face card (J/Q/K).
+        let mut board = board_playing("KS QS JS 2S 3S"); // a Flush: all 5 score, 3 faces
         board.jokers.push(card::SCARY_FACE);
-        // High Card (5,1) + cards (10+10+10+2+3 = 35) = 40/1; +30×3 = +90 -> 130/1.
-        assert_eq!(board.score(), Score::new(130, 1.0));
+        // Flush (35,4) + 10+10+10+2+3 = 70/4; +30×3 = +90 -> 160/4.
+        assert_eq!(board.score(), Score::new(160, 4.0));
 
-        // No face cards -> no contribution.
+        // As a High Card only the King scores; the Q and J are kickers.
+        let mut high = board_playing("KS QD JC 2S 3H");
+        high.jokers.push(card::SCARY_FACE);
+        assert_eq!(high.score(), Score::new(45, 1.0));
+
+        // No face cards -> no contribution. High Card 5 + the Ten's 10 = 15/1.
         let mut none = board_playing("2S 5D 8C TS 9H");
         none.jokers.push(card::SCARY_FACE);
-        assert_eq!(none.score(), Score::new(39, 1.0));
+        assert_eq!(none.score(), Score::new(15, 1.0));
     }
 
     #[test]
     fn score__walkie_talkie_per_ten_or_four() {
-        // +10 chips and +4 mult per played 10 or 4.
-        let mut board = board_playing("TS TD 4C 2S 3H"); // two 10s + one 4 = 3 matches
+        // +10 chips and +4 mult per scored 10 or 4.
+        let mut board = board_playing("TS TD 4C 2S 3H"); // two scored 10s; the 4 is a kicker
         board.jokers.push(card::WALKIE_TALKIE);
-        // Pair (10,2) + cards (10+10+4+2+3 = 29) = 39/2; +30 chips, +12 mult -> 69/14.
-        assert_eq!(board.score(), Score::new(69, 14.0));
+        // Pair (10,2) + the two Tens (10+10 = 20) = 30/2; +20 chips, +8 mult -> 50/10.
+        assert_eq!(board.score(), Score::new(50, 10.0));
     }
 
     #[test]
     fn score__blackboard_x3_when_held_all_spades_or_clubs() {
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
         board.jokers.push(card::BLACKBOARD);
 
         // All held are Spades/Clubs -> ×3.
         board.in_hand = BuffoonPile::from(vec![basic::KING_SPADES, basic::QUEEN_CLUBS]);
-        assert_eq!(board.score(), Score::new(40, 3.0));
+        assert_eq!(board.score(), Score::new(15, 3.0));
 
         // A held Heart breaks the condition -> ×1 (inert).
         board.in_hand = BuffoonPile::from(vec![basic::KING_SPADES, basic::QUEEN_HEARTS]);
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // Empty hand is vacuously true -> ×3 (matches Balatro).
         board.in_hand = BuffoonPile::default();
-        assert_eq!(board.score(), Score::new(40, 3.0));
+        assert_eq!(board.score(), Score::new(15, 3.0));
     }
 
     #[test]
     fn score__baseball_card_scales_with_uncommon_jokers() {
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
         board.jokers.push(card::BASEBALL_CARD); // Common itself -> not counted
 
         // No Uncommon jokers -> ×1.
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // One Uncommon joker -> ×1.5 -> 1×1.5 = 1.5. Steel Joker is the stand-in
         // and contributes ×1 of its own, the deck holding no Steel cards.
         board.jokers.push(card::STEEL_JOKER);
-        assert_eq!(board.score(), Score::new(40, 1.5));
+        assert_eq!(board.score(), Score::new(15, 1.5));
     }
 
     #[test]
     fn score__mystic_summit_adds_mult_only_when_no_discards() {
         // Mystic Summit: +15 mult when 0 discards remain, else inert.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
         board.jokers.push(card::MYSTIC_SUMMIT);
 
         // Default draws (3 discards remaining) -> no bonus.
         assert_eq!(board.draws.discards, 3);
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // Zero discards remaining -> +15 mult.
         board.draws.discards = 0;
-        assert_eq!(board.score(), Score::new(40, 16.0));
+        assert_eq!(board.score(), Score::new(15, 16.0));
     }
 
     #[test]
     fn score__banner_adds_chips_per_remaining_discard() {
         // Banner: +30 chips for each remaining discard.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
         board.jokers.push(card::BANNER);
 
         // 3 discards remaining -> +90 chips.
         assert_eq!(board.draws.discards, 3);
-        assert_eq!(board.score(), Score::new(130, 1.0));
+        assert_eq!(board.score(), Score::new(105, 1.0));
 
         // 0 discards remaining -> no bonus.
         board.draws.discards = 0;
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
     }
 
     #[test]
     fn score__bull_scales_with_money() {
         // Bull: +2 chips for each $1 you have.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
         board.jokers.push(card::BULL);
 
         // No money -> no bonus.
         assert_eq!(board.money, 0);
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // $7 -> +14 chips.
         board.money = 7;
-        assert_eq!(board.score(), Score::new(54, 1.0));
+        assert_eq!(board.score(), Score::new(29, 1.0));
 
         // Debt (negative money) never subtracts chips -> floors at 0.
         board.money = -20;
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
     }
 
     #[test]
@@ -2971,13 +2982,13 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn score__raised_fist_adds_double_lowest_held_rank_to_mult() {
         // Raised Fist: +Mult equal to double the lowest-ranked held card's value.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
         board.in_hand = bcards!("7H 3S"); // lowest held rank value = 3
 
         board.jokers.push(card::RAISED_FIST);
 
         // +2 x 3 = +6 mult; chips unchanged.
-        assert_eq!(board.score(), Score::new(40, 7.0));
+        assert_eq!(board.score(), Score::new(15, 7.0));
     }
 
     #[test]
@@ -2985,18 +2996,20 @@ mod funky__types__board__buffoon_board_tests {
         // Cavendish = MPip::MultTimes(3), an unconditional ×3.
         let mut board = board_playing("2S 5D 8C TS KH"); // high card
         board.jokers.push(card::CAVENDISH);
-        // Phase 1 (High Card) 5/1 + cards (2+5+8+10+10 = 35) = 40/1; ×3 -> 40/3.
-        assert_eq!(board.score(), Score::new(40, 3.0));
+        // Phase 1 (High Card) 5/1 + the King (10; the rest are kickers) = 15/1; ×3 -> 15/3.
+        assert_eq!(board.score(), Score::new(15, 3.0));
     }
 
     #[test]
     fn score__triboulet_compounds_per_king_and_queen() {
         // Triboulet: ×2 mult per played King or Queen (compounds).
-        let mut board = board_playing("KS QS 2D 3C 4H"); // 1 King + 1 Queen
+        // A Flush, so the King and the Queen both score (in a High Card only
+        // the King would, and nothing would compound).
+        let mut board = board_playing("KS QS 2S 3S 4S"); // 1 King + 1 Queen
         board.jokers.push(card::TRIBOULET);
-        // Phase 1 (High Card) 5/1 + cards (10+10+2+3+4 = 29) = 34/1.
-        // Two matches -> ×2² = ×4 -> 34/4.
-        assert_eq!(board.score(), Score::new(34, 4.0));
+        // Phase 1 (Flush) 35/4 + cards (10+10+2+3+4 = 29) = 64/4.
+        // Two matches -> ×2² = ×4 -> 64/16.
+        assert_eq!(board.score(), Score::new(64, 16.0));
 
         // No Kings/Queens -> ×2⁰ = ×1 (inert).
         let mut none = board_playing("2S 5D 8C TS 9H");
@@ -3012,19 +3025,19 @@ mod funky__types__board__buffoon_board_tests {
         board.jokers.push(enhanced(card::JOKER, MPip::MultTimes(3))); // x3
 
         // Phase 1 (Pair): 10 chips, 2 mult.
-        // Phase 2 (cards): 11+11+10+10+10 = 52 chips.
-        // Running: 62 chips, 2 mult. Phase 3: no held cards.
+        // Phase 2 (cards): only the Aces score, 11+11 = 22 chips.
+        // Running: 32 chips, 2 mult. Phase 3: no held cards.
         // Phase 4: +4 -> 6 mult, then x3 -> 18 mult.
-        // Combined: 62 chips x 18 mult = 1116.
+        // Combined: 32 chips x 18 mult = 576.
         let score = board.score();
         assert_eq!(
             score,
             Score {
-                chips: 62,
+                chips: 32,
                 mult: 18.0
             }
         );
-        assert_eq!(score.score(), 1116.0);
+        assert_eq!(score.score(), 576.0);
     }
 
     // A mod-defined effect that reads the board through the context: ×2 mult
@@ -3132,8 +3145,9 @@ mod funky__types__board__buffoon_board_tests {
         board
             .jokers
             .push(enhanced(card::JOKER, MPip::Custom(FLUSH_DOUBLER)));
-        // Phase 1 (High Card) 5/1 + cards (11+10+10+10+9=50) = 55/1, unmultiplied.
-        assert_eq!(board.score_with_registry(&registry), Score::new(55, 1.0));
+        // Phase 1 (High Card) 5/1 + the Ace (11; the rest are kickers) = 16/1,
+        // unmultiplied.
+        assert_eq!(board.score_with_registry(&registry), Score::new(16, 1.0));
     }
 
     #[test]
@@ -3237,8 +3251,8 @@ mod funky__types__board__buffoon_board_tests {
     fn on_hand_played__is_inert_without_counter_jokers() {
         // A board with only a non-counter joker scores identically before and
         // after events fire; the plumbing exists but does nothing yet.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
-        board.push_joker(card::CAVENDISH); // MultTimes(3): 40/1 -> 40/3
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
+        board.push_joker(card::CAVENDISH); // MultTimes(3): 15/1 -> 15/3
         let before = board.score();
 
         board.on_hand_played(&bcards!("2S 5D 8C TS KH"));
@@ -3259,7 +3273,7 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn score__green_joker_gains_mult_per_hand_less_discard() {
         // Green Joker: +1 Mult per hand played, −1 per discard; floors at 0.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::GREEN_JOKER);
 
         // 3 hands, 1 discard -> net +2 mult.
@@ -3268,133 +3282,133 @@ mod funky__types__board__buffoon_board_tests {
         board.on_hand_played(&hand);
         board.on_hand_played(&hand);
         board.on_discard(&bcards!("9C"));
-        assert_eq!(board.score(), Score::new(40, 3.0)); // 1 + 2
+        assert_eq!(board.score(), Score::new(15, 3.0)); // 1 + 2
 
         // More discards than hands -> floored at +0 mult, not negative.
         board.on_discard(&bcards!("9C"));
         board.on_discard(&bcards!("9C"));
         board.on_discard(&bcards!("9C"));
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
     }
 
     #[test]
     fn score__square_joker_gains_chips_per_four_card_hand() {
         // Square Joker: +4 chips for each hand played with exactly 4 cards.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::SQUARE_JOKER);
 
         // Two 4-card hands -> +8 chips.
         board.on_hand_played(&bcards!("2S 5D 8C TC"));
         board.on_hand_played(&bcards!("3S 6D 9C JC"));
-        assert_eq!(board.score(), Score::new(48, 1.0));
+        assert_eq!(board.score(), Score::new(23, 1.0));
 
         // A 5-card hand does not qualify -> no further gain.
         board.on_hand_played(&bcards!("2S 5D 8C TS KH"));
-        assert_eq!(board.score(), Score::new(48, 1.0));
+        assert_eq!(board.score(), Score::new(23, 1.0));
     }
 
     #[test]
     fn score__spare_trousers_gains_mult_per_two_pair_hand() {
         // Spare Trousers: +2 Mult for each hand played containing a Two Pair.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::SPARE_TROUSERS);
 
         // Two two-pair hands -> +4 mult.
         board.on_hand_played(&bcards!("2S 2D 5C 5H 8C"));
         board.on_hand_played(&bcards!("3S 3D 6C 6H 9C"));
-        assert_eq!(board.score(), Score::new(40, 5.0));
+        assert_eq!(board.score(), Score::new(15, 5.0));
 
         // A no-two-pair hand does not qualify.
         board.on_hand_played(&bcards!("2S 5D 8C TS KH"));
-        assert_eq!(board.score(), Score::new(40, 5.0));
+        assert_eq!(board.score(), Score::new(15, 5.0));
     }
 
     #[test]
     fn score__runner_gains_chips_per_straight_hand() {
         // Runner: +15 chips for each hand played containing a Straight.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::RUNNER);
 
         // Two straight hands -> +30 chips.
         board.on_hand_played(&bcards!("2S 3D 4C 5H 6C"));
         board.on_hand_played(&bcards!("5S 6D 7C 8H 9C"));
-        assert_eq!(board.score(), Score::new(70, 1.0));
+        assert_eq!(board.score(), Score::new(45, 1.0));
 
         // A non-straight hand does not qualify.
         board.on_hand_played(&bcards!("2S 5D 8C TS KH"));
-        assert_eq!(board.score(), Score::new(70, 1.0));
+        assert_eq!(board.score(), Score::new(45, 1.0));
     }
 
     #[test]
     fn score__ramen_loses_x_mult_per_card_discarded() {
         // Ramen: ×2 Mult, −×0.01 for each card discarded; floors at ×1.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::RAMEN);
 
         // No discards -> ×2.00 -> mult 1 * 2.00 = 2.
-        assert_eq!(board.score(), Score::new(40, 2.0));
+        assert_eq!(board.score(), Score::new(15, 2.0));
 
         // 99 cards discarded -> ×1.01 -> 1 * 1.01 = 1.01.
         for _ in 0..33 {
             board.on_discard(&bcards!("2C 3C 4C")); // 33 * 3 = 99 cards
         }
-        assert_eq!(board.score(), Score::new(40, 1.01), "x1.01 keeps mult 1.01");
+        assert_eq!(board.score(), Score::new(15, 1.01), "x1.01 keeps mult 1.01");
 
         // 100th card discarded -> exactly ×1.00 -> mult 1 (the floor boundary).
         board.on_discard(&bcards!("2C"));
         assert_eq!(
             board.score(),
-            Score::new(40, 1.0),
+            Score::new(15, 1.0),
             "x1.00 at the floor boundary"
         );
 
         // Further discards stay floored at ×1.
         board.on_discard(&bcards!("2C 3C 4C 5C 6C"));
-        assert_eq!(board.score(), Score::new(40, 1.0), "floored at x1");
+        assert_eq!(board.score(), Score::new(15, 1.0), "floored at x1");
     }
 
     #[test]
     fn score__ice_cream_loses_chips_per_hand_played() {
         // Ice Cream: +100 chips, −5 for each hand played; floors at 0.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::ICE_CREAM);
 
         // No hands played yet -> +100 chips.
-        assert_eq!(board.score(), Score::new(140, 1.0));
+        assert_eq!(board.score(), Score::new(115, 1.0));
 
         // Two hands played -> +90 chips.
         let hand = bcards!("2S 5D 8C TS KH");
         board.on_hand_played(&hand);
         board.on_hand_played(&hand);
-        assert_eq!(board.score(), Score::new(130, 1.0));
+        assert_eq!(board.score(), Score::new(105, 1.0));
 
         // 20+ hands -> the decay empties it, and the emptying hand melts the
         // joker away entirely (see on_hand_played__ice_cream_melts_at_zero_chips).
         for _ in 0..30 {
             board.on_hand_played(&hand);
         }
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
     }
 
     #[test]
     fn score__popcorn_loses_mult_per_round_played() {
         // Popcorn: +20 Mult, −4 for each round played. Ice Cream's decay on the
         // mult side, ticking per round rather than per hand.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::POPCORN);
 
         // No rounds played yet -> the full +20 mult.
-        assert_eq!(board.score(), Score::new(40, 21.0));
+        assert_eq!(board.score(), Score::new(15, 21.0));
 
         // One round -> +16.
         board.on_round_end();
-        assert_eq!(board.score(), Score::new(40, 17.0));
+        assert_eq!(board.score(), Score::new(15, 17.0));
 
         // Four rounds -> +4, its last scoring round.
         board.on_round_end();
         board.on_round_end();
         board.on_round_end();
-        assert_eq!(board.score(), Score::new(40, 5.0));
+        assert_eq!(board.score(), Score::new(15, 5.0));
     }
 
     #[test]
@@ -3415,17 +3429,17 @@ mod funky__types__board__buffoon_board_tests {
             board.jokers.is_empty(),
             "the fifth round empties it, so it is destroyed"
         );
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
     }
 
     #[test]
     fn score__yorick_gains_x_mult_every_twenty_three_cards_discarded() {
         // Yorick: gains ×1 Mult every 23 cards discarded; base ×1.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::YORICK);
 
         // Ungrown -> ×1, i.e. inert rather than zeroing the mult.
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // 22 cards is short of the first block -> still ×1.
         for _ in 0..22 {
@@ -3433,19 +3447,19 @@ mod funky__types__board__buffoon_board_tests {
         }
         assert_eq!(
             board.score(),
-            Score::new(40, 1.0),
+            Score::new(15, 1.0),
             "22 cards is short a block"
         );
 
         // The 23rd completes it -> ×2.
         board.on_discard(&bcards!("2C"));
-        assert_eq!(board.score(), Score::new(40, 2.0));
+        assert_eq!(board.score(), Score::new(15, 2.0));
 
         // 46 -> ×3: the factor is additive (1 + 1×blocks), not compounding.
         for _ in 0..23 {
             board.on_discard(&bcards!("2C"));
         }
-        assert_eq!(board.score(), Score::new(40, 3.0));
+        assert_eq!(board.score(), Score::new(15, 3.0));
     }
 
     #[test]
@@ -3458,17 +3472,17 @@ mod funky__types__board__buffoon_board_tests {
         board.on_discard(&bcards!(
             "2C 3C 4C 5C 6C 7C 8C 9C TC JC QC KC AC 2D 3D 4D 5D 6D 7D 8D 9D TD JD"
         ));
-        assert_eq!(board.score(), Score::new(40, 2.0));
+        assert_eq!(board.score(), Score::new(15, 2.0));
     }
 
     #[test]
     fn score__hologram_gains_x_mult_per_card_added_to_the_deck() {
         // Hologram: gains ×0.25 Mult per playing card added to the deck; base ×1.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::HOLOGRAM);
 
         // Ungrown -> ×1.
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // Four cards added -> ×2. The factor is **additive** (1 + 0.25×4), the
         // Steel Joker rule — compounding (×0.25⁴) would collapse the mult to 0
@@ -3477,7 +3491,7 @@ mod funky__types__board__buffoon_board_tests {
         for _ in 0..4 {
             board.add_card_to_deck(seven);
         }
-        assert_eq!(board.score(), Score::new(40, 2.0));
+        assert_eq!(board.score(), Score::new(15, 2.0));
     }
 
     #[test]
@@ -3492,7 +3506,7 @@ mod funky__types__board__buffoon_board_tests {
         assert!(board.replace_deck_card(0, replacement));
         assert_eq!(
             board.score(),
-            Score::new(40, 1.0),
+            Score::new(15, 1.0),
             "a replacement is not an add"
         );
     }
@@ -3500,32 +3514,32 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn score__canio_gains_x_mult_per_face_card_destroyed() {
         // Canio: gains ×1 Mult when a face card is destroyed; base ×1.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::CANIO);
 
         // Ungrown -> ×1.
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // Destroying a *non*-face card leaves it alone.
         let seven = board
             .full_deck_index_of(bcards!("7D").iter().next().copied().unwrap())
             .expect("the basic deck holds a 7D");
         board.destroy_deck_card(seven);
-        assert_eq!(board.score(), Score::new(40, 1.0), "a 7 is not a face");
+        assert_eq!(board.score(), Score::new(15, 1.0), "a 7 is not a face");
 
         // Destroying a King -> ×2.
         let king = board
             .full_deck_index_of(bcards!("KS").iter().next().copied().unwrap())
             .expect("the basic deck holds a KS");
         board.destroy_deck_card(king);
-        assert_eq!(board.score(), Score::new(40, 2.0));
+        assert_eq!(board.score(), Score::new(15, 2.0));
 
         // A second face -> ×3, additive like its siblings.
         let queen = board
             .full_deck_index_of(bcards!("QS").iter().next().copied().unwrap())
             .expect("the basic deck holds a QS");
         board.destroy_deck_card(queen);
-        assert_eq!(board.score(), Score::new(40, 3.0));
+        assert_eq!(board.score(), Score::new(15, 3.0));
     }
 
     #[test]
@@ -3543,32 +3557,33 @@ mod funky__types__board__buffoon_board_tests {
         board.destroy_deck_card(seven);
         assert_eq!(
             board.score(),
-            Score::new(40, 2.0),
+            Score::new(15, 2.0),
             "under Pareidolia a 7 is a face"
         );
     }
 
     #[test]
     fn score__vampire_gains_x_mult_per_enhanced_card_played_and_eats_it() {
-        // Vampire: gains ×0.1 Mult per enhanced card played, removing the
-        // enhancement. Base ×1.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        // Vampire: gains ×0.1 Mult per enhanced card scored, removing the
+        // enhancement. Base ×1. A Pair of 2s, so both enhanced cards score
+        // (a kicker is neither scored nor eaten): Pair 10/2 + 2 + 2 = 14/2.
+        let mut board = board_playing("2S 2D 8C TS KH");
         board.push_joker(card::VAMPIRE);
 
-        // Two Bonus cards (+30 chips each) in the played hand.
+        // Two Bonus cards (+30 chips each) in the played hand: the paired 2s.
         for index in 0..2 {
             let card = board.played.remove(index);
             board.played.insert(index, enhanced(card, MPip::BONUS));
         }
 
-        // Ungrown and un-eaten, the Bonus chips are worth +60: 40 -> 100.
-        assert_eq!(board.score(), Score::new(100, 1.0));
+        // Ungrown and un-eaten, the Bonus chips are worth +60: 14 -> 74.
+        assert_eq!(board.score(), Score::new(74, 2.0));
 
         // After Vampire eats them the +60 is gone — the enhancement is removed
         // *before* it can score. The chips are the observable half here; the
-        // ×1.2 it gained gives mult 1.2 off a base of 1.
+        // ×1.2 it gained gives mult 2 × 1.2 = 2.4 off the Pair's base of 2.
         board.on_scored();
-        assert_eq!(board.score(), Score::new(40, 1.2));
+        assert_eq!(board.score(), Score::new(14, 2.4));
         assert_eq!(board.joker_state[0], 2, "it counted both enhanced cards");
         assert!(
             board.played.iter().all(|c| c.enhancement == MPip::Blank),
@@ -3591,18 +3606,20 @@ mod funky__types__board__buffoon_board_tests {
             board.played.insert(index, enhanced(card, MPip::BONUS));
         }
 
-        // Five enhanced cards eaten -> ×1.5, applied to this very hand:
-        // mult 1 + 4 = 5, then ×1.5 -> 7.5. Growing on `HandPlayed`
-        // instead would leave this at mult 5.
+        // Only the King scores (High Card), so only it is eaten -> ×1.1; the
+        // four kickers are not scored and keep their enhancement. Applied to
+        // this very hand: mult 1 + 4 = 5, then ×1.1 -> 5.5. Growing on
+        // `HandPlayed` instead would leave this at mult 5.
         board.on_scored();
-        assert_eq!(board.score(), Score::new(40, 7.5));
+        assert_eq!(board.score(), Score::new(15, 5.5));
     }
 
     #[test]
     fn score__vampire_eats_glass_cards_before_they_can_multiply() {
         // The wiki's headline interaction: a Glass card Vampire eats gives
         // neither its ×2 mult nor (being enhancement-less) its chance to break.
-        let mut board = board_playing("KH QD 2S 5D 8C");
+        // A Pair of Kings, so both Glass cards score: Pair 10/2 + 10 + 10 = 30/2.
+        let mut board = board_playing("KH KD 2S 5D 8C");
         board.push_joker(card::VAMPIRE);
 
         for index in 0..2 {
@@ -3612,13 +3629,13 @@ mod funky__types__board__buffoon_board_tests {
                 .insert(index, enhanced(card, MPip::Glass(2, 4)));
         }
 
-        // Two Glass cards each double the mult as they score: 1 × 2 × 2 = 4.
-        assert_eq!(board.score(), Score::new(40, 4.0));
+        // Two Glass cards each double the mult as they score: 2 × 2 × 2 = 8.
+        assert_eq!(board.score(), Score::new(30, 8.0));
 
         // Vampire eats both before either multiplies, leaving only its own ×1.2
-        // (1 × 1.2 = 1.2). Strip-after-scoring would leave this at 4.
+        // (2 × 1.2 = 2.4). Strip-after-scoring would leave this at 8.
         board.on_scored();
-        assert_eq!(board.score(), Score::new(40, 1.2));
+        assert_eq!(board.score(), Score::new(30, 2.4));
         assert!(
             board.played.iter().all(|c| c.enhancement == MPip::Blank),
             "both Glass enhancements are eaten"
@@ -3633,7 +3650,7 @@ mod funky__types__board__buffoon_board_tests {
         board.push_joker(card::VAMPIRE);
         board.on_scored();
         assert_eq!(board.joker_state[0], 0);
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         let mut plain = board_playing("2S 5D 8C TS KH");
         let king = plain.played.remove(4);
@@ -3699,12 +3716,12 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn score__constellation_gains_x_mult_per_planet_used() {
         // Constellation: gains ×0.1 Mult per Planet card used; base ×1.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::JOKER); // +4 mult, so the ×mult scales visibly
         board.push_joker(card::CONSTELLATION);
 
         // Ungrown -> ×1: mult 1 + 4 = 5.
-        assert_eq!(board.score(), Score::new(40, 5.0));
+        assert_eq!(board.score(), Score::new(15, 5.0));
 
         // Five Planets used -> ×1.5. Mercury levels Pair, a hand this High Card
         // board never scores, so only Constellation's growth moves the number.
@@ -3712,7 +3729,7 @@ mod funky__types__board__buffoon_board_tests {
             board.create_consumable(planet_card::MERCURY);
             board.use_consumable(0, &[]);
         }
-        assert_eq!(board.score(), Score::new(40, 7.5)); // 5 × 1.5
+        assert_eq!(board.score(), Score::new(15, 7.5)); // 5 × 1.5
     }
 
     #[test]
@@ -3730,7 +3747,7 @@ mod funky__types__board__buffoon_board_tests {
         board.push_joker(card::CONSTELLATION);
         assert_eq!(
             board.score(),
-            Score::new(40, 5.0),
+            Score::new(15, 5.0),
             "still ×1 — it missed those five"
         );
     }
@@ -3738,27 +3755,27 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn score__fortune_teller_adds_mult_per_tarot_used_this_run() {
         // Fortune Teller: +1 Mult per Tarot card used this run.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::FORTUNE_TELLER);
-        assert_eq!(board.score(), Score::new(40, 1.0), "no Tarots used yet");
+        assert_eq!(board.score(), Score::new(15, 1.0), "no Tarots used yet");
 
         for _ in 0..3 {
             board.create_consumable(tarot_card::JUSTICE);
             board.use_consumable(0, &[]);
         }
-        assert_eq!(board.score(), Score::new(40, 4.0)); // 1 + 3
+        assert_eq!(board.score(), Score::new(15, 4.0)); // 1 + 3
 
         // Planets are not Tarots.
         board.create_consumable(planet_card::MERCURY);
         board.use_consumable(0, &[]);
-        assert_eq!(board.score(), Score::new(40, 4.0));
+        assert_eq!(board.score(), Score::new(15, 4.0));
     }
 
     #[test]
     fn score__fortune_teller_is_retroactive() {
         // The distinguishing case: it reads the run's Tarot tally off the board,
         // so one acquired after three Tarots is worth +3 the moment it lands. A
-        // per-joker counter would start it at zero and read 40/1 here.
+        // per-joker counter would start it at zero and read 15/1 here.
         let mut board = board_playing("2S 5D 8C TS KH");
         for _ in 0..3 {
             board.create_consumable(tarot_card::JUSTICE);
@@ -3766,7 +3783,7 @@ mod funky__types__board__buffoon_board_tests {
         }
 
         board.push_joker(card::FORTUNE_TELLER);
-        assert_eq!(board.score(), Score::new(40, 4.0), "+3 immediately");
+        assert_eq!(board.score(), Score::new(15, 4.0), "+3 immediately");
     }
 
     #[test]
@@ -3805,16 +3822,16 @@ mod funky__types__board__buffoon_board_tests {
         // The reason adding a Stone card is worth anything today: the roster
         // count behind Stone Joker (+25 chips per Stone in the full deck) is
         // wired, and every added card feeds Hologram.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::MARBLE_JOKER);
         board.push_joker(card::STONE_JOKER);
         board.push_joker(card::HOLOGRAM);
 
-        assert_eq!(board.score(), Score::new(40, 1.0), "no Stones yet");
+        assert_eq!(board.score(), Score::new(15, 1.0), "no Stones yet");
 
         board.on_blind_selected();
         // Stone Joker: +25 chips for the one Stone. Hologram: ×1.25 -> 1.25.
-        assert_eq!(board.score(), Score::new(65, 1.25));
+        assert_eq!(board.score(), Score::new(40, 1.25));
     }
 
     #[test]
@@ -3941,14 +3958,15 @@ mod funky__types__board__buffoon_board_tests {
         // The Needle plays only 1 hand, so the first hand *is* the final hand —
         // which is why Dusk always fires under it. The wiki calls this pairing
         // out explicitly, and it is the cheapest proof the boss ability is real.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::DUSK);
         board.blind = Blind::Boss(BossBlind::TheNeedle);
         board.on_blind_selected();
 
         assert_eq!(board.draws.hands_to_play, 1);
-        // Every card retriggers on the very first hand: 40 -> 75.
-        assert_eq!(board.score(), Score::new(75, 1.0));
+        // Every scoring card retriggers on the very first hand: the King, the
+        // only one scoring, adds its 10 again. 15 -> 25.
+        assert_eq!(board.score(), Score::new(25, 1.0));
     }
 
     #[test]
@@ -3960,7 +3978,7 @@ mod funky__types__board__buffoon_board_tests {
         board.on_blind_selected();
 
         assert_eq!(board.draws.discards, 0);
-        assert_eq!(board.score(), Score::new(40, 16.0)); // 1 + 15
+        assert_eq!(board.score(), Score::new(15, 16.0)); // 1 + 15
     }
 
     #[test]
@@ -4058,22 +4076,22 @@ mod funky__types__board__buffoon_board_tests {
     fn score__madness_gains_x_mult_on_non_boss_blinds_only() {
         // Madness: gain ×0.5 Mult when a Small or Big Blind is selected — never
         // a Boss. Base ×1.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::JOKER); // +4 mult, so the ×mult scales visibly
         board.push_joker(card::MADNESS);
-        assert_eq!(board.score(), Score::new(40, 5.0), "ungrown is ×1");
+        assert_eq!(board.score(), Score::new(15, 5.0), "ungrown is ×1");
 
         board.blind = Blind::Small;
         board.on_blind_selected();
         board.blind = Blind::Big;
         board.on_blind_selected();
         // Two blinds -> ×2: mult 5 × 2 = 10.
-        assert_eq!(board.score(), Score::new(40, 10.0));
+        assert_eq!(board.score(), Score::new(15, 10.0));
 
         // A Boss Blind grows it not at all.
         board.blind = Blind::Boss(BossBlind::TheNeedle);
         board.on_blind_selected();
-        assert_eq!(board.score(), Score::new(40, 10.0), "bosses do not feed it");
+        assert_eq!(board.score(), Score::new(15, 10.0), "bosses do not feed it");
     }
 
     #[test]
@@ -4179,16 +4197,16 @@ mod funky__types__board__buffoon_board_tests {
         // Joker Stencil: ×1 Mult per empty Joker slot, "Joker Stencil included".
         // Alone on a 5-slot board that is ×5, not ×4: four slots are literally
         // empty, and it counts its own as if it were too.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::JOKER_STENCIL);
 
         assert_eq!(board.draws.hands_to_play, 4); // untouched; just orienting
-        assert_eq!(board.score(), Score::new(40, 5.0), "(5 − 1) + 1 = 5");
+        assert_eq!(board.score(), Score::new(15, 5.0), "(5 − 1) + 1 = 5");
 
         // Each ordinary joker dilutes it by one.
         board.push_joker(card::JOKER); // +4 mult, and one slot fuller
         // Stencil is folded first: 1 × ((5 − 2) + 1) = 4, then Joker's +4 = 8.
-        assert_eq!(board.score(), Score::new(40, 8.0));
+        assert_eq!(board.score(), Score::new(15, 8.0));
     }
 
     #[test]
@@ -4201,7 +4219,7 @@ mod funky__types__board__buffoon_board_tests {
         board.push_joker(card::JOKER_STENCIL);
 
         // (5 − 2) + 2 = 5 each; 1 × 5 × 5 = 25.
-        assert_eq!(board.score(), Score::new(40, 25.0));
+        assert_eq!(board.score(), Score::new(15, 25.0));
     }
 
     #[test]
@@ -4215,8 +4233,9 @@ mod funky__types__board__buffoon_board_tests {
         }
         assert_eq!(board.jokers.len(), board.joker_slots, "the board is full");
 
-        // Only Banner's chips (4 × 90) land; the Stencil contributes nothing.
-        assert_eq!(board.score(), Score::new(400, 1.0));
+        // Only Banner's chips (4 × 90) land on the High Card 15/1; the Stencil
+        // contributes nothing. 15 + 360 = 375.
+        assert_eq!(board.score(), Score::new(375, 1.0));
     }
 
     #[test]
@@ -4225,10 +4244,10 @@ mod funky__types__board__buffoon_board_tests {
         // gains a slot gains a ×1 with it.
         let mut board = board_playing("2S 5D 8C TS KH");
         board.push_joker(card::JOKER_STENCIL);
-        assert_eq!(board.score(), Score::new(40, 5.0));
+        assert_eq!(board.score(), Score::new(15, 5.0));
 
         board.joker_slots += 1;
-        assert_eq!(board.score(), Score::new(40, 6.0), "(6 − 1) + 1 = 6");
+        assert_eq!(board.score(), Score::new(15, 6.0), "(6 − 1) + 1 = 6");
     }
 
     #[test]
@@ -4281,36 +4300,39 @@ mod funky__types__board__buffoon_board_tests {
 
     #[test]
     fn score__ancient_joker_x_mult_per_played_card_of_the_ancient_suit() {
-        // Ancient Joker: ×1.5 Mult per played card of the current suit; the
-        // factor compounds, so three Hearts is ×3.375.
-        let mut board = board_playing("AH KH QH 5D 2S"); // three Hearts
+        // Ancient Joker: ×1.5 Mult per scored card of the current suit; the
+        // factor compounds, so three Hearts is ×3.375. A Straight, so every
+        // card scores: Straight 30/4 + (11+10+10+10+10 = 51) = 81/4.
+        let mut board = board_playing("AH KH QH JD TS"); // three Hearts
         board.push_joker(card::JOKER); // +4 mult, so the ×mult scales visibly
         board.push_joker(card::ANCIENT_JOKER);
 
         // No suit rolled yet -> no matches -> ×1, inert rather than zeroing.
-        assert_eq!(board.score(), Score::new(43, 5.0));
+        assert_eq!(board.score(), Score::new(81, 8.0));
 
         board.ancient_suit = Some('H');
-        // mult 1 + 4 = 5, then ×1.5³ = ×3.375 -> 16.875.
-        assert_eq!(board.score(), Score::new(43, 16.875));
+        // mult 4 + 4 = 8, then ×1.5³ = ×3.375 -> 27.
+        assert_eq!(board.score(), Score::new(81, 27.0));
 
         // A suit the hand does not hold pays nothing.
         board.ancient_suit = Some('C');
-        assert_eq!(board.score(), Score::new(43, 5.0));
+        assert_eq!(board.score(), Score::new(81, 8.0));
     }
 
     #[test]
     fn score__smeared_widens_what_ancient_joker_pays_for() {
         // Smeared merges Hearts≡Diamonds, exactly as it does for flush sizing.
-        let mut board = board_playing("AH KH QH 5D 2S"); // three Hearts, one Diamond
+        // A Straight, so the Diamond scores too (81/4, as above); four red cards
+        // are still not a Flush under Smeared.
+        let mut board = board_playing("AH KH QH JD TS"); // three Hearts, one Diamond
         board.push_joker(card::JOKER);
         board.push_joker(card::ANCIENT_JOKER);
         board.ancient_suit = Some('H');
-        assert_eq!(board.score(), Score::new(43, 16.875), "three Hearts: ×1.5³");
+        assert_eq!(board.score(), Score::new(81, 27.0), "three Hearts: ×1.5³");
 
-        // With Smeared the Diamond counts too: ×1.5⁴ = ×5.0625 -> 25.3125.
+        // With Smeared the Diamond counts too: 8 × 1.5⁴ = 8 × 5.0625 -> 40.5.
         board.push_joker(card::SMEARED_JOKER);
-        assert_eq!(board.score(), Score::new(43, 25.3125));
+        assert_eq!(board.score(), Score::new(81, 40.5));
     }
 
     #[test]
@@ -4362,32 +4384,32 @@ mod funky__types__board__buffoon_board_tests {
         // Banner is "+30 chips for each **remaining** discard", so spending one
         // must cost it 30. Reading `draws.discards` — what the round *granted* —
         // leaves it paying for discards that are already gone.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::BANNER);
-        assert_eq!(board.score(), Score::new(130, 1.0), "3 remaining -> +90");
+        assert_eq!(board.score(), Score::new(105, 1.0), "3 remaining -> +90");
 
         board.on_discard(&bcards!("2C"));
-        assert_eq!(board.score(), Score::new(100, 1.0), "2 remaining -> +60");
+        assert_eq!(board.score(), Score::new(75, 1.0), "2 remaining -> +60");
 
         board.on_discard(&bcards!("3C"));
         board.on_discard(&bcards!("4C"));
-        assert_eq!(board.score(), Score::new(40, 1.0), "all spent -> nothing");
+        assert_eq!(board.score(), Score::new(15, 1.0), "all spent -> nothing");
     }
 
     #[test]
     fn score__mystic_summit_fires_once_the_discards_are_actually_spent() {
         // The mirror image: "+15 mult when 0 discards remaining" must turn *on*
         // when the last discard is used, not only when the round granted none.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::MYSTIC_SUMMIT);
-        assert_eq!(board.score(), Score::new(40, 1.0), "3 remaining -> inert");
+        assert_eq!(board.score(), Score::new(15, 1.0), "3 remaining -> inert");
 
         board.on_discard(&bcards!("2C"));
         board.on_discard(&bcards!("3C"));
-        assert_eq!(board.score(), Score::new(40, 1.0), "1 still remains");
+        assert_eq!(board.score(), Score::new(15, 1.0), "1 still remains");
 
         board.on_discard(&bcards!("4C"));
-        assert_eq!(board.score(), Score::new(40, 16.0), "spent -> +15");
+        assert_eq!(board.score(), Score::new(15, 16.0), "spent -> +15");
     }
 
     #[test]
@@ -4787,13 +4809,15 @@ mod funky__types__board__buffoon_board_tests {
     fn score__stone_card_adds_its_flat_fifty_chips() {
         // The Stone card, both halves at once. Chips: a flat +50, replacing the
         // rank's value rather than adding to it.
-        let mut board = board_playing("KH 2S 5D 8C TS"); // High Card 40/1
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        let mut board = board_playing("KH 2S 5D 8C TS"); // High Card 15/1 (only the King scores)
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
-        // The King (10 chips) becomes a Stone card: 40 − 10 + 50 = 80.
+        // The King (10 chips) becomes a Stone card: the Ten takes over as the
+        // high card (10), and the Stone always scores its flat 50:
+        // 5 + 10 + 50 = 65 (not 75, which base + 50 would give).
         let king = board.played.remove(0);
         board.played.insert(0, enhanced(king, MPip::TOWER));
-        assert_eq!(board.score(), Score::new(80, 1.0));
+        assert_eq!(board.score(), Score::new(65, 1.0));
     }
 
     #[test]
@@ -4846,7 +4870,7 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn on_round_end__golden_joker_pays_4() {
         // Golden Joker: earn $4 at end of round — money, not hand score.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::GOLDEN_JOKER);
 
         board.on_round_end();
@@ -4855,7 +4879,7 @@ mod funky__types__board__buffoon_board_tests {
         // It pays every round, and never touches the hand score.
         board.on_round_end();
         assert_eq!(board.money, 8);
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
     }
 
     #[test]
@@ -5866,16 +5890,18 @@ mod funky__types__board__buffoon_board_tests {
 
     #[test]
     fn score__a_foil_played_card_adds_fifty_chips() {
-        let base = board_playing("2S 5D 8C TS KH").score();
-        let foil = board_playing_edition("2S 5D 8C TS KH", Edition::Foil).score();
+        // The King leads, so the edition lands on the card that scores.
+        let base = board_playing("KH 2S 5D 8C TS").score();
+        let foil = board_playing_edition("KH 2S 5D 8C TS", Edition::Foil).score();
         assert_eq!(foil.chips, base.chips + 50, "Foil is +50 chips");
         assert_eq!(foil.mult, base.mult, "and no mult");
     }
 
     #[test]
     fn score__a_holographic_played_card_adds_ten_mult() {
-        let base = board_playing("2S 5D 8C TS KH").score();
-        let holo = board_playing_edition("2S 5D 8C TS KH", Edition::Holographic).score();
+        // The King leads, so the edition lands on the card that scores.
+        let base = board_playing("KH 2S 5D 8C TS").score();
+        let holo = board_playing_edition("KH 2S 5D 8C TS", Edition::Holographic).score();
         assert_eq!(holo.mult, base.mult + 10.0, "Holo is +10 mult");
         assert_eq!(holo.chips, base.chips, "and no chips");
     }
@@ -6816,7 +6842,7 @@ mod funky__types__board__buffoon_board_tests {
         // Ice Cream: 100 chips decaying −5 per hand. The 19th hand leaves +5;
         // the 20th empties it, and the emptying hand melts the joker — on
         // that hand, not at round end (exact Balatro timing).
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::ICE_CREAM);
 
         let hand = bcards!("2S 5D 8C TS KH");
@@ -6824,11 +6850,11 @@ mod funky__types__board__buffoon_board_tests {
             board.on_hand_played(&hand);
         }
         assert_eq!(board.jokers.len(), 1, "19 hands leave +5 chips");
-        assert_eq!(board.score(), Score::new(45, 1.0));
+        assert_eq!(board.score(), Score::new(20, 1.0));
 
         board.on_hand_played(&hand);
         assert!(board.jokers.is_empty(), "the 20th hand melts it");
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
     }
 
     #[test]
@@ -6859,7 +6885,7 @@ mod funky__types__board__buffoon_board_tests {
         // Banner reads the recomputed round state: +30 chips per remaining
         // discard is now 4 discards' worth.
         board.push_joker(card::BANNER);
-        assert_eq!(board.score(), Score::new(40 + 120, 1.0));
+        assert_eq!(board.score(), Score::new(15 + 120, 1.0));
     }
 
     #[test]
@@ -6882,11 +6908,11 @@ mod funky__types__board__buffoon_board_tests {
         // selecting a blind with both aboard turns it on.
         let mut board = board_playing("2S 5D 8C TS KH");
         board.push_joker(card::MYSTIC_SUMMIT);
-        assert_eq!(board.score(), Score::new(40, 1.0), "3 discards -> inert");
+        assert_eq!(board.score(), Score::new(15, 1.0), "3 discards -> inert");
 
         board.push_joker(card::BURGLAR);
         board.on_blind_selected();
-        assert_eq!(board.score(), Score::new(40, 16.0));
+        assert_eq!(board.score(), Score::new(15, 16.0));
     }
 
     #[test]
@@ -6919,62 +6945,66 @@ mod funky__types__board__buffoon_board_tests {
 
     #[test]
     fn score__hack_retriggers_played_two_through_five() {
-        // Hack: retrigger each played 2, 3, 4, or 5 one additional time.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        // Hack: retrigger each played 2, 3, 4, or 5 one additional time. A
+        // Flush, so every card scores (in a High Card the low cards would be
+        // kickers, which are never retriggered): Flush 35/4 + 35 = 70/4.
+        let mut board = board_playing("2S 5S 8S TS KS");
         board.push_joker(card::HACK);
 
-        // Only 2S (+2 chips) and 5D (+5 chips) qualify; each scores a second
-        // time -> +7 chips. 8/T/K are untouched. 40 -> 47.
-        assert_eq!(board.score(), Score::new(47, 1.0));
+        // Only 2S (+2 chips) and 5S (+5 chips) qualify; each scores a second
+        // time -> +7 chips. 8/T/K are untouched. 70 -> 77.
+        assert_eq!(board.score(), Score::new(77, 4.0));
     }
 
     #[test]
     fn score__sock_and_buskin_retriggers_played_faces() {
         // Sock and Buskin: retrigger each played face card (K/Q/J) one more time.
-        let mut board = board_playing("KH QD 8C 5S 2H"); // High Card 40/1
+        let mut board = board_playing("KH QD 8C 5S 2H"); // High Card 15/1 (only the King scores)
         board.push_joker(card::SOCK_AND_BUSKIN);
 
-        // KH (+10) and QD (+10) each score a second time; the 8/5/2 pips are
-        // untouched (T is not a face). 40 -> 60.
-        assert_eq!(board.score(), Score::new(60, 1.0));
+        // KH (+10) scores a second time. QD is a face but a kicker, so it is
+        // neither scored nor retriggered; the 8/5/2 are kickers too. 15 -> 25.
+        assert_eq!(board.score(), Score::new(25, 1.0));
     }
 
     #[test]
-    fn score__hanging_chad_retriggers_first_played_card_twice() {
-        // Hanging Chad: the first played card is scored 3× total (+2 triggers).
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+    fn score__hanging_chad_retriggers_first_scoring_card_twice() {
+        // Hanging Chad: the first scoring card is scored 3× total (+2 triggers).
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::HANGING_CHAD);
 
-        // Only the first card 2S (+2 chips) retriggers, twice more -> +4 chips;
-        // the other four cards are untouched. 40 -> 44.
-        assert_eq!(board.score(), Score::new(44, 1.0));
+        // The first played card, 2S, is a kicker; the first *scoring* card is
+        // the King (+10 chips), which retriggers twice more -> +20 chips.
+        // 15 -> 35.
+        assert_eq!(board.score(), Score::new(35, 1.0));
     }
 
     #[test]
-    fn score__dusk_retriggers_every_played_card_on_the_rounds_final_hand() {
-        // Dusk: retrigger all played cards in the final hand of the round.
+    fn score__dusk_retriggers_every_scoring_card_on_the_rounds_final_hand() {
+        // Dusk: retrigger all scoring cards in the final hand of the round.
         // `board_playing` grants four hands (Draws::new(4, 3)).
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::DUSK);
 
         // An untouched board reads `hands_played == 0`, so the first of four
         // hands is not the last -> no retrigger.
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         let hand = bcards!("2S 5D 8C TS KH");
         board.on_hand_played(&hand);
         board.on_hand_played(&hand);
         assert_eq!(
             board.score(),
-            Score::new(40, 1.0),
+            Score::new(15, 1.0),
             "the third of four hands is not the last"
         );
 
-        // Three hands done -> the fourth is final: all five cards score twice,
-        // so the 35 chips of card pips land again (the 5-chip High Card base is
-        // phase 1 and does not re-run). 40 -> 75.
+        // Three hands done -> the fourth is final: every scoring card scores
+        // twice. Only the King scores, so its 10 chips land again (the 5-chip
+        // High Card base is phase 1 and does not re-run; the kickers are not
+        // retriggered). 15 -> 25.
         board.on_hand_played(&hand);
-        assert_eq!(board.score(), Score::new(75, 1.0));
+        assert_eq!(board.score(), Score::new(25, 1.0));
     }
 
     #[test]
@@ -6993,24 +7023,25 @@ mod funky__types__board__buffoon_board_tests {
         }
         assert_eq!(
             board.score(),
-            Score::new(40, 1.0),
+            Score::new(15, 1.0),
             "the fourth of seven hands is not the last"
         );
 
         for _ in 0..3 {
             board.on_hand_played(&hand);
         }
-        assert_eq!(board.score(), Score::new(75, 1.0), "the seventh is");
+        assert_eq!(board.score(), Score::new(25, 1.0), "the seventh is");
     }
 
     #[test]
-    fn score__seltzer_retriggers_every_played_card_for_ten_hands() {
-        // Seltzer: retrigger all cards played for the next 10 hands.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+    fn score__seltzer_retriggers_every_scoring_card_for_ten_hands() {
+        // Seltzer: retrigger all cards played for the next 10 hands — every
+        // scoring card; a kicker is never retriggered.
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::SELTZER);
 
-        // Fresh: all five cards score twice. 40 -> 75.
-        assert_eq!(board.score(), Score::new(75, 1.0));
+        // Fresh: the King, the only scoring card, scores twice. 15 -> 25.
+        assert_eq!(board.score(), Score::new(25, 1.0));
 
         // Nine hands spent, one left: still retriggering.
         let hand = bcards!("2S 5D 8C TS KH");
@@ -7019,7 +7050,7 @@ mod funky__types__board__buffoon_board_tests {
         }
         assert_eq!(
             board.score(),
-            Score::new(75, 1.0),
+            Score::new(25, 1.0),
             "the tenth hand still retriggers"
         );
     }
@@ -7043,14 +7074,15 @@ mod funky__types__board__buffoon_board_tests {
             board.jokers.is_empty(),
             "the tenth hand spends the last one, so it is destroyed"
         );
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
     }
 
     #[test]
     fn score__stacked_retriggers_are_additive() {
-        // Hack (+1 to the 2) and Hanging Chad (+2 to the first card, also the
-        // 2S) stack: the 2 scores 1 + 1 + 2 = 4 times -> 3 extra -> +6 chips.
-        let mut board = board_playing("2S 8D TC JS KH"); // only first card is low
+        // Hack (+1 to the 2) and Hanging Chad (+2 to the first scoring card,
+        // also the 2S) stack: the 2 scores 1 + 1 + 2 = 4 times -> 3 extra -> +6
+        // chips. A Flush, so the 2 scores rather than being a kicker.
+        let mut board = board_playing("2S 8S TS JS KS"); // only first card is low
         let base = board.score();
 
         board.push_joker(card::HACK);
@@ -7079,21 +7111,21 @@ mod funky__types__board__buffoon_board_tests {
         // 9-T-J-Q of Hearts + an off card: a High Card normally, a four-card
         // Straight Flush with Four Fingers.
         let mut board = board_playing("9H TH JH QH 2S");
-        // High Card: 5 base chips + 41 played pips (9+10+10+10+2).
-        assert_eq!(board.score(), Score::new(46, 1.0));
+        // High Card: 5 base chips + the Queen's 10 (the only scoring card).
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         board.push_joker(card::FOUR_FINGERS);
-        // Straight Flush base 100/8 + 41 pips; Four Fingers scores nothing
-        // itself. 141 x 8.
-        assert_eq!(board.score(), Score::new(141, 8.0));
+        // Straight Flush base 100/8 + the four Hearts' 39 pips (9+10+10+10); the
+        // 2S is a kicker, and Four Fingers scores nothing itself. 139 x 8.
+        assert_eq!(board.score(), Score::new(139, 8.0));
     }
 
     #[test]
     fn score__shortcut_makes_one_gap_straight() {
         // 2-4-6-8-T: a High Card normally, a Straight with Shortcut (one-gap).
         let mut board = board_playing("2C 4D 6H 8S TC");
-        // High Card: 5 base chips + 30 played pips (2+4+6+8+10).
-        assert_eq!(board.score(), Score::new(35, 1.0));
+        // High Card: 5 base chips + the Ten's 10 (the only scoring card).
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         board.push_joker(card::SHORTCUT);
         // Straight base 30/4 + 30 pips; Shortcut scores nothing itself. 60 x 4.
@@ -7108,38 +7140,41 @@ mod funky__types__board__buffoon_board_tests {
         board.push_joker(card::THE_ORDER); // x3 mult on a straight
 
         // The four-card straight doesn't register under vanilla rules, so The
-        // Order stays inert: High Card 46/1.
-        assert_eq!(board.score(), Score::new(46, 1.0));
+        // Order stays inert: High Card 15/1 (only the Queen scores).
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         board.push_joker(card::FOUR_FINGERS);
-        // Now a Straight Flush (141/8), and The Order fires x3 -> 141 x 24.
-        assert_eq!(board.score(), Score::new(141, 24.0));
+        // Now a Straight Flush (139/8, the 2S a kicker), and The Order fires
+        // x3 -> 139 x 24.
+        assert_eq!(board.score(), Score::new(139, 24.0));
     }
 
     #[test]
     fn score__pareidolia_makes_every_card_a_face_for_scary_face() {
-        // Scary Face: +30 chips per face card. Pareidolia makes all five count.
-        let mut board = board_playing("KS QD 2S 3H 4C"); // High Card 34/1, 2 faces
+        // Scary Face: +30 chips per scored face card. Pareidolia makes all five
+        // count. A Flush, so all five score: Flush 35/4 + (10+10+2+3+4) = 64/4.
+        let mut board = board_playing("KS QS 2S 3S 4S"); // Flush 64/4, 2 faces
         board.push_joker(card::SCARY_FACE);
-        // K, Q only -> +60 chips. 34 -> 94.
-        assert_eq!(board.score(), Score::new(94, 1.0));
+        // K, Q only -> +60 chips. 64 -> 124.
+        assert_eq!(board.score(), Score::new(124, 4.0));
 
         board.push_joker(card::PAREIDOLIA);
-        // All five cards are faces -> +150 chips. 34 -> 184.
-        assert_eq!(board.score(), Score::new(184, 1.0));
+        // All five cards are faces -> +150 chips. 64 -> 214.
+        assert_eq!(board.score(), Score::new(214, 4.0));
     }
 
     #[test]
     fn score__pareidolia_retriggers_every_card_under_sock_and_buskin() {
         // Sock and Buskin retriggers face cards; Pareidolia makes every card one.
-        let mut board = board_playing("KS QD 2S 3H 4C"); // High Card 34/1, 2 faces
+        // A Flush, so all five score (a kicker is never retriggered).
+        let mut board = board_playing("KS QS 2S 3S 4S"); // Flush 64/4, 2 faces
         board.push_joker(card::SOCK_AND_BUSKIN);
-        // Only K (+10) and Q (+10) retrigger -> +20 chips. 34 -> 54.
-        assert_eq!(board.score(), Score::new(54, 1.0));
+        // Only K (+10) and Q (+10) retrigger -> +20 chips. 64 -> 84.
+        assert_eq!(board.score(), Score::new(84, 4.0));
 
         board.push_joker(card::PAREIDOLIA);
-        // Every card retriggers -> +(10+10+2+3+4) = +29 chips. 34 -> 63.
-        assert_eq!(board.score(), Score::new(63, 1.0));
+        // Every card retriggers -> +(10+10+2+3+4) = +29 chips. 64 -> 93.
+        assert_eq!(board.score(), Score::new(93, 4.0));
     }
 
     #[test]
@@ -7147,8 +7182,8 @@ mod funky__types__board__buffoon_board_tests {
         // Five red cards over two suits (3 Hearts + 2 Diamonds): a High Card
         // normally, a Flush with Smeared.
         let mut board = board_playing("AH KH 9H QD JD");
-        // High Card: 5 base + 50 played pips (11+10+9+10+10).
-        assert_eq!(board.score(), Score::new(55, 1.0));
+        // High Card: 5 base + the Ace's 11 (the only scoring card).
+        assert_eq!(board.score(), Score::new(16, 1.0));
 
         board.push_joker(card::SMEARED_JOKER);
         // Flush base 35/4 + 50 pips; Smeared scores nothing itself. 85 x 4.
@@ -7157,8 +7192,8 @@ mod funky__types__board__buffoon_board_tests {
         // Only four cards of a merged colour is still not a flush.
         let mut four_red = board_playing("AH KH QD JD 9C");
         four_red.push_joker(card::SMEARED_JOKER);
-        // Still High Card: 5 + (11+10+10+10+9) = 55/1.
-        assert_eq!(four_red.score(), Score::new(55, 1.0));
+        // Still High Card: 5 + the Ace's 11 = 16/1.
+        assert_eq!(four_red.score(), Score::new(16, 1.0));
     }
 
     #[test]
@@ -7167,8 +7202,9 @@ mod funky__types__board__buffoon_board_tests {
         let mut board = board_playing("AH KH 9H QD JD");
         board.push_joker(card::THE_TRIBE); // x2 mult on a flush
 
-        // No flush under vanilla rules, so The Tribe stays inert: High Card 55/1.
-        assert_eq!(board.score(), Score::new(55, 1.0));
+        // No flush under vanilla rules, so The Tribe stays inert: High Card 16/1
+        // (only the Ace scores).
+        assert_eq!(board.score(), Score::new(16, 1.0));
 
         board.push_joker(card::SMEARED_JOKER);
         // Now a Flush (85/4), and The Tribe fires x2 -> 85 x 8.
@@ -7176,18 +7212,15 @@ mod funky__types__board__buffoon_board_tests {
     }
 
     #[test]
-    fn score__splash_is_inert_because_all_played_cards_already_score() {
-        // In Balatro only the paired Kings would score; the 2/3/4 kickers would
-        // not. This engine has no scoring-vs-kicker split — every played card's
-        // chips already count — so Splash's "all cards score" is a verified
-        // no-op, not a silent-zero bug.
+    fn score__splash_makes_the_kickers_score() {
+        // As in Balatro, only the paired Kings score; the 2/3/4 are kickers.
+        // Splash's "every played card scores" brings the kickers in.
         let mut board = board_playing("KS KD 2S 3H 4C"); // Pair
-        // Pair base 10/2 + all five card pips (10+10+2+3+4 = 29) = 39/2. The
-        // kickers contributing is what proves cards already all score.
-        assert_eq!(board.score(), Score::new(39, 2.0));
+        // Pair base 10/2 + the Kings' pips (10+10 = 20) = 30/2.
+        assert_eq!(board.score(), Score::new(30, 2.0));
 
         board.push_joker(card::SPLASH);
-        // Splash changes nothing — the score is identical.
+        // Splash scores the kickers too: + (2+3+4 = 9) -> 39/2.
         assert_eq!(board.score(), Score::new(39, 2.0));
     }
 
@@ -7243,40 +7276,40 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn score__stone_joker_adds_chips_per_full_deck_stone() {
         // Stone Joker: +25 chips for each Stone card in the run's full deck.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
         board.push_joker(card::STONE_JOKER);
 
         // A stock deck holds no Stone cards -> inert.
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // Two Stone cards in the deck -> +50 chips. They score from the roster;
         // the played hand is untouched, which is the whole point of the joker.
         enhance_in_full_deck(&mut board, 2, MPip::TOWER);
-        assert_eq!(board.score(), Score::new(90, 1.0));
+        assert_eq!(board.score(), Score::new(65, 1.0));
     }
 
     #[test]
     fn score__erosion_adds_mult_per_card_below_starting_deck_size() {
         // Erosion: +4 mult for each card the full deck is below its start size.
-        let mut board = board_playing("2S 5D 8C TS KH"); // 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1
         board.push_joker(card::EROSION);
 
         // A whole deck is not eroded -> inert.
         assert_eq!(board.full_deck.len(), board.starting_deck_size);
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // Destroy three cards -> +12 mult.
         for _ in 0..3 {
             board.full_deck.remove(0);
         }
-        assert_eq!(board.score(), Score::new(40, 13.0));
+        assert_eq!(board.score(), Score::new(15, 13.0));
 
         // A deck grown past its starting size scores nothing, rather than
         // wrapping around on the subtraction.
         let mut grown = board_playing("2S 5D 8C TS KH");
         grown.push_joker(card::EROSION);
         grown.full_deck.push(basic::ACE_SPADES);
-        assert_eq!(grown.score(), Score::new(40, 1.0));
+        assert_eq!(grown.score(), Score::new(15, 1.0));
     }
 
     #[test]
@@ -7359,15 +7392,15 @@ mod funky__types__board__buffoon_board_tests {
     fn score__erosion_moves_through_real_deck_mutation() {
         // Phase 7 could only pose Erosion by poking `full_deck` directly. The
         // mutation seam is what makes it move the way play would.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1 (only the King scores)
         board.push_joker(card::EROSION);
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         for _ in 0..3 {
             assert!(board.destroy_deck_card(0).is_some());
         }
         // Three cards below the starting size -> +12 mult.
-        assert_eq!(board.score(), Score::new(40, 13.0));
+        assert_eq!(board.score(), Score::new(15, 13.0));
     }
 
     #[test]
@@ -7376,13 +7409,13 @@ mod funky__types__board__buffoon_board_tests {
         // reads the roster (phase 4). A Steel card held but not in the full
         // deck must move only the former -- this is the distinction the
         // full-deck view exists to draw.
-        let mut board = board_playing("2S 5D 8C TS KH"); // 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1
         board.in_hand = BuffoonPile::from(vec![enhanced(basic::KING_HEARTS, MPip::STEEL)]);
         board.push_joker(card::STEEL_JOKER);
 
         // Held Steel: x1.5 -> 1 x 1.5 = 1.5. Steel Joker still sees an
         // unenhanced deck -> x1.
-        assert_eq!(board.score(), Score::new(40, 1.5));
+        assert_eq!(board.score(), Score::new(15, 1.5));
     }
 
     #[test]
@@ -7390,19 +7423,20 @@ mod funky__types__board__buffoon_board_tests {
         // Glass card: x2 Mult when scored, 1 in 4 chance to be destroyed after
         // the hand. Both halves were declared on the const and neither was
         // wired, so a Glass King scored exactly like a plain King.
-        let mut board = board_playing("2S 5D 8C TS"); // High Card 5/1 + 25 = 30/1
-        assert_eq!(board.score(), Score::new(30, 1.0));
+        let mut board = board_playing("2S 5D 8C TS"); // High Card 5/1 + the Ten's 10 = 15/1
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
-        // A plain King is +10 chips and nothing else.
+        // A plain King takes over as the scoring high card: 10 chips and
+        // nothing else, the Ten now a kicker.
         board.played.push(basic::KING_HEARTS);
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         // The same King in Glass keeps its chips and doubles the mult.
         board.played.remove(4);
         board
             .played
             .push(enhanced(basic::KING_HEARTS, MPip::Glass(2, 4)));
-        assert_eq!(board.score(), Score::new(40, 2.0));
+        assert_eq!(board.score(), Score::new(15, 2.0));
     }
 
     #[test]
@@ -7411,24 +7445,26 @@ mod funky__types__board__buffoon_board_tests {
         // *its* card, so a later +mult card is not doubled. Pinning this stops
         // the arm drifting into the additive `calculate_plus` path, where it
         // would silently lose its ordering.
+        // Two Kings, so both enhanced cards score as a Pair (the 2S is a
+        // kicker).
         let glass = enhanced(basic::KING_HEARTS, MPip::Glass(2, 4));
-        let mult_card = enhanced(basic::QUEEN_HEARTS, MPip::MultPlus(4));
+        let mult_card = enhanced(basic::KING_SPADES, MPip::MultPlus(4));
 
-        // Chips are order-independent: High Card base 5 + 2 + K10 + Q10 = 27.
-        let chips = 5 + 2 + 10 + 10;
+        // Chips are order-independent: Pair base 10 + K10 + K10 = 30.
+        let chips = 10 + 10 + 10;
 
-        // Glass first: mult 1 x2 = 2, then the Mult card's +4 = 6.
+        // Glass first: mult 2 x2 = 4, then the Mult card's +4 = 8.
         let mut glass_first = board_playing("2S");
         glass_first.played.push(glass);
         glass_first.played.push(mult_card);
-        assert_eq!(glass_first.score(), Score::new(chips, 6.0));
+        assert_eq!(glass_first.score(), Score::new(chips, 8.0));
 
-        // Mult card first: 1 + 4 = 5, then Glass doubles it = 10. Same cards,
+        // Mult card first: 2 + 4 = 6, then Glass doubles it = 12. Same cards,
         // same chips, different mult -- which is the whole point.
         let mut mult_first = board_playing("2S");
         mult_first.played.push(mult_card);
         mult_first.played.push(glass);
-        assert_eq!(mult_first.score(), Score::new(chips, 10.0));
+        assert_eq!(mult_first.score(), Score::new(chips, 12.0));
     }
 
     #[test]
@@ -7436,14 +7472,14 @@ mod funky__types__board__buffoon_board_tests {
         // Gros Michel: +15 Mult, 1 in 6 chance to be destroyed at end of round.
         // The const carried only the destruction, so the joker silently scored
         // nothing -- it is the whole reason to play the card.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         board.push_joker(card::GROS_MICHEL);
 
         // The mult is unconditional: nothing about the 1-in-6 roll gates it, and
         // the pure score() path never rolls at all.
-        assert_eq!(board.score(), Score::new(40, 16.0));
+        assert_eq!(board.score(), Score::new(15, 16.0));
     }
 
     #[test]
@@ -7454,7 +7490,7 @@ mod funky__types__board__buffoon_board_tests {
         board.push_joker(card::GROS_MICHEL);
 
         for seed in 0..16_u64 {
-            assert_eq!(board.score_with_seed(seed), Score::new(40, 16.0));
+            assert_eq!(board.score_with_seed(seed), Score::new(15, 16.0));
         }
     }
 
@@ -7465,28 +7501,29 @@ mod funky__types__board__buffoon_board_tests {
         // mult, Cavendish kept the mult and lost the destruction. Cavendish's
         // scoring half is the one that always worked -- pin it so the compound
         // variant landing next door cannot regress it.
-        let mut board = board_playing("2S 5D 8C TS KH"); // 40/1
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 15/1
         board.push_joker(card::CAVENDISH);
-        assert_eq!(board.score(), Score::new(40, 3.0));
+        assert_eq!(board.score(), Score::new(15, 3.0));
     }
 
     #[test]
     fn score__hiker_permanently_adds_chips_to_every_scored_card() {
-        // Hiker: every played card permanently gains +4 chips when scored. The
-        // boost lands on the hand that triggers it, so five cards -> +20 chips.
-        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + 35 = 40/1
+        // Hiker: every scored card permanently gains +4 chips. The boost lands
+        // on the hand that triggers it; only the King scores (the other four
+        // are kickers and gain nothing), so one card -> +4 chips.
+        let mut board = board_playing("2S 5D 8C TS KH"); // High Card 5/1 + the King's 10 = 15/1
         board.push_joker(card::HIKER);
 
         // Inert until the hand actually scores.
-        assert_eq!(board.score(), Score::new(40, 1.0));
+        assert_eq!(board.score(), Score::new(15, 1.0));
 
         board.on_scored();
-        assert_eq!(board.score(), Score::new(60, 1.0));
+        assert_eq!(board.score(), Score::new(19, 1.0));
 
-        // "Permanently" is the whole joker: scoring the same cards again stacks
-        // another +4 each rather than re-applying a flat bonus.
+        // "Permanently" is the whole joker: scoring the same card again stacks
+        // another +4 rather than re-applying a flat bonus.
         board.on_scored();
-        assert_eq!(board.score(), Score::new(80, 1.0));
+        assert_eq!(board.score(), Score::new(23, 1.0));
     }
 
     #[test]

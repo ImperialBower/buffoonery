@@ -1,0 +1,8 @@
+# Four Fingers makes four Hearts a Flush, and the "contains a Flush" jokers
+# see it too: Crafty Joker +80 chips, Droll Joker +10 mult. The KS is not
+# part of the four-card Flush, so it is a kicker.
+played: [2H, 5H, 8H, TH, KS]
+jokers:
+  - ident: FOUR_FINGERS
+  - ident: CRAFTY_JOKER
+  - ident: DROLL_JOKER

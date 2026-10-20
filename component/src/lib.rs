@@ -41,26 +41,79 @@ pub fn score(spec: &str) -> Result<String, String> {
     serde_json::to_string(&board.score_traced()).map_err(|e| e.to_string())
 }
 
-/// Like [`score`], but rolls the chances (Lucky cards, Misprint) from `seed`,
-/// so the same board and seed always give the same trace. Rolled steps carry
-/// `"rolled": true`. [`score`] rolls nothing: a chance there is its floor.
+/// How [`score_with`] scores a board: an optional seed for the chances, and
+/// the custom effects. The default scores like [`score`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ScoreOptions {
+    /// Rolls the chances (Lucky cards, Misprint) from this seed, so the same
+    /// board and seed always give the same trace. `None` rolls nothing: each
+    /// chance scores its floor.
+    pub seed: Option<u64>,
+    /// What each `MPip::Custom(id)` on the board does. An id with no entry
+    /// does nothing.
+    pub effects: Vec<CustomEffect>,
+}
+
+/// A custom effect: a card or joker with `MPip::Custom(id)` applies `op`, a
+/// [`ScoreOp`] as JSON (e.g. `{"Seq": [{"AddChips": 20}, {"TimesMult": 2.0}]}`),
+/// every time it scores. The op is fixed: it reads nothing from the board.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CustomEffect {
+    /// The id in `MPip::Custom(id)`.
+    pub id: u32,
+    /// The [`ScoreOp`] as JSON.
+    pub op: String,
+}
+
+/// An [`Effect`] that always returns the same [`ScoreOp`].
+struct FixedOp(ScoreOp);
+
+impl Effect for FixedOp {
+    fn score(&self, _ctx: &ScoringContext<'_>) -> ScoreOp {
+        self.0.clone()
+    }
+}
+
+/// Like [`score`], with a seed for the chances and custom effects for
+/// `MPip::Custom(id)` (see [`ScoreOptions`]). Rolled steps carry
+/// `"rolled": true`.
 ///
 /// # Errors
 ///
-/// The same [`BoardSpecError`] messages as [`score`].
+/// The same [`BoardSpecError`] messages as [`score`]; `effects[i].op: …` when
+/// an op is not a [`ScoreOp`]; `effects[i]: id N is already defined` when two
+/// effects share an id.
 ///
 /// # Examples
 ///
 /// ```
-/// let board = "played: [{card: AS, enhancement: !Lucky [5, 15]}]";
-/// let trace = buffoonery_component::score_seeded(board, 7).unwrap();
-/// assert!(trace.contains(r#""rolled":true"#));
-/// assert_eq!(trace, buffoonery_component::score_seeded(board, 7).unwrap());
+/// use buffoonery_component::{CustomEffect, ScoreOptions, score_with};
+///
+/// let board = "played: [AS]\njokers: [{ident: JOKER, enhancement: !Custom 1}]";
+/// let options = ScoreOptions {
+///     seed: Some(7),
+///     effects: vec![CustomEffect { id: 1, op: r#"{"TimesMult": 3.0}"#.into() }],
+/// };
+/// let trace = score_with(board, &options).unwrap();
+/// assert!(trace.contains(r#""op":{"TimesMult":3.0}"#));
 /// ```
-pub fn score_seeded(spec: &str, seed: u64) -> Result<String, String> {
+pub fn score_with(spec: &str, options: &ScoreOptions) -> Result<String, String> {
     let spec = read_spec(spec).map_err(|e| e.to_string())?;
     let board = BuffoonBoard::try_from(&spec).map_err(|e| e.to_string())?;
-    serde_json::to_string(&board.score_traced_with_seed(seed)).map_err(|e| e.to_string())
+    let mut registry = EffectRegistry::new();
+    for (i, effect) in options.effects.iter().enumerate() {
+        let op: ScoreOp =
+            serde_json::from_str(&effect.op).map_err(|e| format!("effects[{i}].op: {e}"))?;
+        if registry.contains(effect.id) {
+            return Err(format!("effects[{i}]: id {} is already defined", effect.id));
+        }
+        registry.register(effect.id, FixedOp(op));
+    }
+    let trace = match options.seed {
+        Some(seed) => board.score_traced_with_seed_and_registry(seed, &registry),
+        None => board.score_traced_with_registry(&registry),
+    };
+    serde_json::to_string(&trace).map_err(|e| e.to_string())
 }
 
 /// Reads a [`BoardSpec`] as JSON or YAML and writes it back as JSON, so a host
@@ -124,6 +177,8 @@ pub fn version() -> String {
 mod bindings {
     wit_bindgen::generate!({ world: "joker-calculator", path: "wit" });
 
+    use exports::imperialbower::solver::calculator::ScoreOptions;
+
     struct Component;
 
     impl exports::imperialbower::solver::calculator::Guest for Component {
@@ -131,8 +186,19 @@ mod bindings {
             super::score(&spec)
         }
 
-        fn score_seeded(spec: String, seed: u64) -> Result<String, String> {
-            super::score_seeded(&spec, seed)
+        fn score_with(spec: String, options: ScoreOptions) -> Result<String, String> {
+            let options = super::ScoreOptions {
+                seed: options.seed,
+                effects: options
+                    .effects
+                    .into_iter()
+                    .map(|effect| super::CustomEffect {
+                        id: effect.id,
+                        op: effect.op,
+                    })
+                    .collect(),
+            };
+            super::score_with(&spec, &options)
         }
 
         fn parse(spec: String) -> Result<String, String> {

@@ -57,8 +57,8 @@ pub enum MPip {
     AllCardsAreFaces,
     /// Smeared Joker: Hearts≡Diamonds and Spades≡Clubs when sizing a flush.
     SmearedSuits,
-    /// Splash: every played card scores. Inert in this engine, which already
-    /// scores every played card (it has no scoring-vs-kicker distinction).
+    /// Splash: every played card scores, kickers included
+    /// (`BuffoonBoard::scoring_mask`).
     AllPlayedCardsScore,
     /// Oops! All 6s: doubles every listed probability (a 1-in-N roll wins twice
     /// as often); stacks, capped at certainty.

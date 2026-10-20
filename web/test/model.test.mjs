@@ -21,6 +21,7 @@ import {
   initialState,
   opHeadline,
   overrideEnhancement,
+  parseOp,
   parseSeed,
   readHash,
   rows,
@@ -29,6 +30,10 @@ import {
 } from '../src/model.js';
 
 const score = (spec) => JSON.parse(calculator.score(JSON.stringify(spec)));
+/** Scores a spec with custom effects, as main.js does. */
+const scoreCustom = (spec, effects) => JSON.parse(calculator.scoreWith(JSON.stringify(spec), {
+  effects: effects.map(({ id, op }) => ({ id, op: JSON.stringify(op) })),
+}));
 const catalog = new Map(JSON.parse(calculator.catalog()).map((j) => [j.ident, j]));
 const jokerSteps = (trace, part) => trace.steps.filter((s) => s.phase === 'Joker' && s.part === part);
 const board = (patch) => ({ ...initialState(), ...patch });
@@ -237,11 +242,18 @@ test('a seed is a whole number that fits a u64, or nothing', () => {
 
 test('the link holds the board, and the seed when there is one', () => {
   const spec = { played: ['AS'], jokers: [] };
-  assert.equal(boardHash(spec, null), `#board=${encodeURIComponent(JSON.stringify(spec))}`);
-  assert.equal(boardHash(spec, 7n), `#seed=7&board=${encodeURIComponent(JSON.stringify(spec))}`);
-  assert.deepEqual(readHash(boardHash(spec, 7n)), { board: JSON.stringify(spec), seed: 7n });
-  assert.deepEqual(readHash(boardHash(spec, null)), { board: JSON.stringify(spec), seed: null });
-  assert.deepEqual(readHash(`#board=${encodeURIComponent('a: b&c')}`), { board: 'a: b&c', seed: null });
+  const board = encodeURIComponent(JSON.stringify(spec));
+  assert.equal(boardHash(spec, null), `#board=${board}`);
+  assert.equal(boardHash(spec, 7n), `#seed=7&board=${board}`);
+  assert.deepEqual(readHash(boardHash(spec, 7n)), { board: JSON.stringify(spec), seed: 7n, effects: [] });
+  assert.deepEqual(readHash(boardHash(spec, null)), { board: JSON.stringify(spec), seed: null, effects: [] });
+  assert.deepEqual(readHash(`#board=${encodeURIComponent('a: b&c')}`), { board: 'a: b&c', seed: null, effects: [] });
+
+  const effects = [{ id: 1, op: { TimesMult: 2 } }];
+  const hash = boardHash(spec, 7n, effects);
+  assert.equal(hash, `#seed=7&effects=${encodeURIComponent(JSON.stringify(effects))}&board=${board}`);
+  assert.deepEqual(readHash(hash), { board: JSON.stringify(spec), seed: 7n, effects });
+  assert.throws(() => readHash('#effects=nope&board=x'), /effects/);
   assert.equal(readHash('#other'), null);
   assert.equal(readHash(''), null);
 });
@@ -250,7 +262,59 @@ test('a seeded score marks its rolled rows', () => {
   const yaml = readFileSync(join(golden, '11_inert_jokers.yaml'), 'utf8');
   const marked = (trace) => rows(trace, [], true).filter((row) => row.rolled).map((row) => row.detail);
   assert.deepEqual(marked(JSON.parse(calculator.score(yaml))), []);
-  assert.deepEqual(marked(JSON.parse(calculator.scoreSeeded(yaml, 7n))), ['special, rolled', 'rolled']);
+  assert.deepEqual(marked(JSON.parse(calculator.scoreWith(yaml, { seed: 7n, effects: [] }))), ['special, rolled', 'rolled']);
+});
+
+test('a typed effect reads as a ScoreOp, the way the breakdown writes it', () => {
+  assert.deepEqual(parseOp('+20 Chips, ×2 Mult'), { Seq: [{ AddChips: 20 }, { TimesMult: 2 }] });
+  assert.deepEqual(parseOp(' +4 mult '), { AddMult: 4 });
+  assert.deepEqual(parseOp('x1.5 Mult'), { TimesMult: 1.5 });
+  assert.deepEqual(parseOp('nothing'), 'Nothing');
+  // `formatOp` writes an Add as two parts with no comma.
+  assert.deepEqual(parseOp('+5 Chips +3 Mult'), { Seq: [{ AddChips: 5 }, { AddMult: 3 }] });
+  for (const text of ['+20 Chips, ×2 Mult', '+4 Mult', '×1.5 Mult', 'nothing', '+1 Chips, +2 Mult, ×3 Mult']) {
+    assert.equal(formatOp(parseOp(text)), text);
+  }
+  for (const bad of ['', '  ', '-3 Mult', '×2 Chips', '+1.5 Mult', '+4', 'Mult', '+4 Mult,', '+4 Mult junk']) {
+    assert.throws(() => parseOp(bad), /Type an effect like "\+20 Chips, ×2 Mult"/, bad);
+  }
+});
+
+test('a custom effect becomes a Custom id on the joker and an entry in the effects', () => {
+  const state = initialState();
+  state.slots[1].override = { kind: 'custom', text: '+20 Chips, ×2 Mult' };
+  const { spec, effects } = buildSpec(state);
+  assert.deepEqual(spec.jokers[1], { ident: 'DROLL_JOKER', enhancement: { Custom: 1 } });
+  assert.deepEqual(effects, [{ id: 1, op: { Seq: [{ AddChips: 20 }, { TimesMult: 2 }] } }]);
+
+  const step = jokerSteps(scoreCustom(spec, effects), 'Effect').find((s) => s.source.Joker.index === 1);
+  assert.deepEqual(step.op, effects[0].op);
+  const view = slotView(state.slots[1], catalog.get('DROLL_JOKER'), [step]);
+  assert.equal(view.overridden, true);
+  assert.equal(view.headline, '+20 ×2');
+  assert.equal(view.kindLabel, 'Chips + Mult');
+  assert.match(view.note, /^Custom: \+20 Chips, ×2 Mult \(printed: MultPlusOnFlush\(10\)\)/);
+});
+
+test('custom effects survive the trip through page state', () => {
+  const spec = {
+    played: [{ card: 'AS', enhancement: { Custom: 1 } }],
+    jokers: [{ ident: 'JOKER', enhancement: { Custom: 4 } }, { ident: 'JOKER', enhancement: { Custom: 9 } }],
+  };
+  const effects = [{ id: 1, op: { AddChips: 5 } }, { id: 4, op: { TimesMult: 3 } }];
+  const state = specToState(spec, effects);
+  assert.deepEqual(state.slots[0].override, { kind: 'custom', text: '×3 Mult' });
+  // Id 9 has no effect: it stays as it is, and scores nothing.
+  assert.deepEqual(state.slots[1].enhancement, { Custom: 9 });
+  assert.deepEqual(state.effects, [{ id: 1, op: { AddChips: 5 } }]);
+
+  const built = buildSpec(state);
+  // The card keeps id 1, so the joker takes the next free id.
+  assert.deepEqual(built.spec.played, [{ card: 'AS', enhancement: { Custom: 1 } }]);
+  assert.deepEqual(built.spec.jokers.map((j) => j.enhancement), [{ Custom: 2 }, { Custom: 9 }]);
+  assert.deepEqual(built.effects, [{ id: 1, op: { AddChips: 5 } }, { id: 2, op: { TimesMult: 3 } }]);
+  assert.equal(scoreCustom(built.spec, built.effects).total.chips, scoreCustom(spec, effects).total.chips);
+  assert.deepEqual(scoreCustom(built.spec, built.effects).total, scoreCustom(spec, effects).total);
 });
 
 test('text formats match the engine', () => {
@@ -258,6 +322,7 @@ test('text formats match the engine', () => {
   assert.equal(formatOp({ Add: { chips: 0, mult: 0 } }), 'nothing');
   assert.equal(formatOp({ Seq: [{ AddMult: 2 }, { TimesMult: 2 }] }), '+2 Mult, ×2 Mult');
   assert.equal(opHeadline({ TimesMult: 1.5 }), '×1.5');
+  assert.equal(opHeadline({ Seq: [{ AddChips: 20 }, 'Nothing', { TimesMult: 2 }] }), '+20 ×2');
   assert.equal(formatMPip({ Lucky: [5, 15] }), 'Lucky(5, 15)');
   assert.equal(formatMPip({ RetriggerPlayedRanks: [1, ['2', '3', '4', '5']] }), 'RetriggerPlayedRanks(1, [2, 3, 4, 5])');
   assert.equal(handScore({ chips: 26, mult: 10.125 }), 263);

@@ -3,7 +3,7 @@ type: decision
 title: The Joker Calculator lives in web/, built with Vite
 description: "EPIC-05 open question 3 and the stack: the calculator page is a web/ folder in this repo (GitHub Pages later), bundled by Vite so the jco output and preview2-shim resolve without an import map; model.js is pure and tested in Node against the real component."
 tags: [web, vite, calculator, decision, epic-05]
-timestamp: '2026-10-20T11:07:00Z'
+timestamp: '2026-10-20T11:49:00Z'
 resource: web/
 ---
 
@@ -47,10 +47,18 @@ resource: web/
   page draws no corner mark; the card's note names the edition's op.
 * **Seeded mode** (Milestone D): a seed field (`parseSeed`: blank, or a
   whole number up to 2^64 − 1 as a `BigInt`) switches the page to
-  `scoreSeeded`; rows of rolled steps say "rolled". The link carries it as
-  `#seed=7&board=…` (`boardHash`, `readHash`): seed first, so the board
-  text runs to the end of the link and old `#board=` links still open.
-  "Copy board" copies the board only; "Copy link" keeps the seed.
+  a seeded `scoreWith`; rows of rolled steps say "rolled". The link
+  carries it as `#seed=7&board=…` (`boardHash`, `readHash`): the board
+  comes last, so its text runs to the end of the link, and old `#board=`
+  links still open. "Copy board" copies the board only; "Copy link" keeps
+  the seed and the custom effects.
+* **Custom effects** (Milestone D): the override kind "Custom" takes typed
+  text (`parseOp`: `+20 Chips, ×2 Mult`, the way `formatOp` writes it) and
+  becomes `{Custom: id}` on the joker plus `{id, op}` in the effects that
+  `scoreWith` gets. `buildSpec` picks the lowest id nothing else uses; ids
+  on cards, or ops the editor cannot show, pass through in `state.effects`.
+  The link carries the effects as `effects=[…]&`. A box that is not an
+  effect turns red and the page keeps the last good one, as the seed does.
 * **Browser parity** (`web/e2e/parity.spec.mjs`, Playwright, Chromium):
   each fixture opens from a link, and the table must equal rows built from
   the fixture's JSON. Editor tests (edition picker) score their expected
