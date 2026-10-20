@@ -103,6 +103,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Kickers no longer score** (EPIC-05 risk 7). As in Balatro, only the
+  played cards that make the hand score: the highest card of a High Card,
+  the matched ranks of a Pair to Four of a Kind, the run of a Straight, the
+  suit of a Flush. Stone cards always score, and Splash makes every card
+  score (it did nothing before). Retriggers, the per-scored-card jokers
+  (suit jokers, Fibonacci, Scholar, Scary Face, Triboulet, Ancient, …),
+  Hiker and Vampire see only scoring cards. New:
+  `BuffoonPile::scoring_mask_with`, `BuffoonBoard::scoring_mask`,
+  `BuffoonBoard::scored_cards`.
+- **A-2-3-4-5 is a straight** (EPIC-05 risk 8): the Ace plays high and low.
+  A straight must also be one unbroken run, so under Four Fingers `2-3-4`
+  plus `9-10` is no longer a straight. `BuffoonPile::connectors` now counts
+  the links of the longest run.
 - A debuffed joker no longer scores: its effect and edition are no-op trace
   steps, and it adds no retriggers, hand-rule changes or odds. Before, the
   `debuffed` flag was never read while scoring.

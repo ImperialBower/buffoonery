@@ -406,7 +406,7 @@ function render() {
   $('footnote').textContent = `Every number comes from the buffoonery engine ${calculator.version()}, through its WebAssembly component. `
     + 'The breakdown groups the steps by the card or joker that made them; steps that changed nothing are hidden unless you ask. '
     + 'With a seed, chances roll from it; without one, each chance scores its lowest. '
-    + 'Known gaps: every played card scores, so a kicker adds chips that Balatro would not; A-2-3-4-5 is not a straight.';
+    + 'As in Balatro, only the cards that make the hand score: a kicker has no rows (Splash and Stone cards aside).';
 }
 
 render();

@@ -6,7 +6,7 @@
 //! threaded through the folds without growing `board.rs` further.
 
 use super::BuffoonBoard;
-use crate::prelude::{BCardType, BuffoonCard, HandRules, HandType, MPip, Score};
+use crate::prelude::{BCardType, BuffoonCard, BuffoonPile, HandRules, HandType, MPip, Score};
 use crate::types::effect::{EffectRegistry, ScoreOp, ScoringContext};
 use crate::types::trace::{Phase, ScoreStep, ScoreTrace, StepAt, StepPart, StepSource, apply_step};
 use rand::rngs::StdRng;
@@ -46,6 +46,44 @@ impl BuffoonBoard {
     #[must_use]
     pub fn scoring_hand_type(&self) -> HandType {
         Self::normalise_hand_type(self.played.determine_hand_type_with(self.hand_rules()))
+    }
+
+    /// Which played cards score, by position: the cards that make the hand
+    /// ([`BuffoonPile::scoring_mask_with`]), plus every Stone card, which
+    /// always scores. Under **Splash** every played card scores. The others
+    /// are kickers: they add nothing, trigger no per-card joker, and are not
+    /// retriggered.
+    ///
+    /// [`BuffoonPile::scoring_mask_with`]: crate::types::buffoon_pile::BuffoonPile::scoring_mask_with
+    #[must_use]
+    pub fn scoring_mask(&self) -> Vec<bool> {
+        let splash = self
+            .jokers
+            .iter()
+            .any(|joker| !joker.debuffed && matches!(joker.enhancement, MPip::AllPlayedCardsScore));
+        if splash {
+            return vec![true; self.played.len()];
+        }
+        let rules = self.hand_rules();
+        let hand_type = self.played.determine_hand_type_with(rules);
+        self.played
+            .scoring_mask_with(hand_type, rules)
+            .into_iter()
+            .zip(self.played.iter())
+            .map(|(scores, card)| scores || card.is_stone())
+            .collect()
+    }
+
+    /// The played cards that score ([`scoring_mask`](Self::scoring_mask)), in
+    /// played order. The per-scored-card jokers read these.
+    #[must_use]
+    pub fn scored_cards(&self) -> BuffoonPile {
+        self.played
+            .iter()
+            .zip(self.scoring_mask())
+            .filter(|(_, scores)| *scores)
+            .map(|(card, _)| *card)
+            .collect()
     }
 
     pub(super) fn normalise_hand_type(hand_type: HandType) -> HandType {
@@ -90,8 +128,16 @@ impl BuffoonBoard {
         mut trace: Option<&mut Vec<ScoreStep>>,
     ) -> Score {
         let mut score = running;
+        let scoring = self.scoring_mask();
+        // The card's place among the scoring cards: Hanging Chad retriggers
+        // the first card that scores, not the first card played.
+        let mut position = 0;
 
         for (index, card) in self.played.iter().enumerate() {
+            // A kicker scores nothing and leaves no step.
+            if !scoring.get(index).copied().unwrap_or(false) {
+                continue;
+            }
             let source = StepSource::Card { card: *card, index };
             // Only a Lucky card rolls, and only when there is an RNG to roll.
             let rolls =
@@ -101,7 +147,7 @@ impl BuffoonBoard {
             // Retriggering re-runs the whole per-card contribution, so a
             // retriggered Lucky card rolls again — matching Balatro. With no
             // retrigger joker this is a single pass.
-            for retrigger in 0..=self.played_retriggers(index, card) {
+            for retrigger in 0..=self.played_retriggers(position, card) {
                 let at = |part, rolled| StepAt {
                     phase: Phase::Played,
                     source,
@@ -156,16 +202,18 @@ impl BuffoonBoard {
                     at(StepPart::Edition, false),
                 );
             }
+            position += 1;
         }
 
         score
     }
 
-    /// How many *additional* times the played card at `index` is scored, summed
+    /// How many *additional* times a scoring played card is scored, summed
     /// over the board's retrigger jokers. 0 for a board with none (the common
     /// case), so the played-card fold is byte-identical when no retrigger joker
-    /// is held. `index` is the card's position in `self.played`, used by
-    /// position-based retriggers (Hanging Chad fires only on the first card).
+    /// is held. `index` is the card's position among the **scoring** cards,
+    /// used by position-based retriggers (Hanging Chad fires only on the first
+    /// scoring card).
     ///
     /// Jokers are walked with their `joker_state` slot, since the round-state
     /// retriggers read a counter: Seltzer retriggers only while its 10 hands
@@ -408,7 +456,7 @@ impl BuffoonBoard {
             }
             MPip::ChipsPlusPerScoredFace(n) => {
                 let faces = self
-                    .played
+                    .scored_cards()
                     .iter()
                     .filter(|card| self.is_face_card(card))
                     .count();
@@ -416,7 +464,7 @@ impl BuffoonBoard {
             }
             MPip::ChipsMultPlusPerScoredRanks(chips, mult, ranks) => {
                 let count = self
-                    .played
+                    .scored_cards()
                     .iter()
                     .filter(|card| ranks.contains(&card.rank.index))
                     .count();
@@ -448,11 +496,11 @@ impl BuffoonBoard {
             // variant is inert here — it rolls at end of round, which has no
             // hook yet — but the mult is not conditional on it and scores now.
             MPip::MultPlusChanceDestroyed(n, _, _) => return ScoreOp::AddMult(n),
-            // Scholar: +chips and +mult for each played card of the given rank;
-            // compounds with the count (+20 chips, +4 mult per played Ace).
+            // Scholar: +chips and +mult for each scored card of the given rank;
+            // compounds with the count (+20 chips, +4 mult per scored Ace).
             MPip::MultPlusChipsOnRank(mult, chips, rank) => {
                 let count = self
-                    .played
+                    .scored_cards()
                     .iter()
                     .filter(|card| card.rank.index == rank)
                     .count();
@@ -473,7 +521,23 @@ impl BuffoonBoard {
         }
 
         self.joker_x_mult(joker).map_or_else(
-            || ScoreOp::Add(self.played.calculate_plus(joker)),
+            || {
+                // Per-card effects (the suit jokers, Fibonacci, Even Steven,
+                // Odd Todd) pay for each scored card; the hand-shape ones
+                // ("contains a Pair") read the whole played hand.
+                let per_card = matches!(
+                    joker.enhancement,
+                    MPip::MultPlusOnSuit(_, _)
+                        | MPip::MultPlusOn5Ranks(_, _)
+                        | MPip::ChipsPlusOn5Ranks(_, _)
+                );
+                let pile = if per_card {
+                    &self.scored_cards()
+                } else {
+                    &self.played
+                };
+                ScoreOp::Add(pile.calculate_plus(joker))
+            },
             ScoreOp::TimesMult,
         )
     }
@@ -597,9 +661,10 @@ impl BuffoonBoard {
             MPip::MultTimesOnStraight(n) if played.has_straight_with(rules) => n as f64,
             MPip::MultTimesOnFlush(n) if played.has_flush_with(rules) => n as f64,
             MPip::MultTimesPerScoredRank(n, ranks) => {
-                // ×n for each played card of a matching rank; the factor
+                // ×n for each scored card of a matching rank; the factor
                 // compounds, e.g. two Kings and a Queen with Triboulet = ×2³.
-                let matches = played
+                let matches = self
+                    .scored_cards()
                     .iter()
                     .filter(|card| ranks.contains(&card.rank.index))
                     .count();
@@ -657,13 +722,13 @@ impl BuffoonBoard {
             {
                 n as f64
             }
-            // Ancient Joker: ×(tenths/10) per played card of the run's current
+            // Ancient Joker: ×(tenths/10) per scored card of the run's current
             // ancient suit; compounds, like its per-card ×mult neighbours. No
             // suit rolled yet means no matches, i.e. ×1 — inert rather than
             // zeroing.
             MPip::MultTimesPerScoredAncientSuit(tenths) => {
                 let matches = self.ancient_suit.map_or(0, |suit| {
-                    played
+                    self.scored_cards()
                         .iter()
                         .filter(|card| Self::suit_matches(card.suit.index, suit, rules))
                         .count()
@@ -1386,6 +1451,86 @@ mod funky__types__board__scoring_tests {
             .filter(|s| s.op == ScoreOp::TimesMult(2.0))
             .count();
         assert_eq!(custom_steps, 2, "the held card and the joker");
+    }
+
+    /// The played indexes that score, from the trace's first-pass card steps.
+    fn scored_indexes(trace: &ScoreTrace) -> Vec<usize> {
+        trace
+            .steps
+            .iter()
+            .filter(|s| s.phase == Phase::Played && s.part == StepPart::Effect && s.retrigger == 0)
+            .filter_map(|s| match s.source {
+                StepSource::Card { index, .. } => Some(index),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn scoring__a_kicker_scores_nothing() {
+        let board = board_playing("KS KD 4C");
+        let trace = board.score_traced();
+        assert_eq!(scored_indexes(&trace), vec![0, 1]);
+        assert_eq!(board.scoring_mask(), vec![true, true, false]);
+        // Pair 10 × 2, plus 10 per King; the 4 is a kicker.
+        assert_eq!(board.score(), Score::new(30, 2.0));
+        assert_eq!(trace.total, board.score());
+    }
+
+    #[test]
+    fn scoring__splash_scores_every_played_card() {
+        let board = with_jokers("KS KD 4C", &[card::SPLASH]);
+        assert_eq!(scored_indexes(&board.score_traced()), vec![0, 1, 2]);
+        assert_eq!(board.score(), Score::new(34, 2.0));
+
+        let off = with_jokers("KS KD 4C", &[debuffed(card::SPLASH)]);
+        assert_eq!(scored_indexes(&off.score_traced()), vec![0, 1]);
+    }
+
+    #[test]
+    fn scoring__a_stone_card_always_scores() {
+        let mut board = board_playing("KS KD");
+        board.played.push(basic::STONE_CARD);
+        assert_eq!(scored_indexes(&board.score_traced()), vec![0, 1, 2]);
+        assert_eq!(board.score(), Score::new(80, 2.0));
+    }
+
+    #[test]
+    fn scoring__an_ace_low_straight_is_a_straight() {
+        let board = board_playing("AS 2D 3C 4H 5S");
+        let trace = board.score_traced();
+        assert_eq!(trace.hand_type, HandType::Straight);
+        assert_eq!(scored_indexes(&trace), vec![0, 1, 2, 3, 4]);
+        // Straight 30 × 4, plus 11 + 2 + 3 + 4 + 5.
+        assert_eq!(board.score(), Score::new(55, 4.0));
+    }
+
+    #[test]
+    fn played_retriggers__hanging_chad_retriggers_the_first_scoring_card() {
+        let trace = with_jokers("4C KS KD", &[card::HANGING_CHAD]).score_traced();
+        let retriggered: Vec<usize> = trace
+            .steps
+            .iter()
+            .filter(|s| s.part == StepPart::Effect && s.retrigger > 0)
+            .filter_map(|s| match s.source {
+                StepSource::Card { index, .. } => Some(index),
+                _ => None,
+            })
+            .collect();
+        // Hanging Chad retriggers twice; both land on the first scoring card.
+        assert_eq!(retriggered, vec![1, 1]);
+    }
+
+    #[test]
+    fn scoring_phase4__per_scored_card_jokers_skip_kickers() {
+        // Greedy Joker: +3 mult per scored Diamond. The 4D is a kicker.
+        let trace = with_jokers("KS KD 4D", &[card::GREEDY_JOKER]).score_traced();
+        let greedy = trace
+            .steps
+            .iter()
+            .find(|s| s.phase == Phase::Joker)
+            .unwrap();
+        assert_eq!(greedy.op, ScoreOp::Add(Score::new(0, 3.0)));
     }
 
     #[test]

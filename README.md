@@ -38,7 +38,7 @@ sudo. The devcontainer runs it for you.
 
 [`component/`](component/README.md) wraps the engine in a WIT interface:
 score a board written as JSON or YAML, get the step-by-step trace back as
-JSON. The optimized component is 488 KiB (175 KiB gzipped); the budget is
+JSON. The optimized component is 494 KiB (178 KiB gzipped); the budget is
 500 KiB.
 
 ## Joker Calculator

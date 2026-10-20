@@ -1,0 +1,8 @@
+# Only the cards that make the hand score (EPIC-05 risk 7). A Pair of Kings:
+# the 4D, 2C and 9H are kickers, so they leave no step and add no chips.
+# Greedy Joker pays only for the scored Diamond (KD, not 4D), and Hanging Chad
+# retriggers the first *scoring* card (KS), not the first card played.
+played: [4D, KS, KD, 2C, 9H]
+jokers:
+  - ident: GREEDY_JOKER
+  - ident: HANGING_CHAD

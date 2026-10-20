@@ -3,7 +3,7 @@ type: architecture
 title: The engine — Balatro-style cards and scoring
 description: What buffoonery models (jokers, planets, tarots, spectrals as MPip data; four-phase scoring; shop, vouchers, editions, blinds), where it lives, and where it came from.
 tags: [engine, balatro, scoring, architecture]
-timestamp: '2026-10-20T11:49:00Z'
+timestamp: '2026-10-20T12:22:00Z'
 ---
 
 # What it is
@@ -25,7 +25,10 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   hand detection reuse cardpack's engine.
 * **Scoring** (`src/types/board/scoring.rs`, split out of `board.rs`) — `BuffoonBoard::score()` /
   `score_with_seed()`: base hand, played cards, held cards, then jokers left
-  to right; never panics. Open effects go through `EffectRegistry`
+  to right; never panics. Only the played cards that make the hand score
+  (`BuffoonBoard::scoring_mask`; Stone cards always, every card under
+  Splash); kickers add nothing. Straights are one unbroken run, and the Ace
+  plays high and low. Open effects go through `EffectRegistry`
   (`src/types/effect.rs`). `Score` keeps fractional mult and floors once
   ([decision](/decisions/fractional-score.md)). `score_traced()` and its
   seeded, registry, and seeded-and-registry twins return a `ScoreTrace` (`src/types/trace.rs`): one

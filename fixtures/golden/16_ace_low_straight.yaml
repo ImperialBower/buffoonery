@@ -1,0 +1,6 @@
+# A-2-3-4-5 is a straight: the Ace also plays low (EPIC-05 risk 8). Every
+# card of the run scores, and the Ace still adds 11 chips. Crazy Joker sees
+# the Straight.
+played: [AS, 2D, 3C, 4H, 5S]
+jokers:
+  - ident: CRAZY_JOKER

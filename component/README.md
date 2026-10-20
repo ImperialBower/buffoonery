@@ -33,11 +33,13 @@ Measured 2026-10-20, Rust 1.99.1, `--profile component`:
 
 | File | Raw | gzip -9 |
 | --- | --- | --- |
-| `buffoonery_component.wasm` | 596 KiB | 178 KiB |
-| after `jco opt -Oz` | 488 KiB | 175 KiB |
+| `buffoonery_component.wasm` | 603 KiB | 180 KiB |
+| after `jco opt -Oz` | 494 KiB | 178 KiB |
 
 The budget is 500 KiB raw after `jco opt`. Most of the size is the engine, the
 YAML parser and the joker data. `score-with` added 21 KiB: 8 KiB for the
 seeded RNG (`StdRng`), 13 KiB for reading a `ScoreOp` from JSON and the
-effect registry. That leaves 12 KiB of room. cardpack's `i18n` and `colored-display`
+effect registry. Scoring only the cards that make the hand (kickers) added
+6 KiB. That leaves 6 KiB of room: the next feature that grows the component
+needs a size cut or a bigger budget. cardpack's `i18n` and `colored-display`
 features are off.
