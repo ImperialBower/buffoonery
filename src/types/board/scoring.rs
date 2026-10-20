@@ -536,7 +536,7 @@ impl BuffoonBoard {
                 } else {
                     &self.played
                 };
-                ScoreOp::Add(pile.calculate_plus(joker))
+                ScoreOp::Add(pile.calculate_plus_with(joker, self.hand_rules()))
             },
             ScoreOp::TimesMult,
         )
@@ -1519,6 +1519,66 @@ mod funky__types__board__scoring_tests {
             .collect();
         // Hanging Chad retriggers twice; both land on the first scoring card.
         assert_eq!(retriggered, vec![1, 1]);
+    }
+
+    /// The effect op of the joker in slot `index`.
+    fn joker_effect(board: &BuffoonBoard, index: usize) -> ScoreOp {
+        board
+            .score_traced()
+            .steps
+            .into_iter()
+            .find(|s| {
+                s.part == StepPart::Effect
+                    && matches!(s.source, StepSource::Joker { index: i, .. } if i == index)
+            })
+            .map(|s| s.op)
+            .unwrap()
+    }
+
+    /// The "contains a Flush / Straight" +chips and +mult jokers see the hand
+    /// the way the base hand type does: Four Fingers, Shortcut and Smeared
+    /// widen it. Debuff the rule joker and they do not fire.
+    #[test]
+    fn scoring_phase4__hand_shape_jokers_follow_the_hand_rules() {
+        let cases = [
+            (
+                "2H 5H 8H TH KS",
+                card::FOUR_FINGERS,
+                card::CRAFTY_JOKER,
+                Score::new(80, 0.0),
+            ),
+            (
+                "2H 5D 8H TD KD",
+                card::SMEARED_JOKER,
+                card::DROLL_JOKER,
+                Score::new(0, 10.0),
+            ),
+            (
+                "3S 5D 7C 9H JS",
+                card::SHORTCUT,
+                card::CRAZY_JOKER,
+                Score::new(0, 12.0),
+            ),
+            (
+                "2S 3D 4C 5H 9S",
+                card::FOUR_FINGERS,
+                card::DEVIOUS_JOKER,
+                Score::new(100, 0.0),
+            ),
+        ];
+        for (hand, rule, joker, delta) in cases {
+            let board = with_jokers(hand, &[rule, joker]);
+            assert_eq!(
+                joker_effect(&board, 1),
+                ScoreOp::Add(delta),
+                "{hand} with {rule}"
+            );
+            let off = with_jokers(hand, &[debuffed(rule), joker]);
+            assert!(
+                joker_effect(&off, 1).is_noop(),
+                "{hand} with {rule} debuffed"
+            );
+        }
     }
 
     #[test]

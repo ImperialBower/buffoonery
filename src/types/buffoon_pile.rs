@@ -64,19 +64,35 @@ impl BuffoonPile {
 
     #[must_use]
     pub fn calculate_plus(&self, enhancer: &BuffoonCard) -> Score {
+        self.calculate_plus_with(enhancer, HandRules::default())
+    }
+
+    /// [`calculate_plus`](Self::calculate_plus) under the given [`HandRules`],
+    /// so the "contains a Flush / Straight" bonuses (Crafty, Droll, Devious,
+    /// Crazy, …) see the hand the way its hand type does: Four Fingers,
+    /// Shortcut and Smeared widen them.
+    #[must_use]
+    pub fn calculate_plus_with(&self, enhancer: &BuffoonCard, rules: HandRules) -> Score {
         Score::from_usize(
-            self.calculate_plus_chips(enhancer),
-            self.calculate_plus_mult(enhancer),
+            self.calculate_plus_chips_with(enhancer, rules),
+            self.calculate_plus_mult_with(enhancer, rules),
         )
     }
 
     #[must_use]
     pub fn calculate_plus_chips(&self, enhancer: &BuffoonCard) -> usize {
+        self.calculate_plus_chips_with(enhancer, HandRules::default())
+    }
+
+    /// [`calculate_plus_chips`](Self::calculate_plus_chips) under the given
+    /// [`HandRules`].
+    #[must_use]
+    pub fn calculate_plus_chips_with(&self, enhancer: &BuffoonCard, rules: HandRules) -> usize {
         match enhancer.enhancement {
-            MPip::ChipsOnFlush(m) => self.funky_num(m, Self::has_flush),
+            MPip::ChipsOnFlush(m) if self.has_flush_with(rules) => m,
             MPip::ChipsOnPair(m) => self.funky_num(m, Self::has_pair),
             MPip::ChipsOn2Pair(m) => self.funky_num(m, Self::has_2pair),
-            MPip::ChipsOnStraight(m) => self.funky_num(m, Self::has_straight),
+            MPip::ChipsOnStraight(m) if self.has_straight_with(rules) => m,
             MPip::ChipsOnTrips(m) => self.funky_num(m, Self::has_trips),
             // Per-card, rank-conditional (e.g. Odd Todd): sum each played
             // card's own contribution.
@@ -96,13 +112,20 @@ impl BuffoonPile {
     /// effects (Fibonacci, the suit jokers) are summed over the played cards.
     #[must_use]
     pub fn calculate_plus_mult(&self, enhancer: &BuffoonCard) -> usize {
+        self.calculate_plus_mult_with(enhancer, HandRules::default())
+    }
+
+    /// [`calculate_plus_mult`](Self::calculate_plus_mult) under the given
+    /// [`HandRules`].
+    #[must_use]
+    pub fn calculate_plus_mult_with(&self, enhancer: &BuffoonCard, rules: HandRules) -> usize {
         match enhancer.enhancement {
             // **DIARY** How do we make this simpler?
             MPip::MultPlus(m) => m,
-            MPip::MultPlusOnFlush(m) => self.funky_num(m, Self::has_flush),
+            MPip::MultPlusOnFlush(m) if self.has_flush_with(rules) => m,
             MPip::MultPlusOnPair(m) => self.funky_num(m, Self::has_pair),
             MPip::MultPlusOn2Pair(m) => self.funky_num(m, Self::has_2pair),
-            MPip::MultPlusOnStraight(m) => self.funky_num(m, Self::has_straight),
+            MPip::MultPlusOnStraight(m) if self.has_straight_with(rules) => m,
             MPip::MultPlusOnTrips(m) => self.funky_num(m, Self::has_trips),
             // Per-card, rank/suit-conditional (e.g. Fibonacci, Even Steven,
             // the suit jokers): sum each played card's own contribution.

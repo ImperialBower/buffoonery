@@ -119,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A straight must also be one unbroken run, so under Four Fingers `2-3-4`
   plus `9-10` is no longer a straight. `BuffoonPile::connectors` now counts
   the links of the longest run.
+- The "contains a Flush / Straight" +chips and +mult jokers (Crafty, Droll,
+  Devious, Crazy, …) honour Four Fingers, Shortcut and Smeared, as the hand
+  type and the ×mult jokers already did. New:
+  `BuffoonPile::calculate_plus_with` (and `_chips_with`, `_mult_with`).
 - A debuffed joker no longer scores: its effect and edition are no-op trace
   steps, and it adds no retriggers, hand-rule changes or odds. Before, the
   `debuffed` flag was never read while scoring.
