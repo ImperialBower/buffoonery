@@ -1,4 +1,4 @@
-// The calculator's model (EPIC-05 Story 6): page state → BoardSpec, and
+// The calculator's model (EPIC-05 Stories 6–7): page state → BoardSpec, and
 // ScoreTrace → what the page shows. No scoring happens here. Every chip and
 // mult value comes from the engine's trace; the one sum this file does is
 // `floor(chips × mult)`, the same expression as `Score::score()` in Rust, to
@@ -7,25 +7,52 @@
 /** The joker slots a board has. */
 export const SLOT_COUNT = 5;
 
-/**
- * A sample played hand per hand type, until Story 7's hand editor. These are
- * cards only: the engine finds the hand type and its base chips and mult.
- * No Royal Flush: the engine scores one as a Straight Flush, as Balatro does.
- */
-export const SAMPLE_HANDS = [
-  { type: 'HighCard', label: 'High Card', played: ['AS'] },
-  { type: 'Pair', label: 'Pair', played: ['AS', 'AH'] },
-  { type: 'TwoPair', label: 'Two Pair', played: ['AS', 'AH', 'KS', 'KH'] },
-  { type: 'ThreeOfAKind', label: 'Three of a Kind', played: ['AS', 'AH', 'AD'] },
-  { type: 'Straight', label: 'Straight', played: ['9S', 'TH', 'JD', 'QC', 'KS'] },
-  { type: 'Flush', label: 'Flush', played: ['AH', 'JH', '9H', '6H', '3H'] },
-  { type: 'FullHouse', label: 'Full House', played: ['AS', 'AH', 'AD', 'KS', 'KH'] },
-  { type: 'FourOfAKind', label: 'Four of a Kind', played: ['AS', 'AH', 'AD', 'AC'] },
-  { type: 'StraightFlush', label: 'Straight Flush', played: ['9H', 'TH', 'JH', 'QH', 'KH'] },
-  { type: 'FiveOfAKind', label: 'Five of a Kind', played: ['AS', 'AH', 'AD', 'AC', 'AS'] },
-  { type: 'FlushHouse', label: 'Flush House', played: ['AH', 'AH', 'AH', 'KH', 'KH'] },
-  { type: 'FlushFive', label: 'Flush Five', played: ['AS', 'AS', 'AS', 'AS', 'AS'] },
+/** The most cards a hand plays, and the most a hand holds. */
+export const MAX_PLAYED = 5;
+export const MAX_HELD = 8;
+
+/** Ranks and suits as card indexes use them (`T` is the 10). */
+export const RANKS = [
+  { rank: 'A', label: 'A' }, { rank: 'K', label: 'K' }, { rank: 'Q', label: 'Q' }, { rank: 'J', label: 'J' },
+  { rank: 'T', label: '10' }, { rank: '9', label: '9' }, { rank: '8', label: '8' }, { rank: '7', label: '7' },
+  { rank: '6', label: '6' }, { rank: '5', label: '5' }, { rank: '4', label: '4' }, { rank: '3', label: '3' },
+  { rank: '2', label: '2' },
 ];
+export const SUITS = [
+  { suit: 'S', label: '♠', name: 'Spades' },
+  { suit: 'H', label: '♥', name: 'Hearts' },
+  { suit: 'D', label: '♦', name: 'Diamonds' },
+  { suit: 'C', label: '♣', name: 'Clubs' },
+];
+
+/**
+ * The hand types that have a level, with their names. No Royal Flush: the
+ * engine scores one as a Straight Flush, as Balatro does, so it has no level.
+ */
+export const HAND_TYPES = [
+  { type: 'HighCard', label: 'High Card' },
+  { type: 'Pair', label: 'Pair' },
+  { type: 'TwoPair', label: 'Two Pair' },
+  { type: 'ThreeOfAKind', label: 'Three of a Kind' },
+  { type: 'Straight', label: 'Straight' },
+  { type: 'Flush', label: 'Flush' },
+  { type: 'FullHouse', label: 'Full House' },
+  { type: 'FourOfAKind', label: 'Four of a Kind' },
+  { type: 'StraightFlush', label: 'Straight Flush' },
+  { type: 'FiveOfAKind', label: 'Five of a Kind' },
+  { type: 'FlushHouse', label: 'Flush House' },
+  { type: 'FlushFive', label: 'Flush Five' },
+];
+
+const handLabel = (type) => HAND_TYPES.find((h) => h.type === type)?.label ?? type;
+
+/** Cards from an index list: `cards('AS TH')` → `[{rank:'A',suit:'S'}, …]`. */
+export function cards(indexes) {
+  return indexes.split(/\s+/).filter(Boolean).map((index) => ({
+    rank: index[0].toUpperCase(),
+    suit: index[1].toUpperCase(),
+  }));
+}
 
 /** The override kinds the effect editor offers. `null` means "as printed". */
 export const OVERRIDE_KINDS = [
@@ -39,7 +66,12 @@ export const OVERRIDE_KINDS = [
 export function initialState() {
   const slot = (ident) => ({ ident, override: null, debuffed: false });
   return {
-    hand: 'Flush',
+    played: cards('AH JH 9H 6H 3H'),
+    held: [],
+    // Levels the user changed; a hand not listed is level 1.
+    levels: {},
+    // The hand type the level editor shows; `null` follows the hand played.
+    levelHand: null,
     slots: [slot('JOKER'), slot('DROLL_JOKER'), slot('CRAFTY_JOKER'), slot('CAVENDISH'), slot(null)],
     showAll: false,
   };
@@ -77,7 +109,8 @@ export function overrideEnhancement(override) {
  * became (`null` for an empty slot). Empty slots are left out of the spec.
  */
 export function buildSpec(state) {
-  const hand = SAMPLE_HANDS.find((h) => h.type === state.hand) ?? SAMPLE_HANDS[0];
+  const index = (card) => `${card.rank}${card.suit}`;
+  const levels = Object.entries(state.levels).filter(([, level]) => Number(level) !== 1);
   const jokers = [];
   const jokerIndex = state.slots.map((slot) => {
     if (!slot.ident) return null;
@@ -88,7 +121,18 @@ export function buildSpec(state) {
     jokers.push(joker);
     return jokers.length - 1;
   });
-  return { spec: { played: [...hand.played], jokers }, jokerIndex };
+  const spec = { played: state.played.map(index) };
+  if (state.held.length) spec.held = state.held.map(index);
+  if (levels.length) spec.hand_levels = Object.fromEntries(levels.map(([type, level]) => [type, Number(level)]));
+  spec.jokers = jokers;
+  return { spec, jokerIndex };
+}
+
+/** The hand the engine found: its type, level, and base chips and mult. */
+export function handSummary(trace) {
+  const { hand_type: type, level } = trace.steps[0].source.Hand;
+  const { chips, mult } = trace.steps[0].op.Add;
+  return { type, label: handLabel(type), level, chips, mult };
 }
 
 /** `floor(chips × mult)`, as `Score::score()` computes it. */
@@ -157,8 +201,15 @@ function cardLabel(card) {
   return `${card.rank.index}${SUIT[card.suit.index] ?? card.suit.index}`;
 }
 
+/** What a step that changed nothing says: a joker did not fire; a card's part is nothing. */
+function quietEffect(step) {
+  if (!('Joker' in step.source)) return 'nothing';
+  return step.source.Joker.card.debuffed ? 'debuffed' : 'did not fire';
+}
+
 /**
- * One table row per trace step. A row is hidden unless it changed the score,
+ * One table row per trace step, keyed to its group (`Base`, `Played 0`,
+ * `Held 2`, `Joker 1`). A row is hidden unless it changed the score,
  * is a joker's effect (so "did not fire" stays visible), or `showAll` is on.
  * `jokerNames[i]` names the joker at trace index `i`.
  */
@@ -166,25 +217,29 @@ export function rows(trace, jokerNames, showAll = false) {
   return trace.steps
     .map((step, i) => {
       let source;
+      let group;
       if ('Hand' in step.source) {
         const { hand_type: type, level } = step.source.Hand;
-        const label = SAMPLE_HANDS.find((h) => h.type === type)?.label ?? type;
-        source = `${label} (level ${level})`;
+        source = `${handLabel(type)} (level ${level})`;
+        group = 'Base';
       } else if ('Card' in step.source) {
         const { card, index } = step.source.Card;
         source = `${cardLabel(card)} · ${PHASE_LABEL[step.phase]} ${index + 1}`;
+        group = `${step.phase} ${index}`;
       } else {
         const { index } = step.source.Joker;
         source = `${jokerNames[index] ?? 'Joker'} · slot ${index + 1}`;
+        group = `Joker ${index}`;
       }
       const detail = [step.part === 'Effect' ? '' : step.part.toLowerCase(), step.retrigger ? `retrigger ${step.retrigger}` : '']
         .filter(Boolean)
         .join(', ');
       return {
         n: i + 1,
+        group,
         source,
         detail,
-        effect: step.fired ? formatOp(step.op) : step.source.Joker?.card.debuffed ? 'debuffed' : 'did not fire',
+        effect: step.fired ? formatOp(step.op) : quietEffect(step),
         kind: opKind(step.op),
         fired: step.fired,
         chips: step.after.chips,
@@ -193,6 +248,22 @@ export function rows(trace, jokerNames, showAll = false) {
         visible: showAll || step.fired || (step.phase === 'Joker' && step.part === 'Effect'),
       };
     });
+}
+
+/**
+ * The visible rows, grouped by the hand, card or joker that made them, in
+ * trace order (Story 7). One played card can make 3 rows per pass, and more
+ * with retriggers. A group with no visible row is left out.
+ */
+export function groupRows(tableRows) {
+  const groups = [];
+  for (const row of tableRows) {
+    if (!row.visible) continue;
+    const last = groups.at(-1);
+    if (last?.key === row.group) last.rows.push(row);
+    else groups.push({ key: row.group, label: row.source, rows: [row] });
+  }
+  return groups;
 }
 
 /**

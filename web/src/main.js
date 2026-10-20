@@ -1,14 +1,20 @@
-// The Joker Calculator page (EPIC-05 Story 6). It draws what model.js derives
-// from the engine's trace; it scores nothing itself.
+// The Joker Calculator page (EPIC-05 Stories 6–7). It draws what model.js
+// derives from the engine's trace; it scores nothing itself.
 import './style.css';
 import { calculator } from './pkg/buffoonery_component.js';
 import {
+  HAND_TYPES,
+  MAX_HELD,
+  MAX_PLAYED,
   OVERRIDE_KINDS,
-  SAMPLE_HANDS,
+  RANKS,
   SLOT_COUNT,
+  SUITS,
   buildSpec,
   fmtNum,
+  groupRows,
   handScore,
+  handSummary,
   initialState,
   opKind,
   rows,
@@ -21,6 +27,7 @@ const pickerOrder = [...catalog].sort((a, b) => a.name.localeCompare(b.name));
 
 let state = initialState();
 let lastSteps = [];
+let lastHand = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -40,11 +47,58 @@ function update(change) {
   render();
 }
 
-// ---- Hand -----------------------------------------------------------------
+// ---- Cards: rebuilt only when a card is added or removed --------------------
 
-const handSelect = $('hand-type');
-for (const hand of SAMPLE_HANDS) handSelect.append(el('option', { value: hand.type, text: hand.label }));
-handSelect.addEventListener('change', () => update((s) => { s.hand = handSelect.value; }));
+const PILES = {
+  played: { list: $('played'), count: $('played-count'), max: MAX_PLAYED, min: 1, name: 'played' },
+  held: { list: $('held'), count: $('held-count'), max: MAX_HELD, min: 0, name: 'held' },
+};
+
+function cardEditor(pile, i) {
+  const n = i + 1;
+  const rank = el('select', { 'aria-label': `Rank, ${pile.name} card ${n}` },
+    RANKS.map((r) => el('option', { value: r.rank, text: r.label })));
+  const suit = el('select', { 'aria-label': `Suit, ${pile.name} card ${n}` },
+    SUITS.map((s) => el('option', { value: s.suit, text: s.label, title: s.name })));
+  const remove = el('button', { type: 'button', class: 'remove', 'aria-label': `Remove ${pile.name} card ${n}`, text: '×' });
+  const key = pile.name;
+  rank.addEventListener('change', () => update((s) => { s[key][i].rank = rank.value; }));
+  suit.addEventListener('change', () => update((s) => { s[key][i].suit = suit.value; }));
+  remove.addEventListener('click', () => update((s) => { s[key].splice(i, 1); }));
+  return Object.assign(el('div', { class: 'card-edit' }, [rank, suit, remove]), { rank, suit, remove });
+}
+
+function renderPile(key) {
+  const pile = PILES[key];
+  const pileCards = state[key];
+  if (pile.editors?.length !== pileCards.length) {
+    pile.editors = pileCards.map((_, i) => cardEditor(pile, i));
+    const add = el('button', { type: 'button', class: 'add', text: '+ Add card' });
+    add.addEventListener('click', () => update((s) => { s[key].push({ rank: 'A', suit: 'S' }); }));
+    pile.add = add;
+    pile.list.replaceChildren(...pile.editors, add);
+  }
+  pileCards.forEach((card, i) => {
+    const editor = pile.editors[i];
+    editor.rank.value = card.rank;
+    editor.suit.value = card.suit;
+    editor.dataset.suit = card.suit;
+    editor.remove.disabled = pileCards.length <= pile.min;
+  });
+  pile.add.disabled = pileCards.length >= pile.max;
+  pile.count.textContent = `${pileCards.length} of ${pile.max}`;
+}
+
+// ---- Hand level -----------------------------------------------------------
+
+const levelHand = $('level-hand');
+const levelInput = $('level');
+for (const hand of HAND_TYPES) levelHand.append(el('option', { value: hand.type, text: hand.label }));
+levelHand.addEventListener('change', () => update((s) => { s.levelHand = levelHand.value; }));
+levelInput.addEventListener('input', () => {
+  const level = Number.parseInt(levelInput.value, 10);
+  if (level >= 1) update((s) => { s.levels[levelHand.value] = level; });
+});
 
 $('show-all').addEventListener('change', (e) => update((s) => { s.showAll = e.target.checked; }));
 
@@ -115,7 +169,32 @@ function showError(message) {
   $('error').hidden = false;
 }
 
+function renderSteps(trace, jokerNames) {
+  // One <tbody> per group, so each card's rows sit together.
+  const groups = groupRows(rows(trace, jokerNames, state.showAll));
+  const table = $('breakdown');
+  table.querySelectorAll('tbody.group').forEach((body) => body.remove());
+  const foot = table.querySelector('tfoot');
+  for (const group of groups) {
+    const body = el('tbody', { class: 'group' }, group.rows.map((row, i) => el('tr', { class: row.fired ? '' : 'quiet' }, [
+      el('td', { class: 'muted', text: String(row.n) }),
+      el('td', {}, [
+        ...(i === 0 ? [el('span', { class: 'strong', text: group.label })] : []),
+        ...(row.detail ? [el('span', { class: 'muted small detail', text: row.detail })] : []),
+      ]),
+      el('td', { class: `strong ${row.kind}`, text: row.effect }),
+      el('td', { class: 'chips', text: fmtNum(row.chips) }),
+      el('td', { class: 'mult', text: fmtNum(row.mult) }),
+      el('td', { class: 'strong', text: fmtNum(row.score) }),
+    ])));
+    table.insertBefore(body, foot);
+  }
+}
+
 function render() {
+  renderPile('played');
+  renderPile('held');
+
   const { spec, jokerIndex } = buildSpec(state);
   let trace;
   try {
@@ -126,11 +205,14 @@ function render() {
     return;
   }
 
-  handSelect.value = state.hand;
-  $('played').textContent = spec.played.join(' ');
-  const base = trace.steps[0].op.Add;
-  $('base-chips').textContent = `${fmtNum(base.chips)} Chips`;
-  $('base-mult').textContent = `${fmtNum(base.mult)} Mult`;
+  lastHand = handSummary(trace);
+  $('hand-name').textContent = lastHand.label;
+  $('hand-level').textContent = `level ${lastHand.level}`;
+  $('base-chips').textContent = `${fmtNum(lastHand.chips)} Chips`;
+  $('base-mult').textContent = `${fmtNum(lastHand.mult)} Mult`;
+  const editing = state.levelHand ?? lastHand.type;
+  levelHand.value = editing;
+  if (document.activeElement !== levelInput) levelInput.value = String(state.levels[editing] ?? 1);
 
   const jokerNames = spec.jokers.map((j) => byIdent.get(j.ident)?.name ?? j.ident);
   const jokerSteps = (index) => trace.steps.filter((s) => s.phase === 'Joker' && s.source.Joker.index === index);
@@ -156,20 +238,7 @@ function render() {
     if (document.activeElement !== nodes.value) nodes.value.value = slot.override ? String(view.overrideValue) : '';
   });
 
-  const body = $('steps');
-  body.replaceChildren(...rows(trace, jokerNames, state.showAll)
-    .filter((row) => row.visible)
-    .map((row) => el('tr', { class: row.fired ? '' : 'quiet' }, [
-      el('td', { class: 'muted', text: String(row.n) }),
-      el('td', {}, [
-        el('span', { class: 'strong', text: row.source }),
-        ...(row.detail ? [el('span', { class: 'muted small detail', text: row.detail })] : []),
-      ]),
-      el('td', { class: `strong ${row.kind}`, text: row.effect }),
-      el('td', { class: 'chips', text: fmtNum(row.chips) }),
-      el('td', { class: 'mult', text: fmtNum(row.mult) }),
-      el('td', { class: 'strong', text: fmtNum(row.score) }),
-    ])));
+  renderSteps(trace, jokerNames);
 
   const total = trace.total;
   for (const prefix of ['final', 'foot']) {
@@ -178,8 +247,8 @@ function render() {
     $(`${prefix}-score`).textContent = fmtNum(handScore(total));
   }
   $('footnote').textContent = `Every number comes from the buffoonery engine ${calculator.version()}, through its WebAssembly component. `
-    + 'The breakdown has one row per step the engine took; rows that changed nothing are hidden unless you ask. '
-    + 'Known gap: every played card scores, so a kicker adds chips that Balatro would not.';
+    + 'The breakdown groups the steps by the card or joker that made them; steps that changed nothing are hidden unless you ask. '
+    + 'Known gaps: every played card scores, so a kicker adds chips that Balatro would not; A-2-3-4-5 is not a straight.';
 }
 
 render();

@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Joker Calculator page** (EPIC-05 Story 6), in `web/`: pick a hand,
   slot jokers, override their effects or debuff them; every number comes
   from the WIT component's trace. `make web` tests and builds it.
+- **The calculator's hand editor** (EPIC-05 Story 7): choose up to 5 played
+  and 8 held cards by rank and suit; the engine finds the hand type, and a
+  level editor sets any hand's level. The breakdown groups its rows by the
+  card or joker that made them.
 - A joker carrying `MPip::Chips(n)` adds n chips. No Balatro joker carries
   it; the calculator's "+ Chips" override does.
 

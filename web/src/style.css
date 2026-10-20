@@ -56,7 +56,20 @@ input[type=checkbox] { width: 20px; height: 20px; margin: 0; accent-color: var(-
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; min-height: 24px; }
 
 .panel { padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-.hand { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.hand { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; }
+.hand-cards, .hand-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cards { display: flex; flex-wrap: wrap; gap: 8px; }
+.card-edit { display: grid; grid-template-columns: 52px 52px 32px; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--input-line); border-radius: 8px; background: var(--well); }
+.card-edit select { height: 36px; padding: 0 4px; font-size: 16px; font-weight: 700; text-align: center; }
+.card-edit[data-suit=H] select, .card-edit[data-suit=D] select { color: var(--mult); }
+button { font: 14px var(--mono); color: var(--text); background: var(--well); border: 1px solid var(--input-line); border-radius: 6px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--chips); }
+button:focus-visible { outline: 2px solid var(--chips); outline-offset: 1px; }
+button:disabled { opacity: .45; cursor: default; }
+.remove { height: 36px; font-size: 18px; line-height: 1; }
+.add { min-height: 46px; padding: 0 14px; border-style: dashed; color: var(--muted); }
+.level-editor { display: grid; grid-template-columns: minmax(0, 1fr) 80px; gap: 8px; }
 .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .readout { min-height: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: var(--well); border: 1px solid var(--line); font-weight: 700; }
 
@@ -89,6 +102,7 @@ input[type=checkbox] { width: 20px; height: 20px; margin: 0; accent-color: var(-
 .breakdown th, .breakdown td { padding: 12px 16px; text-align: left; vertical-align: middle; }
 .breakdown thead th { font-size: 12px; font-weight: 400; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
 .breakdown tbody td { border-bottom: 1px solid var(--line-soft); }
+.breakdown tbody.group { border-top: 2px solid var(--line); }
 .breakdown tbody tr.quiet td { color: var(--quiet); }
 .breakdown .detail { display: block; margin-top: 2px; }
 .breakdown tfoot td, .breakdown tfoot th { background: var(--well); font-size: 16px; }
@@ -98,6 +112,7 @@ input[type=checkbox] { width: 20px; height: 20px; margin: 0; accent-color: var(-
 @media (max-width: 720px) {
   .page { padding: 24px 16px 40px; }
   .hand { grid-template-columns: minmax(0, 1fr); }
+  .panel { padding: 16px; }
   .total { flex-wrap: wrap; }
   .score { font-size: 36px; }
 }
