@@ -22,4 +22,6 @@ parity tests pass.
   numbers are `ScoreStep` fields, never CLI sums.
 * **`clap` without `suggestions`.** Default `clap` pulls `strsim` (MIT only),
   which `deny.toml` rejects.
+* **Static page, no server** (decided 2026-10-20). The engine runs in the
+  browser; no HTTP API.
 * **Numbered 07** because 05 and 06 share cardpack's EPIC number space.

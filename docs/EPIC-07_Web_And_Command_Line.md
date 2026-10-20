@@ -27,7 +27,7 @@ The engine already has one door. The CLI and the hosting are the missing parts.
 
 **This EPIC does not:**
 
-- add a server or HTTP API. "From the web" means the static page, which runs the engine in the browser. No board leaves the user's machine.
+- add a server or HTTP API. "From the web" means the static page, which runs the engine in the browser. No board leaves the user's machine. **Decided 2026-10-20:** static page only; a server was rejected (hosting, cost, boards leave the machine).
 - add scoring logic. Neither door computes a number. The engine scores; the adapter translates.
 - change the WIT interface (`component/wit/world.wit`). The CLI uses the same five functions the page uses.
 - publish the CLI to crates.io. That needs `buffoonery-component` published too (it has `publish = false`, `component/Cargo.toml`). See Open questions.
