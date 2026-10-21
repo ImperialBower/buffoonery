@@ -144,7 +144,7 @@ pub mod card {
             value: 5,
         },
         card_type: BCardType::Planet,
-        enhancement: MPip::ChipsMultPlusOnHand(30, 4, HandType::Straight), // +3 Mult and +30 Chips
+        enhancement: MPip::ChipsMultPlusOnHand(30, 3, HandType::Straight), // +3 Mult and +30 Chips
         resell_value: 1,
         edition: Edition::None,
         debuffed: false,
@@ -159,7 +159,7 @@ pub mod card {
             value: 6,
         },
         card_type: BCardType::Planet,
-        enhancement: MPip::ChipsMultPlusOnHand(35, 4, HandType::Flush), // +2 Mult and +35 Chips
+        enhancement: MPip::ChipsMultPlusOnHand(15, 2, HandType::Flush), // +2 Mult and +15 Chips
         resell_value: 1,
         edition: Edition::None,
         debuffed: false,
@@ -174,7 +174,7 @@ pub mod card {
             value: 7,
         },
         card_type: BCardType::Planet,
-        enhancement: MPip::ChipsMultPlusOnHand(40, 4, HandType::FullHouse), // +2 Mult and +25 Chips
+        enhancement: MPip::ChipsMultPlusOnHand(25, 2, HandType::FullHouse), // +2 Mult and +25 Chips
         resell_value: 1,
         edition: Edition::None,
         debuffed: false,
@@ -189,7 +189,7 @@ pub mod card {
             value: 8,
         },
         card_type: BCardType::Planet,
-        enhancement: MPip::ChipsMultPlusOnHand(60, 7, HandType::FourOfAKind), // +3 Mult and +30 Chips
+        enhancement: MPip::ChipsMultPlusOnHand(30, 3, HandType::FourOfAKind), // +3 Mult and +30 Chips
         resell_value: 1,
         edition: Edition::None,
         debuffed: false,
@@ -234,7 +234,7 @@ pub mod card {
             value: 11,
         },
         card_type: BCardType::Planet,
-        enhancement: MPip::ChipsMultPlusOnHand(40, 4, HandType::FlushFive), // +4 Mult and +40 Chips
+        enhancement: MPip::ChipsMultPlusOnHand(40, 4, HandType::FlushHouse), // +4 Mult and +40 Chips
         resell_value: 1,
         edition: Edition::None,
         debuffed: false,

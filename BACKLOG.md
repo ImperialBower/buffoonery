@@ -27,19 +27,6 @@ Sources scanned: `docs/EPIC-*.md`, `CHANGELOG.md` (Unreleased), source comments
 
 ## Bugs and engine gaps
 
-Found by the automated review (detail in `docs/TECHNICAL_DEBT.md`); each was
-confirmed by reading the code:
-
-- [ ] 🤖 **Four of a Kind base is 50 × 7; Balatro's is 60 × 7.**
-  (`src/types/hands.rs:76`)
-- [ ] 🤖 **Planet cards level hands with base values, not level-up values**
-  (Jupiter +35/+4 instead of +15/+2; also Saturn, Earth, Mars).
-  (`src/decks/planet.rs:147-182`)
-- [ ] 🤖 **Stone cards can make Two Pair and Full House.**
-  (`src/types/buffoon_pile.rs:542`, `:598`)
-- [ ] 🤖 **Joker Stencil counts Negative jokers as filling a slot.**
-  (`src/types/board/scoring.rs:750`)
-
 Known and tracked before:
 
 - [ ] **`blind_target` is `usize`** — overflows past 4.29 × 10⁹ on wasm32
@@ -61,8 +48,6 @@ Known and tracked before:
 
 ## Tech debt
 
-- [ ] **EPIC-05 task 0i: stale comment** — says Joker Stencil is not applied;
-  it is. Loyalty Card still is not. (`src/types/board/scoring.rs:361`)
 - [ ] **File paths in the `.wasm`** — panic messages carry ~6 KiB of build
   paths, including the builder's home folder. `--remap-path-prefix` would
   shorten them. (`component/README.md`, Size)
@@ -85,3 +70,8 @@ EPIC-05 (Joker Calculator): Stories S1–S2 and 1–8, Milestone D (export,
 edition picker, seeded mode, custom effects), risks 7 and 8 (kickers,
 Ace-low straights), and the Four Fingers / Shortcut bonus-joker gap. Merged
 in PRs #1–#4.
+
+Four scoring bugs from the 🤖 review, fixed 2026-10-20: Four of a Kind base
+(60 × 7), planet level-up values (and Ceres levels Flush House), Stone cards
+in Two Pair and Full House, Joker Stencil and Negative jokers. Also the stale
+EPIC-05 task 0i comment.

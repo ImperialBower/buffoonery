@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-10-20
+* **Four scoring bugs fixed (from the backlog review).** Four of a Kind base 50 → 60 × 7. Planets Saturn, Jupiter, Earth and Mars carried base values, not level-up values; Ceres levelled Flush Five, not Flush House. Stone cards made Two Pair and Full House (`has_2pair` / `has_full_house` now use `detectable()`). Joker Stencil counted Negative jokers (now `slots_taken`). New tests: all 12 base hands, all 12 planets against one level-up, Stone pairs, Negative + Stencil. New golden fixtures `18_four_of_a_kind` (700) and `19_stone_makes_no_pair` (160); no old trace changed. Also fixed the stale EPIC-05 task 0i comment in `scoring.rs`. [Engine](architecture/engine.md) updated.
 * **EPIC-07 written: buffoonery from the web and the command line.** Planned: a `buffoonery` CLI (crate `buffoonery-cli`) over the component's adapter functions, a `link` command to the page, and the page on GitHub Pages. New [EPIC-07 pointer](references/epic-07-web-and-command-line.md).
 * **Hand-shape bonus jokers follow the hand rules.** `BuffoonPile::calculate_plus_with(joker, rules)`: Crafty, Droll, Devious, Crazy and the other "contains a Flush/Straight" +chips/+mult jokers now honour Four Fingers, Shortcut and Smeared. New golden fixture 17.
 * **Component size budget 500 → 600 KiB.** At 494 KiB, measured where the code goes: YAML 180 KiB, JSON 115, engine + cardpack 92 of 502 KiB (unstripped, before `jco opt`). A JSON-only component would be 295 KiB; YAML stays, the budget rises. Updated [WIT component crate](decisions/wit-component-crate.md).

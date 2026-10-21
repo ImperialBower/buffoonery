@@ -538,9 +538,11 @@ impl BuffoonPile {
         self.has_flush_with(rules) && self.has_full_house()
     }
 
+    /// Stone cards are rankless, so they match nothing — see
+    /// [`detectable`](Self::detectable).
     #[must_use]
     pub fn has_full_house(&self) -> bool {
-        let combos = self.combos_by_rank();
+        let combos = self.detectable().combos_by_rank();
         match combos.first() {
             None => false,
             Some(combo) => {
@@ -594,9 +596,12 @@ impl BuffoonPile {
         self.has_x_of_a_kind(2)
     }
 
+    /// Stone cards are rankless, so they match nothing — see
+    /// [`detectable`](Self::detectable).
     #[must_use]
     pub fn has_2pair(&self) -> bool {
-        self.combos_by_rank()
+        self.detectable()
+            .combos_by_rank()
             .second()
             .is_some_and(|combo| combo.len() >= 2)
     }
@@ -1252,6 +1257,36 @@ mod funky__types__buffoon_pile_tests {
         assert!(bcards!("AS AD QS QH QC").has_full_house());
         assert!(bcards!("AS AS QS QS QS").has_full_house());
         assert!(!bcards!("AS AS QS QS JS").has_full_house());
+    }
+
+    /// A Stone card is an Ace of Spades underneath. It must not pair with a
+    /// real Ace, or with another Stone card, to make the "two" of a full house.
+    #[test]
+    fn has_full_house__stone_cards_make_no_pair() {
+        let mut with_ace = bcards!("QS QD QH AD");
+        with_ace.push(STONE_CARD);
+        assert!(!with_ace.has_full_house());
+        assert_eq!(with_ace.determine_hand_type(), HandType::ThreeOfAKind);
+
+        let mut two_stones = bcards!("QS QD QH");
+        two_stones.push(STONE_CARD);
+        two_stones.push(STONE_CARD);
+        assert!(!two_stones.has_full_house());
+    }
+
+    /// A Stone card is an Ace of Spades underneath. It must not pair with a
+    /// real Ace, or with another Stone card, to make the second pair.
+    #[test]
+    fn has_2pair__stone_cards_make_no_pair() {
+        let mut with_ace = bcards!("QS QD AD");
+        with_ace.push(STONE_CARD);
+        assert!(!with_ace.has_2pair());
+        assert_eq!(with_ace.determine_hand_type(), HandType::Pair);
+
+        let mut two_stones = bcards!("QS QD");
+        two_stones.push(STONE_CARD);
+        two_stones.push(STONE_CARD);
+        assert!(!two_stones.has_2pair());
     }
 
     #[test]

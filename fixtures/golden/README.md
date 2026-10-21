@@ -33,4 +33,6 @@ Kickers do not score, as in Balatro: only the cards that make the hand do
 (plus Stone cards, and every card under Splash). `15_kickers.yaml` pins that,
 and `16_ace_low_straight.yaml` pins the Ace-low straight (EPIC-05 risks 7
 and 8, fixed 2026-10-20). `17_four_fingers_bonus_jokers.yaml` pins that the
-"contains a Flush" jokers see a Four Fingers flush.
+"contains a Flush" jokers see a Four Fingers flush. `18_four_of_a_kind.yaml`
+pins the Four of a Kind base (60 × 7), and `19_stone_makes_no_pair.yaml` pins
+that a Stone card pairs with nothing (both fixed 2026-10-20).

@@ -11,9 +11,9 @@
 The source has no `TODO` / `FIXME` / `HACK` / `XXX` comments. These items come
 from "known gap" notes in the code and open tasks in the EPICs.
 
-- [ ] **Stale comment (EPIC-05 task 0i)** — says `MultTimesOnEmptyJokerSlots`
-  (Joker Stencil) is not applied yet; it is, at line 749. Loyalty Card
-  (`MultTimesEveryXHands`) still is not. (`src/types/board/scoring.rs:361`)
+- [x] **Stale comment (EPIC-05 task 0i)** — said Joker Stencil was not
+  applied yet. Fixed 2026-10-20; the comment now names only Loyalty Card.
+  (`src/types/board/scoring.rs:361`)
 - [ ] **`blind_target` is `usize`** — overflows past 4.29 × 10⁹ on wasm32.
   EPIC-05 S1 follow-up. (`src/types/board.rs:88`)
 - [ ] **Run-level tarots are no-ops** — Death, Judgement, The Hermit, The Wheel
@@ -35,24 +35,24 @@ from "known gap" notes in the code and open tasks in the EPICs.
 From a read-only review on 2026-10-20 (no code was run by the reviewer).
 "Checked" means a maintainer session read the code and confirmed the claim.
 
-- [ ] 🤖 **Four of a Kind base is 50 × 7; Balatro's is 60 × 7** — every Four of
+- [x] 🤖 **Four of a Kind base is 50 × 7; Balatro's is 60 × 7** — every Four of
   a Kind scores 10 chips low, and no test pins the base-hand table. Suggested:
   set 60, add a test for all 12 base values and a Four of a Kind golden
-  fixture. (`src/types/hands.rs:76`) — *checked*
-- [ ] 🤖 **Planet cards carry base values, not level-up values** — e.g. Jupiter
+  fixture. (`src/types/hands.rs:76`) — *checked, fixed 2026-10-20*
+- [x] 🤖 **Planet cards carry base values, not level-up values** — e.g. Jupiter
   `ChipsMultPlusOnHand(35, 4, Flush)` where `LEVEL_UP` says +15/+2; same for
   Saturn, Earth, Mars. `use_consumable` and `set_level` give different
   results; the comments contradict the numbers; `FlushHouse` has no planet.
   Suggested: build planet values from `LEVEL_UP`, test every planet against
-  it. (`src/decks/planet.rs:147-182`, `src/types/hands.rs:130`) — *checked*
-- [ ] 🤖 **Stone cards can make Two Pair and Full House** — `has_full_house`
+  it. (`src/decks/planet.rs:147-182`, `src/types/hands.rs:130`) — *checked, fixed 2026-10-20*
+- [x] 🤖 **Stone cards can make Two Pair and Full House** — `has_full_house`
   and `has_2pair` skip `detectable()`, unlike `has_x_of_a_kind`; a Stone card
   is an Ace underneath. Suggested: filter with `detectable()`, add Stone tests
-  for both. (`src/types/buffoon_pile.rs:542`, `:598`) — *checked*
-- [ ] 🤖 **Joker Stencil counts Negative jokers as filling a slot** — uses
+  for both. (`src/types/buffoon_pile.rs:542`, `:598`) — *checked, fixed 2026-10-20*
+- [x] 🤖 **Joker Stencil counts Negative jokers as filling a slot** — uses
   `jokers.len()`, not `slots_taken()`. Suggested: use `slots_taken`, add a
   Negative + Stencil test. (`src/types/board/scoring.rs:750`,
-  `src/types/board.rs:492`) — *checked*
+  `src/types/board.rs:492`) — *checked, fixed 2026-10-20*
 - [ ] 🤖 **Unwired jokers score 0 with no note** — Ceremonial Dagger, Loyalty
   Card, Supernova, Ride the Bus hold non-`Blank` effects with no scoring arm;
   the page shows "did not fire" without "Not wired yet". `BoardSpec` also

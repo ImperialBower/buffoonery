@@ -3,7 +3,7 @@ type: architecture
 title: The engine — Balatro-style cards and scoring
 description: What buffoonery models (jokers, planets, tarots, spectrals as MPip data; four-phase scoring; shop, vouchers, editions, blinds), where it lives, and where it came from.
 tags: [engine, balatro, scoring, architecture]
-timestamp: '2026-10-20T12:22:00Z'
+timestamp: '2026-10-20T18:00:00Z'
 ---
 
 # What it is
@@ -35,8 +35,9 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
   `ScoreStep` per `ScoreOp` applied. Every fold applies ops through
   `trace::apply_step`, so tracing cannot change a number.
 * **Decks** (`src/decks/`) — basic decks, 112 jokers (`Joker::ALL_JOKERS`;
-  8 `Blank` with reasons in `Joker::BLANK_WITH_REASON`), planets, tarots,
-  spectrals. `src/decks/joker_catalog.rs` names every joker and maps its
+  8 `Blank` with reasons in `Joker::BLANK_WITH_REASON`), planets (each
+  carries its hand's level-up step from `PokerHands::LEVEL_UP`; a test keeps
+  them in step), tarots, spectrals. `src/decks/joker_catalog.rs` names every joker and maps its
   ident (the const name) to the card: `Joker::catalog()`, `by_ident`,
   `name`, `info`.
 * **Boards as data** (`src/types/board_spec.rs`) — `BoardSpec` (Rust, JSON,

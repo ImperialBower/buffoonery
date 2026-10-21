@@ -73,7 +73,7 @@ impl PokerHands {
         );
         hands.insert(
             HandType::FourOfAKind,
-            PokerHand::new(HandType::FourOfAKind, 50, 7),
+            PokerHand::new(HandType::FourOfAKind, 60, 7),
         );
         hands.insert(
             HandType::StraightFlush,
@@ -122,11 +122,8 @@ impl PokerHands {
 
     /// The per-level chips/mult each hand gains — Balatro's level-up table.
     ///
-    /// Kept here rather than read off the planet cards because the planet data is
-    /// not a clean per-hand map (two planets both target `FlushFive`, and
-    /// `FlushHouse` has none), so this is the one source of truth a whole-table
-    /// level-up can trust. Reconciling the planet consts against it is EPIC-01
-    /// Story 3 debt, out of scope here.
+    /// Each planet card carries the same numbers for its hand;
+    /// `increment__every_planet_matches_one_level_up` keeps the two in step.
     const LEVEL_UP: [(HandType, usize, usize); 12] = [
         (HandType::HighCard, 10, 1),
         (HandType::Pair, 15, 1),
@@ -255,6 +252,63 @@ mod funky__types__hands_tests {
         hands.increment(planet::card::PLUTO);
 
         assert_eq!(hands.get(&HandType::HighCard).unwrap(), &expected);
+    }
+
+    /// Pins every base hand to Balatro's table (chips, mult at level 1).
+    #[rstest]
+    #[case(HandType::HighCard, 5, 1)]
+    #[case(HandType::Pair, 10, 2)]
+    #[case(HandType::TwoPair, 20, 2)]
+    #[case(HandType::ThreeOfAKind, 30, 3)]
+    #[case(HandType::Straight, 30, 4)]
+    #[case(HandType::Flush, 35, 4)]
+    #[case(HandType::FullHouse, 40, 4)]
+    #[case(HandType::FourOfAKind, 60, 7)]
+    #[case(HandType::StraightFlush, 100, 8)]
+    #[case(HandType::FiveOfAKind, 120, 12)]
+    #[case(HandType::FlushHouse, 140, 14)]
+    #[case(HandType::FlushFive, 160, 16)]
+    fn new__base_values_match_balatro(
+        #[case] hand_type: HandType,
+        #[case] chips: usize,
+        #[case] mult: usize,
+    ) {
+        let hand = PokerHands::new().get(&hand_type).copied().unwrap();
+        assert_eq!((hand.level, hand.chips, hand.mult), (1, chips, mult));
+    }
+
+    /// Using a planet card levels its hand exactly as one level-up does, for
+    /// all twelve planets (the nine base ones and the three secret ones).
+    #[test]
+    fn increment__every_planet_matches_one_level_up() {
+        let planets = [
+            planet::card::PLUTO,
+            planet::card::MERCURY,
+            planet::card::URANUS,
+            planet::card::VENUS,
+            planet::card::SATURN,
+            planet::card::JUPITER,
+            planet::card::EARTH,
+            planet::card::MARS,
+            planet::card::NEPTUNE,
+            planet::card::PLANET_X,
+            planet::card::CERES,
+            planet::card::ERIS,
+        ];
+        let mut levelled = std::collections::HashSet::new();
+        for card in planets {
+            let MPip::ChipsMultPlusOnHand(_, _, hand_type) = card.enhancement else {
+                panic!("{card} does not level a poker hand");
+            };
+            levelled.insert(hand_type);
+
+            let mut used = PokerHands::default();
+            used.increment(card);
+            let mut set = PokerHands::default();
+            assert!(set.set_level(hand_type, 2));
+            assert_eq!(used.get(&hand_type), set.get(&hand_type), "{card}");
+        }
+        assert_eq!(levelled.len(), 12, "each hand needs its own planet");
     }
 
     #[test]

@@ -358,9 +358,8 @@ impl BuffoonBoard {
     /// (`MultTimesOn{Pair,Trips,4OfAKind,Straight,Flush}` — The Duo/Trio/Family/
     /// Order/Tribe — which fire when the played hand *contains* that category).
     ///
-    /// Note: state-dependent ×mult jokers (`MultTimesOnEmptyJokerSlots`,
-    /// `MultTimesEveryXHands`) are not applied yet — they need board/round
-    /// state and their exact factors pinned down.
+    /// Note: Loyalty Card (`MultTimesEveryXHands`) is not applied yet — it
+    /// needs a hands-played counter on the board.
     ///
     /// [`BuffoonPile::calculate_plus`]: crate::types::buffoon_pile::BuffoonPile::calculate_plus
     #[must_use]
@@ -739,7 +738,8 @@ impl BuffoonBoard {
             // Joker Stencil: ×n per empty joker slot, "Joker Stencil included" —
             // i.e. it counts its own occupied slot as if it were empty. Every
             // Stencil on the board adds that +1, so the rule reduces to
-            // `slots − (jokers that are not Stencils)`.
+            // `slots − (jokers that are not Stencils)`. A Negative joker takes
+            // no slot, so it fills none ([`BuffoonBoard::slots_taken`]).
             //
             // The `> 0` gate is on **literally** empty slots, not the inclusive
             // count: a full board applies nothing at all. With one Stencil that
@@ -747,7 +747,9 @@ impl BuffoonBoard {
             // when the gate closes), but with two on a full board the two
             // disagree, and the gate wins.
             MPip::MultTimesOnEmptyJokerSlots(n) => {
-                let empty = self.joker_slots.saturating_sub(self.jokers.len());
+                let empty = self
+                    .joker_slots
+                    .saturating_sub(Self::slots_taken(&self.jokers));
                 if empty == 0 {
                     return None;
                 }
