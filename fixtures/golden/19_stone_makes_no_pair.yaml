@@ -1,0 +1,9 @@
+# A Stone card is an Ace of Spades underneath, but it has no rank. Next to a
+# real Ace it makes no second pair, so this is a Pair, not Two Pair. The Stone
+# card still scores its 50 chips; the AD is a kicker.
+played:
+  - QS
+  - QD
+  - AD
+  - card: AS
+    enhancement: !Stone 50

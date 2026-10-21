@@ -177,7 +177,7 @@ Found by checking this EPIC's first draft against the code on 2026-10-18.
 
 **Re-homed:**
 
-- [ ] **0i. Fix the half-stale comment at `board.rs:534-536`** (now `src/types/board/scoring.rs:275-277`). It says `MultTimesOnEmptyJokerSlots` (Joker Stencil) and `MultTimesEveryXHands` (Loyalty Card) are not applied. Stencil is applied now; Loyalty Card still is not.
+- [x] **0i. Fix the half-stale comment at `board.rs:534-536`** (now `src/types/board/scoring.rs:275-277`). It says `MultTimesOnEmptyJokerSlots` (Joker Stencil) and `MultTimesEveryXHands` (Loyalty Card) are not applied. Stencil is applied now; Loyalty Card still is not. *Done 2026-10-20: the comment now names only Loyalty Card.*
 - [x] **0j. Backfill `CHANGELOG.md` for 0.11.1.** Stays in cardpack; done there as EPIC-06 item 0d.
 - ~~**0k. Run funky on wasm in CI (cardpack).**~~ Dropped: funky leaves cardpack. The new repo's CI builds and tests the `wasm32-wasip2` component instead (Story 4).
 

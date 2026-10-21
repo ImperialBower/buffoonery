@@ -4239,6 +4239,17 @@ mod funky__types__board__buffoon_board_tests {
     }
 
     #[test]
+    fn score__joker_stencil_does_not_count_a_negative_joker() {
+        // A Negative joker takes no slot, so the Stencil's slot stays empty.
+        let mut board = board_playing("2S 5D 8C TS KH");
+        board.push_joker(card::JOKER_STENCIL);
+        board.push_joker(card::JOKER.with_edition(Edition::Negative));
+
+        // Stencil first: 1 × ((5 − 1) + 1) = 5, then Joker's +4 = 9.
+        assert_eq!(board.score(), Score::new(15, 9.0));
+    }
+
+    #[test]
     fn score__joker_stencil_reads_the_current_slot_limit() {
         // It reads `joker_slots` live rather than a hardcoded 5, so a run that
         // gains a slot gains a ×1 with it.

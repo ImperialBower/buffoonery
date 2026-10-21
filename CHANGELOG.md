@@ -123,6 +123,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Devious, Crazy, …) honour Four Fingers, Shortcut and Smeared, as the hand
   type and the ×mult jokers already did. New:
   `BuffoonPile::calculate_plus_with` (and `_chips_with`, `_mult_with`).
+- Four of a Kind starts at 60 chips × 7 mult, as in Balatro (it was 50 × 7).
+- Planet cards level their hand by Balatro's level-up step, the same numbers
+  `PokerHands::set_level` and Black Hole use. Saturn is +30/+3 (was +30/+4),
+  Jupiter +15/+2 (was +35/+4), Earth +25/+2 (was +40/+4), Mars +30/+3 (was
+  +60/+7). Ceres levels Flush House; before, it levelled Flush Five, like
+  Eris.
+- Stone cards no longer make Two Pair or Full House. A Stone card is an Ace
+  of Spades underneath; `has_2pair` and `has_full_house` now skip it, as
+  `has_x_of_a_kind` already did.
+- Joker Stencil no longer counts a Negative joker as filling a slot.
 - A debuffed joker no longer scores: its effect and edition are no-op trace
   steps, and it adds no retriggers, hand-rule changes or odds. Before, the
   `debuffed` flag was never read while scoring.
