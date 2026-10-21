@@ -53,6 +53,44 @@ make dev                 # serves it with live reload
 make e2e                 # opens every golden fixture in Chromium and checks the table
 ```
 
+Each push to `main` publishes the page to
+<https://imperialbower.github.io/buffoonery/> (`.github/workflows/pages.yaml`),
+after the same tests pass.
+
+## Command line
+
+[`cli/`](cli/) is the `buffoonery` command. It calls the same adapter
+functions as the page, so it gives the same numbers.
+
+```shell
+cargo install --git https://github.com/ImperialBower/buffoonery buffoonery-cli
+
+buffoonery score board.yaml              # the trace as a table
+buffoonery score --json board.yaml       # the trace as JSON, as the component returns it
+buffoonery score --seed 7 board.yaml     # roll Lucky cards and Misprint from a seed
+buffoonery score --all board.yaml        # every step, not only the ones the page shows
+buffoonery link board.yaml               # a link that opens the board in the page
+buffoonery parse board.yaml              # the board as JSON
+buffoonery catalog --find jolly          # the jokers, by ident or name
+buffoonery version                       # the engine version
+```
+
+A board file is YAML or JSON; `-` or no file reads stdin, so a board copied
+from the page scores with `pbpaste | buffoonery score`. Exit codes: 0 done,
+1 the board is not valid (the message names the field), 2 bad usage or a
+missing file.
+
+```text
+$ buffoonery score fixtures/golden/02_pair_additive_jokers.yaml
+ #  Source                Detail  Effect             Chips  Mult  Score
+ 1  Pair (level 1)                +10 Chips +2 Mult     10     2     20
+ 2  A♠ · played 1                 +11 Chips             21     2     42
+ 5  A♥ · played 2                 +11 Chips             32     2     64
+ 8  Jolly Joker · slot 1          +8 Mult               32    10    320
+10  Sly Joker · slot 2            +50 Chips             82    10    820
+Pair  82 × 10 = 820
+```
+
 ## What's in the box
 
 - **Formatting:** rustfmt — see [toolchain decisions](.okf/decisions/toolchain.md)

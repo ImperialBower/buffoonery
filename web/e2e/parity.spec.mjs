@@ -4,6 +4,7 @@
 // score, so the page must reach the engine's numbers on its own. Tests of an
 // editor score their expected board with the component, as model.test.mjs does.
 import { test, expect } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { calculator } from '../src/pkg/buffoonery_component.js';
@@ -45,6 +46,28 @@ for (const name of fixtures) {
     await expect(page.locator('#foot-score')).toHaveText(fmtNum(handScore(trace.total)));
   });
 }
+
+// EPIC-07: a link printed by the CLI (`buffoonery link`) opens the board.
+test('a link the CLI prints opens the same table', async ({ page, baseURL }) => {
+  const name = '13_board_readers.yaml';
+  const trace = JSON.parse(readFileSync(join(golden, name.replace(/\.yaml$/, '.trace.json')), 'utf8'));
+  const cli = join(import.meta.dirname, '../../target/debug/buffoonery');
+  const link = execFileSync(cli, ['link', '--base', `${baseURL}/`, join(golden, name)], { encoding: 'utf8' }).trim();
+
+  await page.goto(link);
+  await page.check('#show-all');
+  await expect(page.locator('#error')).toBeHidden();
+  expect(await shownCells(page)).toEqual(expectedCells(trace));
+  await expect(page.locator('#foot-score')).toHaveText(fmtNum(handScore(trace.total)));
+});
+
+test('the CLI install line fits a phone screen', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto('/');
+  await expect(page.locator('#cli-note')).toContainText('cargo install --git https://github.com/ImperialBower/buffoonery buffoonery-cli');
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBe(0);
+});
 
 test('a link that is not a board says so, and the page opens its own board', async ({ page }) => {
   await page.goto(`/#board=${encodeURIComponent('colour: red')}`);

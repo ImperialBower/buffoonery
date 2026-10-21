@@ -1,9 +1,9 @@
 ---
 type: reference
 title: EPIC-07 — Buffoonery from the web and the command line
-description: "Planned EPIC: a `buffoonery` CLI (new crate `buffoonery-cli`) that links the component's adapter functions natively, and the Joker Calculator page published on GitHub Pages; a board link carries a board between the two."
-tags: [epic, cli, web, github-pages, planned]
-timestamp: '2026-10-20T12:00:00Z'
+description: "Active EPIC: a `buffoonery` CLI (new crate `buffoonery-cli`) that links the component's adapter functions natively, and the Joker Calculator page published on GitHub Pages; a board link carries a board between the two."
+tags: [epic, cli, web, github-pages, active]
+timestamp: '2026-10-21T00:00:00Z'
 resource: docs/EPIC-07_Web_And_Command_Line.md
 ---
 
@@ -24,4 +24,5 @@ parity tests pass.
   which `deny.toml` rejects.
 * **Static page, no server** (decided 2026-10-20). The engine runs in the
   browser; no HTTP API.
+* **Built 2026-10-21:** phases 0–3 and 5, and Phase 4's workflow and footer; see the [CLI decision](/decisions/cli.md). Pages must still be turned on in the repo settings.
 * **Numbered 07** because 05 and 06 share cardpack's EPIC number space.

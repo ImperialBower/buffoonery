@@ -1,0 +1,13 @@
+ #  Source                     Detail       Effect             Chips  Mult  Score
+ 1  Three of a Kind (level 1)               +30 Chips +3 Mult     30     3     90
+ 2  K♠ · played 1                           +10 Chips             40     3    120
+ 5  K♠ · played 1              retrigger 1  +10 Chips             50     3    150
+ 8  K♠ · played 1              retrigger 2  +10 Chips             60     3    180
+11  K♠ · played 1              retrigger 3  +10 Chips             70     3    210
+14  K♥ · played 2                           +10 Chips             80     3    240
+17  K♥ · played 2              retrigger 1  +10 Chips             90     3    270
+20  K♦ · played 3                           +10 Chips            100     3    300
+23  K♦ · played 3              retrigger 1  +10 Chips            110     3    330
+26  Hanging Chad · slot 1                   did not fire         110     3    330
+28  Sock and Buskin · slot 2                did not fire         110     3    330
+Three of a Kind  110 × 3 = 330

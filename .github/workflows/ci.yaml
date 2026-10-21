@@ -90,6 +90,8 @@ jobs:
         with:
           node-version-file: .tool-versions
       - run: cargo build -p buffoonery-component --target wasm32-wasip2 --profile component
+      # The page's tests open links the CLI prints (EPIC-07).
+      - run: cargo build -p buffoonery-cli
       - run: npm ci
         working-directory: component/js
       - run: npm test

@@ -8,7 +8,7 @@ Oct 20, 2026 · @Christoph · *Written against branch `epic05-custom-effects` at
 - **Why:** the page exists but only runs on a developer's machine (`make dev`), and there is no way to score a board from a shell, a script or CI.
 - **Shape:** both doors call the same adapter functions in `component/src/lib.rs`. The CLI links them natively; the page loads them as wasm. A board link carries a board from one door to the other.
 - **Proves it:** for every golden fixture, `buffoonery score --json` equals the fixture's `.trace.json`, and a link printed by `buffoonery link` opens the same table in the browser.
-- **Status:** Planned. Nothing landed yet.
+- **Status:** Built 2026-10-21, except what needs the live site: Pages must be turned on in the repo settings (task 15), then the live page checked (task 17).
 
 ---
 
@@ -37,16 +37,16 @@ The engine already has one door. The CLI and the hosting are the missing parts.
 
 ## Status
 
-As of 2026-10-20, branch `epic05-custom-effects` at `f54016d`.
+As of 2026-10-21, branch `epic07-cli` (not yet merged). `make ayce` green.
 
 | Component | Status |
 | --- | --- |
-| Phase 0 — CLI crate layout and argument parser decided | Planned |
-| Phase 1 — `buffoonery version`, `parse`, `catalog` | Planned |
-| Phase 2 — `buffoonery score` (JSON and table, seed, custom effects) | Planned |
-| Phase 3 — `buffoonery link` (CLI to web bridge) | Planned |
-| Phase 4 — the page on GitHub Pages | Planned |
-| Phase 5 — docs, OKF, CHANGELOG, `make` targets | Planned |
+| Phase 0 — CLI crate layout and argument parser decided | **Complete**: `cli/`, `clap` 4.6.7 without `suggestions`; `cargo deny check` passes |
+| Phase 1 — `buffoonery version`, `parse`, `catalog` | **Complete** |
+| Phase 2 — `buffoonery score` (JSON and table, seed, custom effects) | **Complete**: all 19 fixtures, JSON and table snapshots |
+| Phase 3 — `buffoonery link` (CLI to web bridge) | **Complete**: every fixture through `readHash`; one link in Chromium |
+| Phase 4 — the page on GitHub Pages | Workflow and footer **built**; 🔒 Gated: the maintainer turns on Pages (task 15), then the live check (task 17) |
+| Phase 5 — docs, OKF, CHANGELOG, `make` targets | **Complete** |
 
 ---
 
@@ -217,46 +217,46 @@ The page footer already names the engine version (`web/src/main.js:406`). Phase 
 
 ### Phase 0 — Prerequisites
 
-- [ ] **0a.** Add `cli` to `[workspace] members` (`Cargo.toml:4`). Create `cli/Cargo.toml` with `rust-version = "1.99.1"`, the same `[lints.clippy]` block as `component/Cargo.toml`, and `publish = false`.
-- [ ] **0b.** Add `clap` with the trimmed features. Run `cargo deny check`. If a license fails, take the hand-written parser instead and say so in the CHANGELOG.
-- [ ] **0c.** Check the version-consistency rule (`CLAUDE.md`): `.tool-versions`, `rust-version`, the CI MSRV entry (`.github/workflows/ci.yaml:23`) and the devcontainer agree. The new crate must not raise the MSRV.
-- [ ] **0d.** `cargo build --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` are green.
+- [x] **0a.** Add `cli` to `[workspace] members` (`Cargo.toml:4`). Create `cli/Cargo.toml` with `rust-version = "1.99.1"`, the same `[lints.clippy]` block as `component/Cargo.toml`, and `publish = false`.
+- [x] **0b.** Add `clap` with the trimmed features. Run `cargo deny check`. If a license fails, take the hand-written parser instead and say so in the CHANGELOG.
+- [x] **0c.** Check the version-consistency rule (`CLAUDE.md`): `.tool-versions`, `rust-version`, the CI MSRV entry (`.github/workflows/ci.yaml:23`) and the devcontainer agree. The new crate must not raise the MSRV.
+- [x] **0d.** `cargo build --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` are green.
 
 ### Phase 1 — `version`, `parse`, `catalog`
 
-- [ ] **1.** `cli/src/lib.rs`: `Command`, `Input`, `CliError`, `run`. `cli/src/main.rs`: `clap` derive, then `run`, then the exit code.
-- [ ] **2.** `version` prints `buffoonery_component::version()`. Test `run_version_prints_engine_version`.
-- [ ] **3.** `parse <FILE>` prints `parse()` output. Tests `run_parse_yaml_prints_json`, `run_parse_reads_stdin`.
-- [ ] **4.** `catalog` prints a table (ident, name, rarity, cost); `--json` prints `catalog()`; `--find jolly` filters by name, ignoring case. Tests `run_catalog_json_equals_component`, `run_catalog_find_filters`.
-- [ ] **5.** Errors: a missing file is exit 2, a bad board is exit 1 with the adapter's text. Tests `run_missing_file_is_io_error`, `run_bad_joker_is_board_error`.
+- [x] **1.** `cli/src/lib.rs`: `Command`, `Input`, `CliError`, `run`. `cli/src/main.rs`: `clap` derive, then `run`, then the exit code.
+- [x] **2.** `version` prints `buffoonery_component::version()`. Test `run_version_prints_engine_version`.
+- [x] **3.** `parse <FILE>` prints `parse()` output. Tests `run_parse_yaml_prints_json`, `run_parse_reads_stdin`.
+- [x] **4.** `catalog` prints a table (ident, name, rarity, cost); `--json` prints `catalog()`; `--find jolly` filters by name, ignoring case. Tests `run_catalog_json_equals_component`, `run_catalog_find_filters`.
+- [x] **5.** Errors: a missing file is exit 2, a bad board is exit 1 with the adapter's text. Tests `run_missing_file_is_io_error`, `run_bad_joker_is_board_error`.
 
 ### Phase 2 — `score`
 
-- [ ] **6.** `score <FILE> --json`: calls `score`, or `score_with` when `--seed` or `--effects` is given. Test `cli/tests/golden.rs`: for every `fixtures/golden/*.yaml`, the output equals the `.trace.json` (reuse the fixture walk from `component/tests/golden.rs:18`).
-- [ ] **7.** `cli/src/table.rs`: `rows` and `render`. Tests `rows_hides_noop_card_steps`, `rows_keeps_unfired_joker_effects`, `rows_all_keeps_every_step`, `render_total_line_matches_score`.
-- [ ] **8.** Table snapshots: `fixtures/cli/*.txt`, one per golden fixture, rewritten with `BLESS=1` as the golden traces are. Test `table_matches_snapshot`.
-- [ ] **9.** `--seed` and `--effects`: tests `score_seed_matches_score_with` (same JSON as the component with the same seed) and `score_effects_reads_page_format` (the effects JSON the page writes in its link).
-- [ ] **10.** `cli/tests/process.rs`: run the built binary (`env!("CARGO_BIN_EXE_buffoonery")`) for exit codes 0, 1 and 2 and for stdin.
+- [x] **6.** `score <FILE> --json`: calls `score`, or `score_with` when `--seed` or `--effects` is given. Test `cli/tests/golden.rs`: for every `fixtures/golden/*.yaml`, the output equals the `.trace.json` (reuse the fixture walk from `component/tests/golden.rs:18`).
+- [x] **7.** `cli/src/table.rs`: `rows` and `render`. Tests `rows_hides_noop_card_steps`, `rows_keeps_unfired_joker_effects`, `rows_all_keeps_every_step`, `render_total_line_matches_score`.
+- [x] **8.** Table snapshots: `fixtures/cli/*.txt`, one per golden fixture, rewritten with `BLESS=1` as the golden traces are. Test `table_matches_snapshot`.
+- [x] **9.** `--seed` and `--effects`: tests `score_seed_matches_score_with` (same JSON as the component with the same seed) and `score_effects_reads_page_format` (the effects JSON the page writes in its link).
+- [x] **10.** `cli/tests/process.rs`: run the built binary (`env!("CARGO_BIN_EXE_buffoonery")`) for exit codes 0, 1 and 2 and for stdin.
 
 ### Phase 3 — `link`
 
-- [ ] **11.** `cli/src/link.rs`: `board_link`. Percent-encode as JavaScript's `encodeURIComponent` does. Unit tests `board_link_board_only`, `board_link_with_seed_and_effects`, `board_link_encodes_like_encode_uri_component`.
-- [ ] **12.** Cross-door test in `web/test/model.test.mjs`: for every golden fixture, run `target/debug/buffoonery link --base x <fixture>`, feed the fragment to `readHash`, and check the spec equals `parse()` of the fixture. `make web` builds the CLI first.
-- [ ] **13.** Browser test in `web/e2e/parity.spec.mjs`: open one CLI-made link and check the table, as the fixture tests do.
+- [x] **11.** `cli/src/link.rs`: `board_link`. Percent-encode as JavaScript's `encodeURIComponent` does. Unit tests `board_link_board_only`, `board_link_with_seed_and_effects`, `board_link_encodes_like_encode_uri_component`.
+- [x] **12.** Cross-door test in `web/test/model.test.mjs`: for every golden fixture, run `target/debug/buffoonery link --base x <fixture>`, feed the fragment to `readHash`, and check the spec equals `parse()` of the fixture. `make web` builds the CLI first.
+- [x] **13.** Browser test in `web/e2e/parity.spec.mjs`: open one CLI-made link and check the table, as the fixture tests do.
 
 ### Phase 4 — the page on GitHub Pages
 
-- [ ] **14.** `.github/workflows/pages.yaml`: on push to `main`, build the component, run `npm test` and the Playwright tests, then upload and deploy `web/dist`.
+- [x] **14.** `.github/workflows/pages.yaml`: on push to `main`, build the component, run `npm test` and the Playwright tests, then upload and deploy `web/dist`.
 - [ ] **15.** Enable Pages in the repo settings, source "GitHub Actions". This is a settings change; the maintainer does it.
-- [ ] **16.** Footer line in `web/src/main.js:406`: "Also on the command line: `cargo install --git https://github.com/ImperialBower/buffoonery buffoonery-cli`".
+- [x] **16.** Footer line in `web/src/main.js:406`: "Also on the command line: `cargo install --git https://github.com/ImperialBower/buffoonery buffoonery-cli`".
 - [ ] **17.** Check the live URL in a browser: the opening board scores, a `#board=` link opens, no sideways scroll at 390 px.
 
 ### Phase 5 — Docs and the gate
 
-- [ ] **18.** `README.md`: a "Command line" section (install, the five commands, one example) and the live page URL.
-- [ ] **19.** `Makefile`: `cli` target (`cargo build -p buffoonery-cli`); `web` depends on it for task 12. `make ayce` already runs the CLI tests through `cargo test --workspace`.
-- [ ] **20.** `.okf/decisions/cli.md` (`type: decision`): why a third crate, why it links the component crate, the `clap` license check, the table parity rule. Append to `.okf/log.md`. Add to `.okf/index.md`.
-- [ ] **21.** `CHANGELOG.md` entry. `make ayce` green.
+- [x] **18.** `README.md`: a "Command line" section (install, the five commands, one example) and the live page URL.
+- [x] **19.** `Makefile`: `cli` target (`cargo build -p buffoonery-cli`); `web` depends on it for task 12. `make ayce` already runs the CLI tests through `cargo test --workspace`.
+- [x] **20.** `.okf/decisions/cli.md` (`type: decision`): why a third crate, why it links the component crate, the `clap` license check, the table parity rule. Append to `.okf/log.md`. Add to `.okf/index.md`.
+- [x] **21.** `CHANGELOG.md` entry. `make ayce` green.
 
 ---
 
@@ -298,7 +298,7 @@ The page footer already names the engine version (`web/src/main.js:406`). Phase 
 - `component/tests/golden.rs:14-31` — the fixture walk and expected-trace reader.
 - `web/src/model.js:146,171` — `boardHash` / `readHash`, the link form the CLI must match.
 - `web/src/model.js:422` — `rows()`, the row filter the table must match.
-- `fixtures/golden/` — the 17 boards both doors are checked against.
+- `fixtures/golden/` — the 19 boards both doors are checked against.
 
 ## Compatibility
 
@@ -339,3 +339,17 @@ Exit criteria:
 3. The page is live at the Pages URL, deployed only after the parity tests pass.
 4. The engine crate's dependency list and the component's size are unchanged.
 5. `make ayce` is green.
+
+## Implementation notes
+
+Written 2026-10-21, while Phase 4 waits on the live site. Design vs actual so far:
+
+1. **`--json` is checked as JSON, not byte for byte, against the fixture files.** `--json` prints the component's string unchanged (compact JSON), but the `.trace.json` files are pretty-printed. `score_json_equals_golden` compares parsed values; `no_file_reads_stdin` checks the bytes against `buffoonery_component::score`. The Verification block's `diff` therefore differs in white space only.
+2. **The table follows the page's row text,** not the sketch: columns `#`, Source, Detail, Effect, Chips, Mult, Score; sources read `A♠ · played 1` and `Jolly Joker · slot 1`; the total line is `Pair  82 × 10 = 820`. Numbers round to 2 decimals, as the page does (`10.125` → `10.13`), without thousands separators.
+3. **`link` scores the board before it prints,** because the page opens only a board it can score; a bad board is exit 1. `--effects` takes each op as an object (the page's link form) or as JSON text; the link always writes objects.
+4. **Board and effects cannot both come from stdin** (exit 2).
+5. **The footer line is static HTML** (`web/index.html`, `#cli-note`), not `main.js`. A Playwright test checks the page does not scroll sideways at 320 px: without `overflow-wrap` on the install command it scrolled 31 px.
+6. **The binary has `doc = false`:** it is named `buffoonery`, like the engine library, and the two docs collided in `target/doc/buffoonery`.
+7. **CI and Pages build the CLI** before the page's tests, because a web Node test and a Playwright test run `target/debug/buffoonery link`.
+
+Test counts at `make ayce`: 38 CLI tests (29 unit, 3 golden, 6 process); the page's Node tests 27 (was 26); Playwright 28 (was 26).

@@ -2,7 +2,8 @@
 // `npm test` transpiles the component into src/pkg first.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { calculator } from '../src/pkg/buffoonery_component.js';
 import {
@@ -256,6 +257,22 @@ test('the link holds the board, and the seed when there is one', () => {
   assert.throws(() => readHash('#effects=nope&board=x'), /effects/);
   assert.equal(readHash('#other'), null);
   assert.equal(readHash(''), null);
+});
+
+// The CLI's `link` (EPIC-07) writes the same fragment as `boardHash`. `make
+// web` builds the binary first; alone, run `cargo build -p buffoonery-cli`.
+const cli = join(import.meta.dirname, '../../target/debug/buffoonery');
+
+test('a link the CLI prints opens the same board in the page', () => {
+  assert.ok(existsSync(cli), `no CLI at ${cli}: run cargo build -p buffoonery-cli`);
+  for (const name of fixtures) {
+    const link = execFileSync(cli, ['link', '--base', 'x', join(golden, name)], { encoding: 'utf8' }).trim();
+    const opened = readHash(link.slice(link.indexOf('#')));
+    const spec = calculator.parse(readFileSync(join(golden, name), 'utf8'));
+    assert.deepEqual(opened, { board: spec, seed: null, effects: [] }, name);
+  }
+  const seeded = execFileSync(cli, ['link', '--base', 'x', '--seed', '7', join(golden, fixtures[0])], { encoding: 'utf8' });
+  assert.equal(readHash(seeded.slice(seeded.indexOf('#')).trim()).seed, 7n);
 });
 
 test('a seeded score marks its rolled rows', () => {

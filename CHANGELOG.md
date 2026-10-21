@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`buffoonery` on the command line** (EPIC-07). A new workspace crate,
+  `buffoonery-cli` (not published; `cargo install --git
+  https://github.com/ImperialBower/buffoonery buffoonery-cli`), calls the same
+  adapter functions as the page. `buffoonery score` prints the trace as the
+  page's table (`--all` for every step) or, with `--json`, exactly the
+  component's JSON; `--seed` and `--effects` match the page's seed field and
+  custom effects. `link` prints a page link for a board; `parse`, `catalog`
+  (`--json`, `--find`) and `version` round it out. Exit codes: 0, 1 for a bad
+  board, 2 for bad usage or a missing file. `clap` 4 without its
+  `suggestions` feature, so no MIT-only crate enters the tree.
+- **The Joker Calculator on GitHub Pages** (EPIC-07):
+  `.github/workflows/pages.yaml` rebuilds and tests the page on each push to
+  `main`, then deploys it. The page footer shows how to install the CLI.
+
 - **`ScoreTrace`: the score, step by step** (EPIC-05 Story 1).
   `BuffoonBoard::score_traced()`, `score_traced_with_seed`,
   `score_traced_with_rng` and `score_traced_with_registry` return every

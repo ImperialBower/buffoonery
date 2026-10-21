@@ -31,6 +31,7 @@ p { margin: 0; }
 .page { max-width: 1232px; margin: 0 auto; padding: 32px 24px 48px; display: flex; flex-direction: column; gap: 28px; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
+#cli-note code { overflow-wrap: anywhere; }
 .strong { font-weight: 700; }
 .chips { color: var(--chips); }
 .mult, .xmult { color: var(--mult); }

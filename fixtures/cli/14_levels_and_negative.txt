@@ -1,0 +1,6 @@
+#  Source                Detail  Effect             Chips  Mult  Score
+1  Pair (level 3)                +40 Chips +4 Mult     40     4    160
+2  5♠ · played 1                 +5 Chips              45     4    180
+5  5♦ · played 2                 +5 Chips              50     4    200
+8  Jolly Joker · slot 1          +8 Mult               50    12    600
+Pair  50 × 12 = 600

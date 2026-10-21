@@ -1,0 +1,9 @@
+ #  Source                Detail  Effect             Chips  Mult  Score
+ 1  Straight (level 1)            +30 Chips +4 Mult     30     4    120
+ 2  A♠ · played 1                 +11 Chips             41     4    164
+ 5  2♦ · played 2                 +2 Chips              43     4    172
+ 8  3♣ · played 3                 +3 Chips              46     4    184
+11  4♥ · played 4                 +4 Chips              50     4    200
+14  5♠ · played 5                 +5 Chips              55     4    220
+17  Crazy Joker · slot 1          +12 Mult              55    16    880
+Straight  55 × 16 = 880
