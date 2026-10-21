@@ -1,0 +1,6 @@
+#  Source          Detail  Effect             Chips  Mult  Score
+1  Pair (level 1)          +10 Chips +2 Mult     10     2     20
+2  Q♠ · played 1           +10 Chips             20     2     40
+5  Q♦ · played 2           +10 Chips             30     2     60
+8  A♠ · played 4           +50 Chips             80     2    160
+Pair  80 × 2 = 160

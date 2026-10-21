@@ -1,0 +1,7 @@
+ #  Source                    Detail  Effect             Chips  Mult  Score
+ 1  Four of a Kind (level 1)          +60 Chips +7 Mult     60     7    420
+ 2  K♠ · played 1                     +10 Chips             70     7    490
+ 5  K♥ · played 2                     +10 Chips             80     7    560
+ 8  K♦ · played 3                     +10 Chips             90     7    630
+11  K♣ · played 4                     +10 Chips            100     7    700
+Four of a Kind  100 × 7 = 700

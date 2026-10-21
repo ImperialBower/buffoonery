@@ -1,0 +1,10 @@
+ #  Source          Detail       Effect             Chips   Mult  Score
+ 1  Pair (level 1)               +10 Chips +2 Mult     10      2     20
+ 2  8♠ · played 1                +8 Chips              18      2     36
+ 5  8♣ · played 2                +8 Chips              26      2     52
+ 8  K♥ · held 1                  ×1.5 Mult             26      3     78
+ 9  K♥ · held 1     retrigger 1  ×1.5 Mult             26    4.5    117
+10  K♣ · held 2                  ×1.5 Mult             26   6.75    175
+11  K♣ · held 2     retrigger 1  ×1.5 Mult             26  10.13    263
+12  Mime · slot 1                did not fire          26  10.13    263
+Pair  26 × 10.13 = 263

@@ -1,0 +1,6 @@
+#  Source          Detail   Effect             Chips  Mult  Score
+1  Pair (level 1)           +10 Chips +2 Mult     10     2     20
+2  7♠ · played 1            +7 Chips              17     2     34
+3  7♠ · played 1   special  ×2 Mult               17     4     68
+5  7♥ · played 2            +7 Chips              24     4     96
+Pair  24 × 4 = 96

@@ -1,0 +1,10 @@
+ #  Source                 Detail  Effect             Chips  Mult  Score
+ 1  Flush (level 1)                +35 Chips +4 Mult     35     4    140
+ 2  2♥ · played 1                  +2 Chips              37     4    148
+ 5  5♥ · played 2                  +5 Chips              42     4    168
+ 8  8♥ · played 3                  +8 Chips              50     4    200
+11  T♥ · played 4                  +10 Chips             60     4    240
+14  Four Fingers · slot 1          did not fire          60     4    240
+16  Crafty Joker · slot 2          +80 Chips            140     4    560
+18  Droll Joker · slot 3           +10 Mult             140    14   1960
+Flush  140 × 14 = 1960

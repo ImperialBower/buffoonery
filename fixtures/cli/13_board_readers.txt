@@ -1,0 +1,11 @@
+ #  Source                     Detail  Effect             Chips  Mult  Score
+ 1  Three of a Kind (level 1)          +30 Chips +3 Mult     30     3     90
+ 2  A♠ · played 1                      +11 Chips             41     3    123
+ 5  A♦ · played 2                      +11 Chips             52     3    156
+ 8  A♥ · played 3                      +11 Chips             63     3    189
+13  Banner · slot 1                    +60 Chips            123     3    369
+15  Bull · slot 2                      +40 Chips            163     3    489
+17  Abstract Joker · slot 3            +15 Mult             163    18   2934
+19  Gros Michel · slot 4               +15 Mult             163    33   5379
+21  Raised Fist · slot 5               +6 Mult              163    39   6357
+Three of a Kind  163 × 39 = 6357

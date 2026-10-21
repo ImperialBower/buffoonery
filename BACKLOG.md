@@ -11,19 +11,16 @@ Sources scanned: `docs/EPIC-*.md`, `CHANGELOG.md` (Unreleased), source comments
 
 ## EPICs and features
 
-- [ ] **EPIC-07 — the CLI and the page on the web ("DOORS")** — Planned, 0 of 6
-  phases. A `buffoonery` command-line tool (`version`, `parse`, `catalog`,
-  `score`, `link`) over the same adapter as the page, and the calculator
-  published on GitHub Pages. Static page only, no server (decided 2026-10-20).
-  Phase 4 needs a maintainer to enable Pages in the repo settings.
+- [ ] **EPIC-07 — the CLI and the page on the web ("DOORS")** — built
+  2026-10-21 except the live site: turn on GitHub Pages in the repo settings
+  (source "GitHub Actions"), then check the live page (tasks 15 and 17).
   ([docs/EPIC-07_Web_And_Command_Line.md](docs/EPIC-07_Web_And_Command_Line.md))
 - [ ] **Release `buffoonery` 0.1.0** — crates.io has 0.0.1; `CHANGELOG.md`
   Unreleased holds 27 entries, including breaking changes (fractional `Score`,
   `ScoreOp` JSON). ([CHANGELOG.md](CHANGELOG.md))
-- [ ] **EPIC-05 open questions, deferred** — risk 6 (trace size with stacked
-  retriggers), risk 10 (typed WIT records instead of JSON strings), risk 11
-  (YAML is a second contract; renames need a version bump).
-  ([EPIC-05 Open questions](docs/EPIC-05_Joker_Calculator.md))
+- [ ] **EPIC-05 open questions, deferred** — risk 10 (typed WIT records
+  instead of JSON strings), risk 11 (YAML is a second contract; renames need a
+  version bump). ([EPIC-05 Open questions](docs/EPIC-05_Joker_Calculator.md))
 
 ## Bugs and engine gaps
 
@@ -31,7 +28,7 @@ Known and tracked before:
 
 - [ ] **`blind_target` is `usize`** — overflows past 4.29 × 10⁹ on wasm32
   (32-bit `usize`), while `Score` is already wide. (`src/types/board.rs:88`;
-  EPIC-05 S1 follow-up, `docs/EPIC-05_Joker_Calculator.md:194`)
+  EPIC-05 S1 follow-up, `docs/EPIC-05_Joker_Calculator.md:198`)
 - [ ] **Wild cards do not count toward a flush** — `MPip::Wild` exists and
   `MPip::is_wild` is never called; flush sizing ignores it.
   (`src/types/mpip.rs:425`, `src/types/buffoon_pile.rs` `count_largest_same_suit_with`)
@@ -56,9 +53,6 @@ Known and tracked before:
 
 ## Docs and notes
 
-- [ ] **EPIC-05 status table is stale** — Stories 7–8 and Milestone D still
-  say "not yet merged"; all merged in PRs #3 and #4. Mark EPIC-05 Complete.
-  (`docs/EPIC-05_Joker_Calculator.md:18-35`)
 - Created Stone cards have a fixed base, a deliberate divergence from
   Balatro. (`src/decks/basic.rs:193`)
 - Component size: 494 of 600 KiB; YAML is 40% of it. The JSON-only lever is
@@ -66,7 +60,8 @@ Known and tracked before:
 
 ## Recently completed
 
-EPIC-05 (Joker Calculator): Stories S1–S2 and 1–8, Milestone D (export,
+**EPIC-05 (Joker Calculator) closed Complete on 2026-10-20**, with an
+Implementation corrigendum. Stories S1–S2 and 1–8, Milestone D (export,
 edition picker, seeded mode, custom effects), risks 7 and 8 (kickers,
 Ace-low straights), and the Four Fingers / Shortcut bonus-joker gap. Merged
 in PRs #1–#4.

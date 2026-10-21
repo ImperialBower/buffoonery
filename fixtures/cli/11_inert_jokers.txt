@@ -1,0 +1,7 @@
+ #  Source             Detail  Effect             Chips  Mult  Score
+ 1  Pair (level 1)             +10 Chips +2 Mult     10     2     20
+ 2  T♠ · played 1              +10 Chips             20     2     40
+ 5  T♥ · played 2              +10 Chips             30     2     60
+ 8  DNA · slot 1               did not fire          30     2     60
+10  Misprint · slot 2          did not fire          30     2     60
+Pair  30 × 2 = 60

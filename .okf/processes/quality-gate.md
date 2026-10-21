@@ -34,7 +34,7 @@ runs it. CI does the same steps inline, per job.
 | `lint` | `cargo clippy --workspace --all-targets -- -D warnings`, the same for the component on `wasm32-wasip2`, then `cargo deny check` |
 | `security-scan` | `./bin/security-scan` (`cargo audit` + `cargo deny check advisories`) |
 | `docs` | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` |
-| `e2e` | through `web` and `component`: builds the component, runs its JS tests, runs the page's Node tests, builds `web/dist`, then the Playwright browser tests in Chromium |
+| `e2e` | through `web`, `component` and `cli`: builds the component and the `buffoonery` CLI, runs its JS tests, runs the page's Node tests, builds `web/dist`, then the Playwright browser tests in Chromium |
 
 # What green means
 

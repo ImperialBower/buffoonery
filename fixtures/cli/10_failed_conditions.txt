@@ -1,0 +1,7 @@
+#  Source                  Detail  Effect            Chips  Mult  Score
+1  High Card (level 1)             +5 Chips +1 Mult      5     1      5
+2  Q♦ · played 1                   +10 Chips            15     1     15
+5  Jolly Joker · slot 1            did not fire         15     1     15
+7  The Duo · slot 2                did not fire         15     1     15
+9  Mystic Summit · slot 3          did not fire         15     1     15
+High Card  15 × 1 = 15

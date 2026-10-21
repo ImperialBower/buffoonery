@@ -1,0 +1,4 @@
+#  Source               Detail  Effect            Chips  Mult  Score
+1  High Card (level 1)          +5 Chips +1 Mult      5     1      5
+2  A♠ · played 1                +11 Chips            16     1     16
+High Card  16 × 1 = 16

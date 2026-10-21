@@ -1,0 +1,7 @@
+ #  Source            Detail  Effect             Chips  Mult  Score
+ 1  Pair (level 1)            +10 Chips +2 Mult     10     2     20
+ 2  J♠ · played 1             +10 Chips             20     2     40
+ 5  J♥ · played 2             +10 Chips             30     2     60
+ 8  Joker · slot 1            +4 Mult               30     6    180
+10  The Duo · slot 2          ×2 Mult               30    12    360
+Pair  30 × 12 = 360

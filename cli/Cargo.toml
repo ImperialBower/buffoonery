@@ -1,0 +1,28 @@
+[package]
+name = "buffoonery-cli"
+description = "The buffoonery engine on the command line: score, parse and link boards"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99.1"
+license = "Apache-2.0"
+repository = "https://github.com/ImperialBower/buffoonery"
+publish = false
+
+[[bin]]
+name = "buffoonery"
+path = "src/main.rs"
+# The engine library is also named `buffoonery`; its docs win the shared path.
+doc = false
+
+[dependencies]
+buffoonery = { path = "..", version = "0.0.1" }
+buffoonery-component = { path = "../component", version = "0.1.0" }
+# No `suggestions` feature: it pulls `strsim`, which is MIT only (deny.toml).
+clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
+serde_json = "1"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"

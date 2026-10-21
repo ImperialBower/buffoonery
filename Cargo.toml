@@ -1,7 +1,8 @@
 [workspace]
 # The WIT component (EPIC-05 Story 4) is an adapter over this crate. It lives
-# in its own crate so the engine carries no wit-bindgen or JSON code.
-members = [".", "component"]
+# in its own crate so the engine carries no wit-bindgen or JSON code. The CLI
+# (EPIC-07) is a second door over the component's adapter functions.
+members = [".", "component", "cli"]
 
 [package]
 name = "buffoonery"

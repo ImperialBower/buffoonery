@@ -1,0 +1,10 @@
+ #  Source                 Detail   Effect             Chips  Mult  Score
+ 1  Pair (level 1)                  +10 Chips +2 Mult     10     2     20
+ 2  Q♠ · played 1                   +10 Chips             20     2     40
+ 4  Q♠ · played 1          edition  +50 Chips             70     2    140
+ 5  Q♦ · played 2                   +10 Chips             80     2    160
+ 8  Joker · slot 1                  +4 Mult               80     6    480
+ 9  Joker · slot 1         edition  +10 Mult              80    16   1280
+10  Greedy Joker · slot 2           +3 Mult               80    19   1520
+11  Greedy Joker · slot 2  edition  ×1.5 Mult             80  28.5   2280
+Pair  80 × 28.5 = 2280
