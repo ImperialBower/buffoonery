@@ -11,6 +11,6 @@ okf_version: '0.1'
 * [BoardSpec YAML](decisions/board-spec-yaml.md) - the `yaml` feature, `serde_norway`, the MIT exception, and why `CardSpec` parses by hand.
 * [Toolchain choices](decisions/toolchain.md) - which tools the quality gate uses, at which version, and why.
 * [Quality gate (make ayce)](processes/quality-gate.md) - the one-time `make setup`, what each phase runs and what green means.
-* [EPIC-05 — Joker Calculator](references/epic-05-joker-calculator.md) - the active EPIC (`docs/EPIC-05_Joker_Calculator.md`); pointer only.
+* [EPIC-05 — Joker Calculator](references/epic-05-joker-calculator.md) - complete, closed 2026-10-20 (`docs/EPIC-05_Joker_Calculator.md`); pointer only.
 * [EPIC-07 — Web and command line](references/epic-07-web-and-command-line.md) - the planned EPIC (`docs/EPIC-07_Web_And_Command_Line.md`); pointer only.
 * [The engine](architecture/engine.md) - what buffoonery models, where it lives, and where it came from.

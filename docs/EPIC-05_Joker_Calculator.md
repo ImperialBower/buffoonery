@@ -1,6 +1,6 @@
 # EPIC-05: Balatro Joker Calculator integration
 
-Oct 18, 2026 · @Christoph · *Updated 2026-10-18: facts reconciled against the code; Milestone 0 added. Updated again the same day: decisions 0f–0h made, and the engine moves to its own repo ([EPIC-06](https://github.com/ImperialBower/cardpack.rs/blob/main/docs/EPIC-06_Funky_Extraction.md)). Moved here from cardpack.rs on 2026-10-19; its history before that is in cardpack's git log.*
+Oct 18, 2026 · @Christoph · *Updated 2026-10-18: facts reconciled against the code; Milestone 0 added. Updated again the same day: decisions 0f–0h made, and the engine moves to its own repo ([EPIC-06](https://github.com/ImperialBower/cardpack.rs/blob/main/docs/EPIC-06_Funky_Extraction.md)). Moved here from cardpack.rs on 2026-10-19; its history before that is in cardpack's git log. **Closed 2026-10-20: Complete** on `main` at `ddcd15c`; see the [Implementation corrigendum](#implementation-corrigendum).*
 
 ## Summary
 
@@ -14,7 +14,7 @@ The design bundle (Design artifact pages, architecture diagram) lives in [`docs/
 
 ## Status
 
-As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestones A and B, and Story 6, are merged in `buffoonery` (PR #2, `53550da`).
+As of 2026-10-20, on `main` at `ddcd15c`. **EPIC-05 is Complete.** Milestone 0 code landed in cardpack `c762538`. In `buffoonery`: Milestone A merged in PR #1 (`e9093a5`); Milestone B and Story 6 in PR #2 (`53550da`); Stories 7 and 8 and three Milestone D items in PR #3 (`5ba0972`); the last Milestone D item and risks 7 and 8 in PR #4 (`e140205`).
 
 | Component | Status |
 | --- | --- |
@@ -30,9 +30,13 @@ As of 2026-10-19. Milestone 0 code landed in cardpack `c762538`. Milestones A an
 | Story 4 — WIT component | **Complete** (`buffoonery` `b344160`, merged in `53550da`, 2026-10-19). Its browser test moved to Story 8 |
 | Story 5 — golden fixtures | **Complete** (`buffoonery` `051ebb8`, merged in `53550da`, 2026-10-19). Milestone B is met |
 | Story 6 — the page calls the engine | **Complete** (`buffoonery` `1cf72e5` and `393cc67`, merged in `53550da`, 2026-10-19; CI green on `main`) |
-| Story 7 — played and held cards | **Complete** (`buffoonery` `e32881a`, 2026-10-19; branch `epic05-status`, not yet merged) |
-| Story 8 — parity test | **Complete** (`buffoonery` `9ee8495`, 2026-10-19; branch `epic05-status`, not yet merged). Milestone C is met |
-| Milestone D — polish | All four items done: export (`585bfd4`), edition picker (`e3fe092`) and seeded mode (`fedb407`), merged in PR #3; custom effects (`88e3fe3`) and the risk 7 and 8 fixes (`2698c74`) on branch `epic05-custom-effects`, not yet merged |
+| Story 7 — played and held cards | **Complete** (`buffoonery` `e32881a`, merged in PR #3 `5ba0972`, 2026-10-20) |
+| Story 8 — parity test | **Complete** (`buffoonery` `9ee8495`, merged in PR #3 `5ba0972`, 2026-10-20). Milestone C is met |
+| Milestone D — polish | **Complete**: export (`585bfd4`), edition picker (`e3fe092`) and seeded mode (`fedb407`), merged in PR #3 `5ba0972`; custom effects (`88e3fe3`), merged in PR #4 `e140205` |
+| Risks 7 and 8 — kickers, Ace-low straights | **Complete** (`2698c74`, and `29c733a` for the bonus jokers it uncovered; merged in PR #4 `e140205`, 2026-10-20) |
+| `blind_target` as a wide type (S1 follow-up) | **Deferred** to the [backlog](../BACKLOG.md) |
+| Risks 10 and 11 — typed WIT records, YAML renames | **Deferred** to the [backlog](../BACKLOG.md) |
+| Hosting the page on GitHub Pages (open question 3) | **Moved** to [EPIC-07](EPIC-07_Web_And_Command_Line.md) |
 
 ## Current state
 
@@ -191,7 +195,7 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 - [x] `Score` derives `Eq`, `Hash` and `Ord` today (`score.rs:5-7`). Floats cannot derive them. Decide per trait: drop it, or implement it by hand with `total_cmp`. Done: all three dropped (nothing needed them; the derived `Ord` sorted by chips first, which never meant "higher score"). `BuffoonBoard` dropped `Eq` too
 - [x] Update the pinned `ScoreOp` JSON format test (`effect.rs`, `score_op__serde_format`): `Add(Score)` changes shape on purpose. Done: `{"chips":5,"mult":3.0}`
 - [x] Re-baseline every test that asserted a ceiled value, and say in the commit which numbers moved and why. `buffoon` scores 11254 today; record its new value. Done: 11 tests moved (Hologram 2→1.25, Baseball 2→1.5, Ramen 2→1.01, Constellation 8→7.5, Vampire 2→1.2 twice and 8→7.5, Ancient Joker 17→16.875, Smeared + Ancient 26→25.3125, Steel Joker 15→14.4, held Steel 2→1.5, joker Polychrome 8→7.5). `buffoon` still scores **11254**; `funky_tour` output is unchanged. Decision record: [`.okf/decisions/fractional-score.md`](../.okf/decisions/fractional-score.md)
-- [ ] Follow-up, not in S1: `blind_target` is still `usize`, so blind targets past 4.29 × 10⁹ would overflow on wasm32
+- [ ] Follow-up, not in S1: `blind_target` is still `usize` (`src/types/board.rs:88`), so blind targets past 4.29 × 10⁹ would overflow on wasm32. **Deferred 2026-10-20** to the [backlog](../BACKLOG.md)
 
 **Story S2: scoring folds out of `board.rs`** (decision 0g)
 
@@ -245,7 +249,7 @@ Started 2026-10-19, after EPIC-06 Phase 1 went green: the engine builds and pass
 
 **Story 5: golden fixtures shared across the boundary**
 
-- [x] `fixtures/golden/`: 10–15 `BoardSpec` (YAML) + expected `ScoreTrace` (JSON) pairs, checked into the solver repo and consumed verbatim by the Rust tests, the component tests and the UI tests. Done: 14 pairs, read by `tests/golden.rs`, which compares each trace to its JSON as a `serde_json::Value`, reads the JSON back into the same `ScoreTrace`, and checks `trace.total == score()`. `BLESS=1 cargo test --test golden` rewrites the JSON after a deliberate change ([`fixtures/golden/README.md`](../fixtures/golden/README.md)). Every total was checked by hand against Balatro's rules before it was committed. The component and UI tests (Stories 4 and 8) still have to read them
+- [x] `fixtures/golden/`: 10–15 `BoardSpec` (YAML) + expected `ScoreTrace` (JSON) pairs, checked into the solver repo and consumed verbatim by the Rust tests, the component tests and the UI tests. Done: 14 pairs, read by `tests/golden.rs`, which compares each trace to its JSON as a `serde_json::Value`, reads the JSON back into the same `ScoreTrace`, and checks `trace.total == score()`. `BLESS=1 cargo test --test golden` rewrites the JSON after a deliberate change ([`fixtures/golden/README.md`](../fixtures/golden/README.md)). Every total was checked by hand against Balatro's rules before it was committed. The component and UI tests read them too, since Stories 4 and 8. The set has grown to 19: fixtures 15–17 came with the risk 7 and 8 fixes, and 18–19 with the scoring fixes of 2026-10-20
 - [x] At least one fixture per `ScoreOp` variant, one with a failed condition, one with a retrigger, one with an edition, one with a `Blank` joker. Done, and enforced by `golden__coverage`: `Nothing`, `AddChips`, `AddMult`, `Add`, `TimesMult`; a failed joker condition; played and held retriggers (Hack, Hanging Chad + Sock and Buskin stacked, Mime); editions firing on a card and on jokers; DNA (`Blank`). **Not covered: `Seq`.** Only a registered custom effect returns it, and a `BoardSpec` cannot carry a registry. `15_kickers.yaml` plays kickers and `16_ace_low_straight.yaml` an Ace-low straight (risks 7 and 8, added 2026-10-20)
 
 ### Milestone C — the calculator renders the engine (Design artifact / web)
@@ -301,8 +305,8 @@ Built 2026-10-19 with Playwright 1.64.1 (Chromium) in `web/e2e/parity.spec.mjs`;
 7. ~~**Every played card scores.** The engine has no scoring-card vs kicker split (`src/types/mpip.rs:60-61`). In Balatro, a kicker in a Pair does not add chips. The calculator will show kicker rows that Balatro would not. Fix in the engine (its own story) or show it as a known gap.~~ **Resolved 2026-10-20:** `BuffoonPile::scoring_mask_with` marks the cards that make the hand (High Card: the highest; Pair to Four of a Kind: the matched ranks; Straight: the run; Flush: the suit; Straight Flush: both); `BuffoonBoard::scoring_mask` adds Stone cards and, under Splash, every card. Only those cards score, are retriggered (Hanging Chad: the first *scoring* card), and feed the per-scored-card jokers (suit jokers, Fibonacci, Even Steven, Odd Todd, Scholar, Scary Face, Walkie Talkie, Triboulet, Ancient) and Hiker / Vampire. "Contains a Pair" jokers still read the whole hand. A kicker leaves no trace step. 83 engine tests changed their numbers, each worked out by hand; the 14 golden fixtures had no kickers and did not change; `15_kickers.yaml` pins the rule. Splash, inert before, now scores.
 8. ~~**No Ace-low straights** (`src/types/buffoon_pile.rs:472-474`). `A-2-3-4-5` is not a straight here. The hand editor in Story 7 makes this easy to hit.~~ **Resolved 2026-10-20:** `BuffoonPile::connectors` now measures the longest unbroken run, with the Ace both high and low (no wrapping: `K-A-2` is no run); `16_ace_low_straight.yaml` pins it. This also fixed an unlisted bug: links were counted anywhere, so under Four Fingers `2-3-4` + `9-T` counted as a straight. A Royal Flush now needs an Ace-high run. **Found on the way, fixed 2026-10-20:** the "contains a Flush/Straight" +chips/+mult jokers (Crafty, Droll, Devious, Crazy, …) ignored Four Fingers, Shortcut and Smeared, while the ×mult ones (The Tribe, The Order) honoured them. `BuffoonPile::calculate_plus_with(joker, rules)` now takes the board's `HandRules`; `17_four_fingers_bonus_jokers.yaml` pins it.
 9. ~~**Crate name.**~~ **Decided 2026-10-18:** `buffoonery`, for the repo and the crate (`funky` and `buffoon` are taken on crates.io).
-10. **Typed WIT records.** v1 passes `BoardSpec` and `ScoreTrace` as strings (Design). A typed `score-step` record would let non-JS hosts read the trace without a JSON parser. Worth it once the trace shape settles after Story 1; `MPip` likely stays a string.
-11. **YAML is a second contract.** Once boards are written as YAML, renaming an `MPip` variant breaks users' files. Story 3 pins the shape; renames then need a version bump or a serde alias. **Pinned 2026-10-19** (`yaml__mpip_and_edition_format`).
+10. **Typed WIT records.** v1 passes `BoardSpec` and `ScoreTrace` as strings (Design). A typed `score-step` record would let non-JS hosts read the trace without a JSON parser. Worth it once the trace shape settles after Story 1; `MPip` likely stays a string. **Deferred 2026-10-20:** the EPIC-07 CLI is a second host and will show whether strings are enough.
+11. **YAML is a second contract.** Once boards are written as YAML, renaming an `MPip` variant breaks users' files. Story 3 pins the shape; renames then need a version bump or a serde alias. **Pinned 2026-10-19** (`yaml__mpip_and_edition_format`). **Deferred 2026-10-20:** no rename is planned; the rule stays a rule.
 
 **Risks:** scope creep toward a playable game (the board already has a shop; the calculator must keep saying no); silent drift between catalog and engine if Story 2 is hand-maintained instead of generated from `Joker::ALL_JOKERS`.
 
@@ -341,3 +345,31 @@ cargo build --no-default-features
 ```
 
 All passed, with 1011 lib tests under `--all-features`.
+
+## Implementation corrigendum
+
+Written 2026-10-20, when EPIC-05 closed. `main` at `ddcd15c`: 595 lib tests, 19 golden fixtures, 28 component JS tests, 26 browser tests, all green in `make ayce`. The component is 485 KiB after `jco opt` (budget 600 KiB).
+
+**Design vs actual:**
+
+1. **The artboard was kept, not edited.** Story 6 said to delete `HANDS`, `JOKERS` and the step loop from the artboard. The new page in `web/` has none of them. The artboard in `docs/design/balatro-joker-calculator/` stays as the design reference, so it still holds its old arithmetic. The Definition of done's "the artboard contains no scoring arithmetic" is met by the page, not the artboard.
+2. **A fourth and a fifth component export.** The sketch had `score`, `catalog` and `version`. Story 8 added `parse` (so the page reads YAML without a YAML parser). Milestone D added `score-with(spec, score-options)` for the seed and custom effects; it replaced `score-seeded`, which lived for one day.
+3. **Node instead of `wasmtime`** for the component tests (Story 4): the installed `wasmtime` could not call component exports.
+4. **The size budget moved from 500 to 600 KiB** on 2026-10-20, keeping YAML in the component. The breakdown is in [`component/README.md`](../component/README.md).
+5. **Engine fixes the EPIC did not plan, found by building the page:** `debuffed` was never read in scoring (Story 6); a joker with `Chips(n)` scored nothing (Story 6); kickers scored and `A-2-3-4-5` was no straight (risks 7 and 8); the "contains a Flush/Straight" bonus jokers ignored Four Fingers, Shortcut and Smeared (`29c733a`). After close, the backlog review found four more, fixed in `038ac43`: Four of a Kind base 50 → 60, planet level-up values (and Ceres), Stone cards in Two Pair / Full House, Joker Stencil with Negative jokers.
+6. **"104 jokers resolve to an effect" is true of the data, not of the score.** Every non-`Blank` joker carries an `MPip`, but some score 0 because the engine has no state for them yet; Loyalty Card is one (`src/types/board/scoring.rs:361`). The page shows them as "did not fire", with no reason. This is listed in [`docs/TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md).
+
+**Phase status summary:**
+
+| Phase | Status |
+| --- | --- |
+| Milestone 0 — prerequisites (cardpack) | **Complete** (`c762538`); 0i done 2026-10-20 |
+| Milestone A — Stories S1, S2, 1, 2, 3 | **Complete** (PR #1 `e9093a5`) |
+| Milestone B — Stories 4, 5 | **Complete** (PR #2 `53550da`) |
+| Milestone C — Stories 6, 7, 8 | **Complete** (PR #2, PR #3 `5ba0972`) |
+| Milestone D — polish | **Complete** (PR #3, PR #4 `e140205`) |
+| Risks 7, 8 | **Complete** (PR #4) |
+| `blind_target`, risks 10, 11 | **Deferred** ([backlog](../BACKLOG.md)) |
+| GitHub Pages | **Moved** to [EPIC-07](EPIC-07_Web_And_Command_Line.md) |
+
+**Inherited debt:** the [backlog](../BACKLOG.md) and [`docs/TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md) carry what is left: the 8 `Blank` jokers, run-level tarots, Wild cards in flushes, and the open automated review findings.
