@@ -8,7 +8,7 @@ Oct 21, 2026 · @Christoph · *Written against branch `epic05-close` at `7383070
 - **Why:** today a joker with an edition or an override is a four-line YAML map. Cards already have a shorthand (`AS`); jokers do not. A solver, a script, a chat message or a CLI flag wants one.
 - **Shape:** `JokerSpec` learns `FromStr` and a canonical `shorthand()`, in a new engine module with no dependencies. `BoardSpec` accepts a joker as a bare string, as it accepts a card. The CLI gets a `jokers` command and a `--jokers` flag. One new `MPip` variant, `MultTimes2Dot`, so ×3.25 is exact.
 - **Proves it:** every joker in the catalog round-trips through its token; a golden fixture written with tokens scores to a blessed trace; `buffoonery score --jokers "BARON+FOIL LUCKYCATx3.25"` prints the same JSON as the YAML map form.
-- **Status:** Phases 0–3 built 2026-10-22 (`MultTimes2Dot`, the `joker_shorthand` parser, string jokers in `BoardSpec` and fixture 20, the CLI's `jokers` and `--jokers`). Phases 4–5 planned.
+- **Status:** Phases 0–4 built 2026-10-22 (`MultTimes2Dot`, the `joker_shorthand` parser, string jokers in `BoardSpec` and fixture 20, the CLI's `jokers` and `--jokers`, the page). Phase 5 (docs) planned.
 
 ---
 
@@ -50,7 +50,7 @@ As of 2026-10-22, branch `epic08-shorthand` (not yet merged). `make ayce` green.
 | Phase 1 — `joker_shorthand`: parse one token, parse a line, `shorthand()` | **Complete**: 34 unit tests, 8 doc tests, 2 catalog tests |
 | Phase 2 — `BoardSpec` accepts a joker as a string; fixture 20 | **Complete**: fixture 20 scores 80 × 14.625 = 1,170 in the engine, component, CLI and page |
 | Phase 3 — CLI `jokers` command and `--jokers` flag | **Complete**: 9 new unit tests, 3 process tests; `read_spec` public |
-| Phase 4 — the page reads and writes `MultTimes2Dot` | Planned |
+| Phase 4 — the page reads and writes `MultTimes2Dot` | **Complete**: 2 new Node tests, the ×1.25 pin moved; fixture 20 passes cell by cell in Chromium |
 | Phase 5 — docs, OKF, CHANGELOG | Planned |
 
 ---
@@ -305,7 +305,7 @@ Reading alone is not enough. `slotFromSpec` (`web/src/model.js:296`) would turn 
 
 ### Phase 4 — the page
 
-- [ ] **14.** `overrideFromEnhancement` reads `MultTimes2Dot` (`web/src/model.js:275`); `overrideEnhancement` (`:203`) writes by decimal count. Node tests in `web/test/model.test.mjs`: fixture 20 opens with the Lucky Cat slot's override `{ kind: 'xmult', value: 3.25 }`; a typed 1.25 writes `MultTimes2Dot(125)` (move the pin at `:93`); a typed 1.5 still writes `MultTimes1Dot(15)`; a typed 3 still writes `MultTimes(3)`. The fixture round trip at `:171` covers 20 with no change. The Playwright walk (`web/e2e/parity.spec.mjs`) opens every fixture; check that 20 passes cell by cell. `make web` and `make e2e` green.
+- [x] **14.** `overrideFromEnhancement` reads `MultTimes2Dot` (`web/src/model.js:275`); `overrideEnhancement` (`:203`) writes by decimal count. Node tests in `web/test/model.test.mjs`: fixture 20 opens with the Lucky Cat slot's override `{ kind: 'xmult', value: 3.25 }`; a typed 1.25 writes `MultTimes2Dot(125)` (move the pin at `:93`); a typed 1.5 still writes `MultTimes1Dot(15)`; a typed 3 still writes `MultTimes(3)`. The fixture round trip at `:171` covers 20 with no change. The Playwright walk (`web/e2e/parity.spec.mjs`) opens every fixture; check that 20 passes cell by cell. `make web` and `make e2e` green.
 
 ### Phase 5 — Docs and the gate
 
@@ -405,7 +405,7 @@ Exit criteria:
 
 ## Implementation notes
 
-Written 2026-10-22, after Phases 1–3. Design vs actual so far:
+Written 2026-10-22, after Phases 1–4. Design vs actual so far:
 
 1. **`NoShorthand` has `value`, not `enhancement`.** It also covers `edition: Some(Edition::None)`, which has no token: writing nothing would read back as `edition: None`, a different spec. Display: `LUCKY_CAT: Lucky(5, 15) has no shorthand`.
 2. **`shorthand()` checks the ident** exactly against the catalog (`UnknownJoker` if not), so a token it writes always reads back.
@@ -418,3 +418,4 @@ Written 2026-10-22, after Phases 1–3. Design vs actual so far:
 9. **`read_spec` returns `BoardSpecError`, not `String`.** The design said `Result<BoardSpec, String>`; the typed error is kept, and the CLI turns it into its message. Its text is unchanged (`parse__errors_name_the_field` passes). New test `read_spec__reads_json_and_yaml`.
 10. **The `jokers` table's Override column is the op text** (`+50 Chips`, `×3.25 Mult`), from `ScoreOp`'s `Display`, as the score table writes ops. The Token column is the canonical token, so `lucky_cat+holographic` prints `LUCKYCAT+HOLO`.
 11. **More CLI tests than listed:** `run_jokers_writes_the_canonical_token`, `score_jokers_flag_replaces_file_jokers` (an empty line clears the file's jokers), `score_bad_jokers_flag_is_board_error`. `score_jokers_flag_equals_map_form` lives in `cli/src/lib.rs`, not `cli/tests/golden.rs`. Process tests: `jokers_explains_a_line`, `jokers_bad_token_exits_1`, `score_jokers_flag_scores_the_line`.
+12. **The page counts decimals from the number, not the typed text.** The input is a number, so `1.50` and `1.5` are the same value. `overrideEnhancement` rounds to hundredths and picks the fewest decimals: whole → `MultTimes`, a tenth → `MultTimes1Dot`, else `MultTimes2Dot`. So a typed ×1.5 still writes `MultTimes1Dot(15)` and old links do not change; only a ×mult with a real second decimal writes the new variant.

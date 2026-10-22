@@ -78,4 +78,6 @@ resource: web/
 * Vite warns that the `"use components"` directive in the `jco` output may
   not be kept. It is a marker only; the warning is harmless.
 * An override is unconditional (`Chips`, `MultPlus`, `MultTimes`,
-  `MultTimes1Dot`); ×mult fractions round to tenths.
+  `MultTimes1Dot`, `MultTimes2Dot`). A ×mult rounds to hundredths and keeps as
+  few decimals as it needs: ×3 is `MultTimes(3)`, ×1.5 is `MultTimes1Dot(15)`,
+  ×3.25 is `MultTimes2Dot(325)` (EPIC-08; before, it rounded to tenths).

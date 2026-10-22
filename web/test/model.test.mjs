@@ -90,7 +90,7 @@ test('an override is an MPip the engine scores', () => {
   assert.deepEqual(overrideEnhancement({ kind: 'chips', value: 50 }), { enhancement: { Chips: 50 }, value: 50 });
   assert.deepEqual(overrideEnhancement({ kind: 'mult', value: '7' }), { enhancement: { MultPlus: 7 }, value: 7 });
   assert.deepEqual(overrideEnhancement({ kind: 'xmult', value: 3 }), { enhancement: { MultTimes: 3 }, value: 3 });
-  assert.deepEqual(overrideEnhancement({ kind: 'xmult', value: 1.25 }), { enhancement: { MultTimes1Dot: 13 }, value: 1.3 });
+  assert.deepEqual(overrideEnhancement({ kind: 'xmult', value: 1.25 }), { enhancement: { MultTimes2Dot: 125 }, value: 1.25 });
   assert.deepEqual(overrideEnhancement({ kind: 'mult', value: -4 }), { enhancement: { MultPlus: 0 }, value: 0 });
   assert.equal(overrideEnhancement({ kind: null, value: 4 }), null);
 
@@ -100,6 +100,26 @@ test('an override is an MPip the engine scores', () => {
     assert.ok(step.fired, kind);
     assert.equal(formatOp(step.op), text);
   }
+});
+
+test('a ×mult override keeps as few decimals as it needs, at most two (EPIC-08)', () => {
+  const xmult = (value) => overrideEnhancement({ kind: 'xmult', value });
+  assert.deepEqual(xmult(3), { enhancement: { MultTimes: 3 }, value: 3 });
+  assert.deepEqual(xmult('3.0'), { enhancement: { MultTimes: 3 }, value: 3 });
+  assert.deepEqual(xmult(1.5), { enhancement: { MultTimes1Dot: 15 }, value: 1.5 });
+  assert.deepEqual(xmult('1.50'), { enhancement: { MultTimes1Dot: 15 }, value: 1.5 });
+  assert.deepEqual(xmult(3.25), { enhancement: { MultTimes2Dot: 325 }, value: 3.25 });
+  assert.deepEqual(xmult(0.05), { enhancement: { MultTimes2Dot: 5 }, value: 0.05 });
+  assert.deepEqual(xmult(1.256), { enhancement: { MultTimes2Dot: 126 }, value: 1.26 }, 'more than two decimals round to two');
+});
+
+test('a MultTimes2Dot joker opens as a ×mult override (fixture 20)', () => {
+  const yaml = readFileSync(join(import.meta.dirname, '../../fixtures/golden/20_shorthand_jokers.yaml'), 'utf8');
+  const state = specToState(JSON.parse(calculator.parse(yaml)));
+  const luckyCat = state.slots.find((slot) => slot.ident === 'LUCKY_CAT');
+  assert.deepEqual(luckyCat.override, { kind: 'xmult', value: 3.25 });
+  assert.equal(luckyCat.enhancement, undefined, 'the editor holds it; nothing passes through');
+  assert.deepEqual(buildSpec(state).spec.jokers[1], { ident: 'LUCKY_CAT', enhancement: { MultTimes2Dot: 325 } });
 });
 
 test('a debuffed joker shows as not firing, and scores nothing', () => {

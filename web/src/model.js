@@ -184,8 +184,9 @@ export function readHash(hash) {
 
 /**
  * The `MPip` an override writes onto a joker, and the value it really holds.
- * Chips and mult are whole numbers. A whole ×mult is `MultTimes(n)`; any other
- * ×mult is `MultTimes1Dot`, in tenths, so it is rounded to 0.1.
+ * Chips and mult are whole numbers. A ×mult is rounded to 0.01 and keeps as
+ * few decimals as it needs: `MultTimes(n)` when whole, `MultTimes1Dot` in
+ * tenths, else `MultTimes2Dot` in hundredths (EPIC-08), so ×3.25 stays ×3.25.
  */
 export function overrideEnhancement(override) {
   const raw = Number(override.value);
@@ -200,9 +201,10 @@ export function overrideEnhancement(override) {
       return { enhancement: { MultPlus: n }, value: n };
     }
     case 'xmult': {
-      if (Number.isInteger(value)) return { enhancement: { MultTimes: value }, value };
-      const tenths = Math.round(value * 10);
-      return { enhancement: { MultTimes1Dot: tenths }, value: tenths / 10 };
+      const hundredths = Math.round(value * 100);
+      if (hundredths % 100 === 0) return { enhancement: { MultTimes: hundredths / 100 }, value: hundredths / 100 };
+      if (hundredths % 10 === 0) return { enhancement: { MultTimes1Dot: hundredths / 10 }, value: hundredths / 100 };
+      return { enhancement: { MultTimes2Dot: hundredths }, value: hundredths / 100 };
     }
     default:
       return null;
@@ -273,6 +275,7 @@ function overrideFromEnhancement(mpip) {
   if ('MultPlus' in mpip) return { kind: 'mult', value: mpip.MultPlus };
   if ('MultTimes' in mpip) return { kind: 'xmult', value: mpip.MultTimes };
   if ('MultTimes1Dot' in mpip) return { kind: 'xmult', value: mpip.MultTimes1Dot / 10 };
+  if ('MultTimes2Dot' in mpip) return { kind: 'xmult', value: mpip.MultTimes2Dot / 100 };
   return null;
 }
 
