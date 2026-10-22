@@ -20,6 +20,9 @@ pub use crate::types::draws::Draws;
 pub use crate::types::edition::Edition;
 pub use crate::types::effect::{Effect, EffectRegistry, ScoreOp, ScoringContext};
 pub use crate::types::hands::{HandType, PokerHand, PokerHands};
+pub use crate::types::joker_shorthand::{
+    LineError, ShorthandError, parse_joker, parse_jokers, shorthand_line,
+};
 pub use crate::types::mpip::*;
 pub use crate::types::score::Score;
 pub use crate::types::shop::{BoosterPack, PackKind, Shop};

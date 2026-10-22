@@ -227,6 +227,33 @@ mod funky__decks__joker_catalog_tests {
         assert_eq!(cards, Joker::ALL_JOKERS.to_vec());
     }
 
+    /// The joker shorthand reads `LUCKYCAT` as `LUCKY_CAT`, so no two idents
+    /// may collide once underscores are dropped.
+    #[test]
+    fn idents__unique_without_underscores() {
+        let bare: HashSet<_> = Joker::catalog()
+            .iter()
+            .map(|info| info.ident.replace('_', ""))
+            .collect();
+        assert_eq!(bare.len(), Joker::ALL_JOKERS_SIZE);
+    }
+
+    /// The joker shorthand ends an ident at an `x` followed by a digit or a
+    /// dot (`LUCKYCATx3.25`), so no ident may hold one, with or without its
+    /// underscores.
+    #[test]
+    fn idents__no_x_before_a_digit() {
+        let splits = |text: &str| {
+            text.as_bytes()
+                .windows(2)
+                .any(|pair| pair[0] == b'X' && (pair[1].is_ascii_digit() || pair[1] == b'.'))
+        };
+        for info in Joker::catalog() {
+            assert!(!splits(info.ident), "{}", info.ident);
+            assert!(!splits(&info.ident.replace('_', "")), "{}", info.ident);
+        }
+    }
+
     #[test]
     fn catalog__idents_and_names_are_unique() {
         let catalog = Joker::catalog();

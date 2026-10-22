@@ -8,7 +8,7 @@ Oct 21, 2026 · @Christoph · *Written against branch `epic05-close` at `7383070
 - **Why:** today a joker with an edition or an override is a four-line YAML map. Cards already have a shorthand (`AS`); jokers do not. A solver, a script, a chat message or a CLI flag wants one.
 - **Shape:** `JokerSpec` learns `FromStr` and a canonical `shorthand()`, in a new engine module with no dependencies. `BoardSpec` accepts a joker as a bare string, as it accepts a card. The CLI gets a `jokers` command and a `--jokers` flag. One new `MPip` variant, `MultTimes2Dot`, so ×3.25 is exact.
 - **Proves it:** every joker in the catalog round-trips through its token; a golden fixture written with tokens scores to a blessed trace; `buffoonery score --jokers "BARON+FOIL LUCKYCATx3.25"` prints the same JSON as the YAML map form.
-- **Status:** Phase 0 built 2026-10-22 (`MultTimes2Dot`). Phases 1–5 planned.
+- **Status:** Phases 0–1 built 2026-10-22 (`MultTimes2Dot`, the `joker_shorthand` parser). Phases 2–5 planned.
 
 ---
 
@@ -47,7 +47,7 @@ As of 2026-10-22, branch `epic08-shorthand` (not yet merged). `make ayce` green.
 | Component | Status |
 | --- | --- |
 | Phase 0 — `MPip::MultTimes2Dot` | **Complete**: variant, `Display`, two scoring arms, `scores_hand`; 598 lib tests |
-| Phase 1 — `joker_shorthand`: parse one token, parse a line, `shorthand()` | Planned |
+| Phase 1 — `joker_shorthand`: parse one token, parse a line, `shorthand()` | **Complete**: 34 unit tests, 8 doc tests, 2 catalog tests |
 | Phase 2 — `BoardSpec` accepts a joker as a string; fixture 20 | Planned |
 | Phase 3 — CLI `jokers` command and `--jokers` flag | Planned |
 | Phase 4 — the page reads and writes `MultTimes2Dot` | Planned |
@@ -283,13 +283,13 @@ Reading alone is not enough. `slotFromSpec` (`web/src/model.js:296`) would turn 
 
 ### Phase 1 — `joker_shorthand`
 
-- [ ] **1.** `src/types/joker_shorthand.rs`: `ShorthandError` with `Display` and `Error`; add `pub mod joker_shorthand;` to `src/types/mod.rs`; `LineError`; re-export `parse_joker`, `parse_jokers`, `shorthand_line`, `ShorthandError`, `LineError` from `src/prelude.rs`.
-- [ ] **2.** Ident lookup. Test `parse__ident_ignores_case_and_underscores` (`LUCKYCAT`, `lucky_cat`, `Lucky_Cat` → `LUCKY_CAT`), `parse__unknown_ident_is_an_error`. In `joker_catalog.rs` tests: `idents__unique_without_underscores` and `idents__no_x_before_a_digit`.
-- [ ] **3.** Modifiers. Tests `parse__each_edition_short_and_long` (all 7 spellings → 4 `Edition` values), `parse__chips_override`, `parse__mult_override`, `parse__xmult_whole_tenths_hundredths` (`x3` → `MultTimes(3)`, `x3.5` → `MultTimes1Dot(35)`, `x3.25` → `MultTimes2Dot(325)`), `parse__off_is_debuffed`, `parse__modifiers_in_any_order`.
-- [ ] **4.** Errors. Tests `parse__two_editions_is_duplicate`, `parse__two_overrides_is_duplicate`, `parse__three_decimals_is_bad_number`, `parse__decimal_chips_is_bad_number`, `parse__unknown_modifier_names_it`, `error__display_quotes_the_token`, `line_error__display_adds_the_position`.
-- [ ] **5.** `shorthand()` and `shorthand_line`. Tests `shorthand__canonical_form` (`BARON+FOIL`, `LUCKYCATx3.25`, `JOKER+50c+OFF`), `shorthand__keeps_the_variant` (`MultTimes(3)` → `x3`, `MultTimes1Dot(30)` → `x3.0`, `MultTimes2Dot(350)` → `x3.50`, each reading back to the same spec), `shorthand__round_trips_every_catalog_joker` (every ident, bare), `shorthand__round_trips_every_numeric_override_kind` (`Chips`, `MultPlus`, `MultTimes`, `MultTimes1Dot`, `MultTimes2Dot`), `shorthand__other_override_is_no_shorthand` (`Lucky(5, 15)` and `Custom(1)` → `NoShorthand`).
-- [ ] **6.** `parse_jokers`. Tests `parse_jokers__any_run_of_separators` (`BARON,,JOKER`, `BARON , JOKER`, tabs), `parse_jokers__error_carries_position` (third token bad → `jokers[2]`), `parse_jokers__empty_line_is_empty_vec`, `parse_joker__empty_is_an_error`.
-- [ ] **7.** Doc tests on every public item, per `CLAUDE.md`. `cargo test --doc` green.
+- [x] **1.** `src/types/joker_shorthand.rs`: `ShorthandError` with `Display` and `Error`; add `pub mod joker_shorthand;` to `src/types/mod.rs`; `LineError`; re-export `parse_joker`, `parse_jokers`, `shorthand_line`, `ShorthandError`, `LineError` from `src/prelude.rs`.
+- [x] **2.** Ident lookup. Test `parse__ident_ignores_case_and_underscores` (`LUCKYCAT`, `lucky_cat`, `Lucky_Cat` → `LUCKY_CAT`), `parse__unknown_ident_is_an_error`. In `joker_catalog.rs` tests: `idents__unique_without_underscores` and `idents__no_x_before_a_digit`.
+- [x] **3.** Modifiers. Tests `parse__each_edition_short_and_long` (all 7 spellings → 4 `Edition` values), `parse__chips_override`, `parse__mult_override`, `parse__xmult_whole_tenths_hundredths` (`x3` → `MultTimes(3)`, `x3.5` → `MultTimes1Dot(35)`, `x3.25` → `MultTimes2Dot(325)`), `parse__off_is_debuffed`, `parse__modifiers_in_any_order`.
+- [x] **4.** Errors. Tests `parse__two_editions_is_duplicate`, `parse__two_overrides_is_duplicate`, `parse__three_decimals_is_bad_number`, `parse__decimal_chips_is_bad_number`, `parse__unknown_modifier_names_it`, `error__display_quotes_the_token`, `line_error__display_adds_the_position`.
+- [x] **5.** `shorthand()` and `shorthand_line`. Tests `shorthand__canonical_form` (`BARON+FOIL`, `LUCKYCATx3.25`, `JOKER+50c+OFF`), `shorthand__keeps_the_variant` (`MultTimes(3)` → `x3`, `MultTimes1Dot(30)` → `x3.0`, `MultTimes2Dot(350)` → `x3.50`, each reading back to the same spec), `shorthand__round_trips_every_catalog_joker` (every ident, bare), `shorthand__round_trips_every_numeric_override_kind` (`Chips`, `MultPlus`, `MultTimes`, `MultTimes1Dot`, `MultTimes2Dot`), `shorthand__other_override_is_no_shorthand` (`Lucky(5, 15)` and `Custom(1)` → `NoShorthand`).
+- [x] **6.** `parse_jokers`. Tests `parse_jokers__any_run_of_separators` (`BARON,,JOKER`, `BARON , JOKER`, tabs), `parse_jokers__error_carries_position` (third token bad → `jokers[2]`), `parse_jokers__empty_line_is_empty_vec`, `parse_joker__empty_is_an_error`.
+- [x] **7.** Doc tests on every public item, per `CLAUDE.md`. `cargo test --doc` green.
 
 ### Phase 2 — `BoardSpec` string jokers and fixture 20
 
@@ -402,3 +402,13 @@ Exit criteria:
 4. The 19 existing golden traces, every `parse` output and every CLI snapshot are byte-for-byte unchanged.
 5. The engine's dependency list is unchanged; `--no-default-features` builds and tests.
 6. `make ayce` is green.
+
+## Implementation notes
+
+Written 2026-10-22, after Phase 1. Design vs actual so far:
+
+1. **`NoShorthand` has `value`, not `enhancement`.** It also covers `edition: Some(Edition::None)`, which has no token: writing nothing would read back as `edition: None`, a different spec. Display: `LUCKY_CAT: Lucky(5, 15) has no shorthand`.
+2. **`shorthand()` checks the ident** exactly against the catalog (`UnknownJoker` if not), so a token it writes always reads back.
+3. **Case is ignored for every word on input,** not only the ident: `+foil`, `+off`, `+50C` read. Output is canonical (`+FOIL`, `+OFF`, `+50c`).
+4. **Duplicate words** are `editions`, `overrides` and `+OFFs` (`"JOKER+OFF+OFF": two +OFFs`).
+5. **Number errors.** `+2.5c` and `+-4m` are `BadNumber` (the text before `c`/`m` starts with a digit, `-` or `.`); any other `+` word is `UnknownModifier`. `x`, `x3.` and `x.5` are `BadNumber`. A non-ASCII modifier (`+5é`) is `UnknownModifier`; a test pins that it does not panic.

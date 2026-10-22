@@ -7,6 +7,7 @@ pub mod draws;
 pub mod edition;
 pub mod effect;
 pub mod hands;
+pub mod joker_shorthand;
 pub mod mpip;
 pub mod score;
 pub mod shop;

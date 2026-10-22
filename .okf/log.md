@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-10-22
+* **EPIC-08 Phase 1: `joker_shorthand`.** New `src/types/joker_shorthand.rs`: `parse_joker`, `parse_jokers`, `shorthand_line`, `FromStr for JokerSpec`, `JokerSpec::shorthand`, `ShorthandError`, `LineError`; all in the prelude. No new dependencies. Ident lookup normalizes over `Joker::catalog()` (underscores dropped, case ignored); two catalog tests pin that this is unambiguous. `Some(Edition::None)` and non-numeric overrides have no token (`NoShorthand`). 34 unit tests, 8 doc tests. Deltas from the design are in the EPIC's Implementation notes.
 * **EPIC-08 Phase 0: `MPip::MultTimes2Dot`.** ×mult in hundredths (`MultTimes2Dot(325)` = ×3.25), next to `MultTimes1Dot`, whose tenths YAML shape stays a contract. Scored by a held card (`builtin_held_op`) and by a joker (`joker_x_mult`); listed in `Joker::scores_hand`; not a Steel card for `full_deck_steel_count`. YAML form `!MultTimes2Dot 325` pinned in `yaml__mpip_and_edition_format`. 3 new tests (598 lib tests). No golden trace changed.
 * **EPIC-07 closed: Complete.** GitHub Pages is on (source "GitHub Actions"); the Pages workflow deploys `main`. Live check (task 17) in Chromium at 390 px: the opening board scores 8,316; the `buffoonery link` link for fixture 02 opens and scores 820, as the CLI does; no sideways scroll; the install line shows in the footer. Only console error: `/favicon.ico` 404. EPIC status table, [EPIC-07 pointer](references/epic-07-web-and-command-line.md), [index](index.md) and `BACKLOG.md` updated.
 
