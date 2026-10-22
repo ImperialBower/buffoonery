@@ -86,6 +86,27 @@ fn parse__errors_name_the_field() {
     assert!(parse("colour: red").unwrap_err().starts_with("parse: "));
 }
 
+/// EPIC-08: a joker token reads in; `parse` writes the map form back.
+#[test]
+fn parse__token_jokers_become_the_map_form() {
+    let json = parsed(&parse("jokers: [BARON+FOIL, LUCKYCATx3.25, JOKER+OFF]").unwrap());
+    assert_eq!(
+        json["jokers"],
+        serde_json::json!([
+            {"ident": "BARON", "edition": "Foil"},
+            {"ident": "LUCKY_CAT", "enhancement": {"MultTimes2Dot": 325}},
+            {"ident": "JOKER", "debuffed": true},
+        ])
+    );
+}
+
+#[test]
+fn score__a_bad_token_names_the_token() {
+    let error = score("jokers: [BARON, LUCKYCAR]").unwrap_err();
+    assert!(error.starts_with("parse: "), "{error}");
+    assert!(error.contains(r#""LUCKYCAR": unknown joker"#), "{error}");
+}
+
 #[test]
 fn score__errors_name_the_field() {
     assert_eq!(

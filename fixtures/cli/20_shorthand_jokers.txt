@@ -1,0 +1,9 @@
+ #  Source              Detail   Effect             Chips   Mult  Score
+ 1  Pair (level 1)               +10 Chips +2 Mult     10      2     20
+ 2  K♠ · played 1                +10 Chips             20      2     40
+ 5  K♥ · played 2                +10 Chips             30      2     60
+10  Baron · slot 1               ×2.25 Mult            30    4.5    135
+11  Baron · slot 1      edition  +50 Chips             80    4.5    360
+12  Lucky Cat · slot 2           ×3.25 Mult            80  14.63   1170
+14  Joker · slot 3               debuffed              80  14.63   1170
+Pair  80 × 14.63 = 1170

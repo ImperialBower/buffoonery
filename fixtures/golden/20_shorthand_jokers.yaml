@@ -1,0 +1,6 @@
+# EPIC-08: jokers written as shorthand tokens. A Foil Baron (two Kings held:
+# x1.5 twice), a Lucky Cat grown to x3.25 (MultTimes2Dot, exact hundredths),
+# and a debuffed Joker that scores nothing. The 2C is a kicker.
+played: [KS, KH, 2C]
+held: [KD, KC]
+jokers: [BARON+FOIL, LUCKYCATx3.25, JOKER+OFF]

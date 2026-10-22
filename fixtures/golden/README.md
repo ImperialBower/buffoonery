@@ -2,7 +2,8 @@
 
 Each pair is one board and the trace the engine must return for it:
 
-- `NN_name.yaml` — a `BoardSpec` (comments say what the board pins).
+- `NN_name.yaml` — a `BoardSpec` (comments say what the board pins). A joker
+  is a map (`ident: BARON`, …) or a shorthand token (`BARON+FOIL`, EPIC-08).
 - `NN_name.trace.json` — the `ScoreTrace` from `BuffoonBoard::score_traced()`
   (unseeded: Lucky cards and Misprint do not roll).
 
@@ -36,3 +37,9 @@ and 8, fixed 2026-10-20). `17_four_fingers_bonus_jokers.yaml` pins that the
 "contains a Flush" jokers see a Four Fingers flush. `18_four_of_a_kind.yaml`
 pins the Four of a Kind base (60 × 7), and `19_stone_makes_no_pair.yaml` pins
 that a Stone card pairs with nothing (both fixed 2026-10-20).
+`20_shorthand_jokers.yaml` writes its jokers as tokens and pins ×3.25 as exact
+hundredths (1,170; tenths would give 1,188).
+
+## Set size
+
+`golden__set_size` accepts 10 to 30 fixtures (raised from 20 by EPIC-08).

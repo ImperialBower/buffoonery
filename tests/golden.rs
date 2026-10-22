@@ -60,8 +60,8 @@ fn all_traces() -> Vec<(PathBuf, ScoreTrace)> {
 fn golden__set_size() {
     let count = fixtures().len();
     assert!(
-        (10..=20).contains(&count),
-        "Story 5 asked for 10-15 fixtures; the kicker and Ace-low fixes added two. Found {count}"
+        (10..=30).contains(&count),
+        "Story 5 asked for 10-15 fixtures; later fixes and EPIC-08 added more, up to 30. Found {count}"
     );
 }
 

@@ -8,7 +8,7 @@ Oct 21, 2026 · @Christoph · *Written against branch `epic05-close` at `7383070
 - **Why:** today a joker with an edition or an override is a four-line YAML map. Cards already have a shorthand (`AS`); jokers do not. A solver, a script, a chat message or a CLI flag wants one.
 - **Shape:** `JokerSpec` learns `FromStr` and a canonical `shorthand()`, in a new engine module with no dependencies. `BoardSpec` accepts a joker as a bare string, as it accepts a card. The CLI gets a `jokers` command and a `--jokers` flag. One new `MPip` variant, `MultTimes2Dot`, so ×3.25 is exact.
 - **Proves it:** every joker in the catalog round-trips through its token; a golden fixture written with tokens scores to a blessed trace; `buffoonery score --jokers "BARON+FOIL LUCKYCATx3.25"` prints the same JSON as the YAML map form.
-- **Status:** Phases 0–1 built 2026-10-22 (`MultTimes2Dot`, the `joker_shorthand` parser). Phases 2–5 planned.
+- **Status:** Phases 0–2 built 2026-10-22 (`MultTimes2Dot`, the `joker_shorthand` parser, string jokers in `BoardSpec` and fixture 20). Phases 3–5 planned.
 
 ---
 
@@ -48,7 +48,7 @@ As of 2026-10-22, branch `epic08-shorthand` (not yet merged). `make ayce` green.
 | --- | --- |
 | Phase 0 — `MPip::MultTimes2Dot` | **Complete**: variant, `Display`, two scoring arms, `scores_hand`; 598 lib tests |
 | Phase 1 — `joker_shorthand`: parse one token, parse a line, `shorthand()` | **Complete**: 34 unit tests, 8 doc tests, 2 catalog tests |
-| Phase 2 — `BoardSpec` accepts a joker as a string; fixture 20 | Planned |
+| Phase 2 — `BoardSpec` accepts a joker as a string; fixture 20 | **Complete**: fixture 20 scores 80 × 14.625 = 1,170 in the engine, component, CLI and page |
 | Phase 3 — CLI `jokers` command and `--jokers` flag | Planned |
 | Phase 4 — the page reads and writes `MultTimes2Dot` | Planned |
 | Phase 5 — docs, OKF, CHANGELOG | Planned |
@@ -293,9 +293,9 @@ Reading alone is not enough. `slotFromSpec` (`web/src/model.js:296`) would turn 
 
 ### Phase 2 — `BoardSpec` string jokers and fixture 20
 
-- [ ] **8.** Hand-written `Deserialize` for `JokerSpec` (`src/types/board_spec.rs:135`), `JokerDetail` map struct with `deny_unknown_fields`. Serialize unchanged. Tests `yaml__joker_as_token`, `json__joker_as_token`, `yaml__joker_map_form_still_reads`, `yaml__bad_token_is_a_parse_error_naming_the_token` (the serde message quotes the token and gives a line and column), `json__joker_spec_still_serializes_as_a_map` (pin: a token never appears in output).
-- [ ] **9.** `fixtures/golden/20_shorthand_jokers.yaml`: the board in the Design section (held Kings for Baron, a Lucky Cat at ×3.25, a debuffed Joker), written with tokens. `BLESS=1 cargo test --test golden` writes `20_shorthand_jokers.trace.json`; check the total by hand (Baron: ×1.5 per held King, compounding; Lucky Cat: ×3.25; Joker: nothing). The set is now 20, at the cap (`tests/golden.rs:63`); raise the cap to 30 in the same change and say so in the fixture README.
-- [ ] **10.** `BLESS=1 cargo test -p buffoonery-cli --test golden` writes `fixtures/cli/20_shorthand_jokers.txt`. Component: `component/tests/golden.rs` walks every fixture, so it covers 20 with no change; add `parse__token_jokers_become_the_map_form` (parse the YAML above, assert the JSON has `"ident": "LUCKY_CAT"` and `"MultTimes2Dot": 325`). `make component` green, size under budget (`component/README.md`).
+- [x] **8.** Hand-written `Deserialize` for `JokerSpec` (`src/types/board_spec.rs:135`), `JokerDetail` map struct with `deny_unknown_fields`. Serialize unchanged. Tests `yaml__joker_as_token`, `json__joker_as_token`, `yaml__joker_map_form_still_reads`, `yaml__bad_token_is_a_parse_error_naming_the_token` (the serde message quotes the token and gives a line and column), `json__joker_spec_still_serializes_as_a_map` (pin: a token never appears in output).
+- [x] **9.** `fixtures/golden/20_shorthand_jokers.yaml`: the board in the Design section (held Kings for Baron, a Lucky Cat at ×3.25, a debuffed Joker), written with tokens. `BLESS=1 cargo test --test golden` writes `20_shorthand_jokers.trace.json`; check the total by hand (Baron: ×1.5 per held King, compounding; Lucky Cat: ×3.25; Joker: nothing). The set is now 20, at the cap (`tests/golden.rs:63`); raise the cap to 30 in the same change and say so in the fixture README.
+- [x] **10.** `BLESS=1 cargo test -p buffoonery-cli --test golden` writes `fixtures/cli/20_shorthand_jokers.txt`. Component: `component/tests/golden.rs` walks every fixture, so it covers 20 with no change; add `parse__token_jokers_become_the_map_form` (parse the YAML above, assert the JSON has `"ident": "LUCKY_CAT"` and `"MultTimes2Dot": 325`). `make component` green, size under budget (`component/README.md`).
 
 ### Phase 3 — CLI
 
@@ -405,10 +405,13 @@ Exit criteria:
 
 ## Implementation notes
 
-Written 2026-10-22, after Phase 1. Design vs actual so far:
+Written 2026-10-22, after Phases 1 and 2. Design vs actual so far:
 
 1. **`NoShorthand` has `value`, not `enhancement`.** It also covers `edition: Some(Edition::None)`, which has no token: writing nothing would read back as `edition: None`, a different spec. Display: `LUCKY_CAT: Lucky(5, 15) has no shorthand`.
 2. **`shorthand()` checks the ident** exactly against the catalog (`UnknownJoker` if not), so a token it writes always reads back.
 3. **Case is ignored for every word on input,** not only the ident: `+foil`, `+off`, `+50C` read. Output is canonical (`+FOIL`, `+OFF`, `+50c`).
 4. **Duplicate words** are `editions`, `overrides` and `+OFFs` (`"JOKER+OFF+OFF": two +OFFs`).
 5. **Number errors.** `+2.5c` and `+-4m` are `BadNumber` (the text before `c`/`m` starts with a digit, `-` or `.`); any other `+` word is `UnknownModifier`. `x`, `x3.` and `x.5` are `BadNumber`. A non-ASCII modifier (`+5é`) is `UnknownModifier`; a test pins that it does not panic.
+6. **The page did not break on fixture 20.** The Design section said the page's round trip (`web/test/model.test.mjs`) would fail. It does not: `overrideFromEnhancement` returns `null` for an `MPip` it does not know, so `slotFromSpec` keeps the enhancement and `buildSpec` writes it back unchanged. The Playwright walk also passes fixture 20 cell by cell. Phase 4 is still needed so the slot *shows* ×3.25 and a typed ×3.25 is not rounded.
+7. **Fixture 20's total is 1,170:** chips 10 + 10 + 10 (two Kings score; the 2C is a kicker) + 50 (Foil) = 80; mult 2 × 1.5 × 1.5 (Baron, two held Kings) × 3.25 = 14.625. With ×3.3 it would be 1,188.
+8. **JSON tests too.** Besides the YAML tests, `json__joker_as_token`, `json__joker_tokens_and_maps_mix`, `json__an_unknown_joker_key_is_an_error` and `json__bad_token_names_the_token`. The component gains `score__a_bad_token_names_the_token`. `JokerSpec`'s three optional fields gained doc comments.

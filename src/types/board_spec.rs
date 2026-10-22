@@ -30,6 +30,7 @@ use crate::types::buffoon_pile::BuffoonPile;
 use crate::types::draws::Draws;
 use crate::types::edition::Edition;
 use crate::types::hands::HandType;
+use crate::types::joker_shorthand::parse_joker;
 use crate::types::mpip::MPip;
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{self, MapAccess, Visitor};
@@ -130,17 +131,69 @@ impl<'de> Deserialize<'de> for CardSpec {
 
 /// A joker by ident, with optional overrides. The override is the
 /// calculator's "updatable effect": the joker keeps its identity and name.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+///
+/// Deserializes from a map of these fields or from a shorthand token such as
+/// `"BARON+FOIL"` (see [`joker_shorthand`]); serializes as the map, always.
+/// Hand-written for the same reason as [`CardSpec`]'s: an untagged enum
+/// would lose the map form's YAML tags.
+///
+/// [`joker_shorthand`]: crate::types::joker_shorthand
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct JokerSpec {
     /// The joker const's name, e.g. `"JOLLY_JOKER"`.
     pub ident: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Replaces the joker's effect; `None` keeps the catalog's.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub enhancement: Option<MPip>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The joker's edition; `None` keeps the catalog's (unedited).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edition: Option<Edition>,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    /// A debuffed joker scores nothing.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub debuffed: bool,
+}
+
+/// The map form of a [`JokerSpec`], read straight from the input.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JokerDetail {
+    ident: String,
+    #[serde(default)]
+    enhancement: Option<MPip>,
+    #[serde(default)]
+    edition: Option<Edition>,
+    #[serde(default)]
+    debuffed: bool,
+}
+
+impl<'de> Deserialize<'de> for JokerSpec {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct JokerSpecVisitor;
+
+        impl<'de> Visitor<'de> for JokerSpecVisitor {
+            type Value = JokerSpec;
+
+            fn expecting(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                f.write_str(r#"a joker token such as "BARON+FOIL", or a map with an `ident` key"#)
+            }
+
+            fn visit_str<E: de::Error>(self, token: &str) -> Result<JokerSpec, E> {
+                parse_joker(token).map_err(E::custom)
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<JokerSpec, A::Error> {
+                let detail = JokerDetail::deserialize(MapAccessDeserializer::new(map))?;
+                Ok(JokerSpec {
+                    ident: detail.ident,
+                    enhancement: detail.enhancement,
+                    edition: detail.edition,
+                    debuffed: detail.debuffed,
+                })
+            }
+        }
+
+        deserializer.deserialize_any(JokerSpecVisitor)
+    }
 }
 
 /// Why a [`BoardSpec`] could not become a board. Each variant names the field.
@@ -620,6 +673,81 @@ mod funky__types__board_spec_tests {
         );
     }
 
+    /// EPIC-08: the three jokers of fixture 20, as specs.
+    fn token_jokers() -> Vec<JokerSpec> {
+        vec![
+            JokerSpec {
+                edition: Some(Edition::Foil),
+                ..joker("BARON")
+            },
+            JokerSpec {
+                enhancement: Some(MPip::MultTimes2Dot(325)),
+                ..joker("LUCKY_CAT")
+            },
+            JokerSpec {
+                debuffed: true,
+                ..joker("JOKER")
+            },
+        ]
+    }
+
+    #[test]
+    fn json__joker_as_token() {
+        let spec: BoardSpec =
+            serde_json::from_str(r#"{"jokers": ["BARON+FOIL", "LUCKYCATx3.25", "JOKER+OFF"]}"#)
+                .unwrap();
+        assert_eq!(spec.jokers, token_jokers());
+    }
+
+    #[test]
+    fn json__joker_tokens_and_maps_mix() {
+        let spec: BoardSpec =
+            serde_json::from_str(r#"{"jokers": ["BARON", {"ident": "JOKER", "debuffed": true}]}"#)
+                .unwrap();
+        assert_eq!(
+            spec.jokers,
+            vec![
+                joker("BARON"),
+                JokerSpec {
+                    debuffed: true,
+                    ..joker("JOKER")
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn json__an_unknown_joker_key_is_an_error() {
+        assert!(
+            serde_json::from_str::<BoardSpec>(
+                r#"{"jokers": [{"ident": "JOKER", "edtion": "Foil"}]}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn json__bad_token_names_the_token() {
+        let error = serde_json::from_str::<BoardSpec>(r#"{"jokers": ["BARON", "LUCKYCAR"]}"#)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(r#""LUCKYCAR": unknown joker"#), "{error}");
+    }
+
+    /// A token is input only: output, and so every trace, `parse` result and
+    /// page link, keeps the map form.
+    #[test]
+    fn json__joker_spec_still_serializes_as_a_map() {
+        let spec = BoardSpec {
+            jokers: token_jokers(),
+            ..BoardSpec::default()
+        };
+        assert_eq!(
+            serde_json::to_string(&spec).unwrap(),
+            r#"{"jokers":[{"ident":"BARON","edition":"Foil"},{"ident":"LUCKY_CAT","enhancement":{"MultTimes2Dot":325}},{"ident":"JOKER","debuffed":true}]}"#
+        );
+    }
+
     /// EPIC-05 Story 3: spec → board → trace → JSON → parse gives the same trace.
     #[test]
     fn round_trip__spec_board_trace_json() {
@@ -654,6 +782,47 @@ jokers:
         assert_eq!(spec, buffoon_spec());
         let board = BuffoonBoard::try_from(spec).unwrap();
         assert_eq!(board.score_traced(), buffoon_board().score_traced());
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn yaml__joker_as_token() {
+        let spec = BoardSpec::from_yaml("jokers: [BARON+FOIL, LUCKYCATx3.25, JOKER+OFF]").unwrap();
+        assert_eq!(spec.jokers, token_jokers());
+    }
+
+    /// The map form keeps reading YAML tags, which an untagged enum would lose.
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn yaml__joker_map_form_still_reads() {
+        let yaml = "
+jokers:
+  - ident: JOKER
+    enhancement: !MultTimes1Dot 15
+    edition: Polychrome
+    debuffed: true
+";
+        assert_eq!(
+            BoardSpec::from_yaml(yaml).unwrap().jokers,
+            vec![JokerSpec {
+                ident: "JOKER".to_string(),
+                enhancement: Some(MPip::MultTimes1Dot(15)),
+                edition: Some(Edition::Polychrome),
+                debuffed: true,
+            }]
+        );
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn yaml__bad_token_is_a_parse_error_naming_the_token() {
+        let Err(BoardSpecError::Parse(error)) =
+            BoardSpec::from_yaml("played: [AS]\njokers: [BARON, LUCKYCAR]")
+        else {
+            panic!("expected a parse error");
+        };
+        assert!(error.contains(r#""LUCKYCAR": unknown joker"#), "{error}");
+        assert!(error.contains("line 2"), "{error}");
     }
 
     #[cfg(feature = "yaml")]
