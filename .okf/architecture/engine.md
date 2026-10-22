@@ -19,8 +19,12 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
 * **`BuffoonCard`** (`src/types/buffoon_card.rs`) — cardpack `Pip`s for suit
   and rank, plus `card_type: BCardType`, `enhancement: MPip`, `edition`,
   `resell_value`, `debuffed`.
-* **`MPip`** (`src/types/mpip.rs`) — a 142-variant enum that makes card
-  effects **data, not code**; interpreted at scoring time.
+* **`MPip`** (`src/types/mpip.rs`) — a 143-variant enum that makes card
+  effects **data, not code**; interpreted at scoring time. `MultTimes1Dot`
+  holds tenths and `MultTimes2Dot` hundredths (EPIC-08).
+* **Joker shorthand** (`src/types/joker_shorthand.rs`) — one token per
+  `JokerSpec` (`BARON+FOIL`, `LUCKYCATx3.25`), read and written with no new
+  dependency; see the [decision](/decisions/joker-shorthand.md).
 * **`BuffoonPile`** — implements cardpack's `Ranged`, so combinatorics and
   hand detection reuse cardpack's engine.
 * **Scoring** (`src/types/board/scoring.rs`, split out of `board.rs`) — `BuffoonBoard::score()` /

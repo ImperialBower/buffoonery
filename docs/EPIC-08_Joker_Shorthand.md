@@ -8,7 +8,7 @@ Oct 21, 2026 · @Christoph · *Written against branch `epic05-close` at `7383070
 - **Why:** today a joker with an edition or an override is a four-line YAML map. Cards already have a shorthand (`AS`); jokers do not. A solver, a script, a chat message or a CLI flag wants one.
 - **Shape:** `JokerSpec` learns `FromStr` and a canonical `shorthand()`, in a new engine module with no dependencies. `BoardSpec` accepts a joker as a bare string, as it accepts a card. The CLI gets a `jokers` command and a `--jokers` flag. One new `MPip` variant, `MultTimes2Dot`, so ×3.25 is exact.
 - **Proves it:** every joker in the catalog round-trips through its token; a golden fixture written with tokens scores to a blessed trace; `buffoonery score --jokers "BARON+FOIL LUCKYCATx3.25"` prints the same JSON as the YAML map form.
-- **Status:** Phases 0–4 built 2026-10-22 (`MultTimes2Dot`, the `joker_shorthand` parser, string jokers in `BoardSpec` and fixture 20, the CLI's `jokers` and `--jokers`, the page). Phase 5 (docs) planned.
+- **Status:** Built 2026-10-22, all six phases, on branch `epic08-shorthand`. Closes when it merges.
 
 ---
 
@@ -42,7 +42,7 @@ The joker already has a data form. The shorthand is a second spelling of it, not
 
 ## Status
 
-As of 2026-10-22, branch `epic08-shorthand` (not yet merged). `make ayce` green.
+As of 2026-10-22, branch `epic08-shorthand` (not yet merged), all phases built. `make ayce` green.
 
 | Component | Status |
 | --- | --- |
@@ -51,7 +51,7 @@ As of 2026-10-22, branch `epic08-shorthand` (not yet merged). `make ayce` green.
 | Phase 2 — `BoardSpec` accepts a joker as a string; fixture 20 | **Complete**: fixture 20 scores 80 × 14.625 = 1,170 in the engine, component, CLI and page |
 | Phase 3 — CLI `jokers` command and `--jokers` flag | **Complete**: 9 new unit tests, 3 process tests; `read_spec` public |
 | Phase 4 — the page reads and writes `MultTimes2Dot` | **Complete**: 2 new Node tests, the ×1.25 pin moved; fixture 20 passes cell by cell in Chromium |
-| Phase 5 — docs, OKF, CHANGELOG | Planned |
+| Phase 5 — docs, OKF, CHANGELOG | **Complete** |
 
 ---
 
@@ -309,9 +309,9 @@ Reading alone is not enough. `slotFromSpec` (`web/src/model.js:296`) would turn 
 
 ### Phase 5 — Docs and the gate
 
-- [ ] **15.** `README.md`: a "Joker shorthand" section with the grammar table and three examples; the `jokers` command and `--jokers` in the "Command line" section. `fixtures/golden/README.md`: the string form and the new cap.
-- [ ] **16.** `.okf/decisions/joker-shorthand.md` (`type: decision`): the grammar, why it is in the engine, why `MultTimes2Dot` and not a change to `1Dot`, why `shorthand()` is a `Result`, why `--jokers` replaces. Append to `.okf/log.md`; add to `.okf/index.md`; update `.okf/architecture/engine.md` (the `MPip` count and the shorthand).
-- [ ] **17.** `CHANGELOG.md` Unreleased: engine (`MultTimes2Dot`, `joker_shorthand`, `JokerSpec` string form), CLI (`jokers`, `--jokers`), component (`read_spec` public), page (reads `MultTimes2Dot`; a typed two-decimal ×mult now writes hundredths). `BACKLOG.md` row. `make ayce` green.
+- [x] **15.** `README.md`: a "Joker shorthand" section with the grammar table and three examples; the `jokers` command and `--jokers` in the "Command line" section. `fixtures/golden/README.md`: the string form and the new cap.
+- [x] **16.** `.okf/decisions/joker-shorthand.md` (`type: decision`): the grammar, why it is in the engine, why `MultTimes2Dot` and not a change to `1Dot`, why `shorthand()` is a `Result`, why `--jokers` replaces. Append to `.okf/log.md`; add to `.okf/index.md`; update `.okf/architecture/engine.md` (the `MPip` count and the shorthand).
+- [x] **17.** `CHANGELOG.md` Unreleased: engine (`MultTimes2Dot`, `joker_shorthand`, `JokerSpec` string form), CLI (`jokers`, `--jokers`), component (`read_spec` public), page (reads `MultTimes2Dot`; a typed two-decimal ×mult now writes hundredths). `BACKLOG.md` row. `make ayce` green.
 
 ---
 
@@ -405,7 +405,7 @@ Exit criteria:
 
 ## Implementation notes
 
-Written 2026-10-22, after Phases 1–4. Design vs actual so far:
+Written 2026-10-22, after all phases. Design vs actual:
 
 1. **`NoShorthand` has `value`, not `enhancement`.** It also covers `edition: Some(Edition::None)`, which has no token: writing nothing would read back as `edition: None`, a different spec. Display: `LUCKY_CAT: Lucky(5, 15) has no shorthand`.
 2. **`shorthand()` checks the ident** exactly against the catalog (`UnknownJoker` if not), so a token it writes always reads back.
@@ -419,3 +419,5 @@ Written 2026-10-22, after Phases 1–4. Design vs actual so far:
 10. **The `jokers` table's Override column is the op text** (`+50 Chips`, `×3.25 Mult`), from `ScoreOp`'s `Display`, as the score table writes ops. The Token column is the canonical token, so `lucky_cat+holographic` prints `LUCKYCAT+HOLO`.
 11. **More CLI tests than listed:** `run_jokers_writes_the_canonical_token`, `score_jokers_flag_replaces_file_jokers` (an empty line clears the file's jokers), `score_bad_jokers_flag_is_board_error`. `score_jokers_flag_equals_map_form` lives in `cli/src/lib.rs`, not `cli/tests/golden.rs`. Process tests: `jokers_explains_a_line`, `jokers_bad_token_exits_1`, `score_jokers_flag_scores_the_line`.
 12. **The page counts decimals from the number, not the typed text.** The input is a number, so `1.50` and `1.5` are the same value. `overrideEnhancement` rounds to hundredths and picks the fewest decimals: whole → `MultTimes`, a tenth → `MultTimes1Dot`, else `MultTimes2Dot`. So a typed ×1.5 still writes `MultTimes1Dot(15)` and old links do not change; only a ×mult with a real second decimal writes the new variant.
+13. **Open questions left as recommended.** `catalog` prints no token column; `shorthand_line` writes spaces and reads spaces, tabs or commas.
+14. **`MPip` has 143 variants** (was 142).

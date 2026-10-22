@@ -72,8 +72,13 @@ buffoonery score --all board.yaml        # every step, not only the ones the pag
 buffoonery link board.yaml               # a link that opens the board in the page
 buffoonery parse board.yaml              # the board as JSON
 buffoonery catalog --find jolly          # the jokers, by ident or name
+buffoonery jokers "BARON+FOIL LUCKYCATx3.25"   # explain a line of joker tokens
+buffoonery score board.yaml --jokers "BARON+FOIL"   # score with these jokers instead
 buffoonery version                       # the engine version
 ```
+
+`--jokers` works on `score`, `link` and `parse`. It replaces the board's
+jokers; the hand still comes from the file.
 
 A board file is YAML or JSON; `-` or no file reads stdin, so a board copied
 from the page scores with `pbpaste | buffoonery score`. Exit codes: 0 done,
@@ -90,6 +95,35 @@ $ buffoonery score fixtures/golden/02_pair_additive_jokers.yaml
 10  Sly Joker · slot 2            +50 Chips             82    10    820
 Pair  82 × 10 = 820
 ```
+
+## Joker shorthand
+
+A joker can be one token, the way a card is `AS`
+([EPIC-08](docs/EPIC-08_Joker_Shorthand.md)). A line of tokens is a joker
+row, left to right; spaces, tabs or commas separate them.
+
+| Part | Means | Example |
+| --- | --- | --- |
+| ident | the joker; any case, `_` optional | `LUCKYCAT`, `lucky_cat` |
+| `+FOIL` `+HOLO` `+POLY` `+NEG` | edition (long words also read) | `BARON+FOIL` |
+| `+Nc` | chips override | `JOKER+50c` |
+| `+Nm` | +mult override | `JOKER+8m` |
+| `xN` | ×mult override, up to two decimals | `LUCKYCATx3.25` |
+| `+OFF` | debuffed | `JOKER+OFF` |
+
+Modifiers come in any order, each kind once. Tokens work in a board file
+(`jokers: [BARON+FOIL, LUCKYCATx3.25]`), on the command line (`--jokers`),
+and in Rust:
+
+```rust
+use buffoonery::prelude::*;
+
+let jokers = parse_jokers("BARON+FOIL LUCKYCATx3.25 JOKER+OFF").unwrap();
+assert_eq!(jokers[1].enhancement, Some(MPip::MultTimes2Dot(325)));
+assert_eq!(shorthand_line(&jokers).unwrap(), "BARON+FOIL LUCKYCATx3.25 JOKER+OFF");
+```
+
+A board is always written back in the map form; a token is input only.
 
 ## What's in the box
 

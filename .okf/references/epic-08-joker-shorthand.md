@@ -1,9 +1,9 @@
 ---
 type: reference
 title: EPIC-08 — Joker shorthand
-description: "Planned EPIC: a one-token text form for a joker (`BARON+FOIL`, `LUCKYCATx3.25`) parsed in the engine, accepted as a string in `BoardSpec` YAML/JSON, and on the CLI as `jokers` and `--jokers`; adds `MPip::MultTimes2Dot` so ×3.25 is exact."
-tags: [epic, shorthand, dsl, joker, cli, planned]
-timestamp: '2026-10-21T00:00:00Z'
+description: "Built 2026-10-22 (branch `epic08-shorthand`): a one-token text form for a joker (`BARON+FOIL`, `LUCKYCATx3.25`) parsed in the engine, accepted as a string in `BoardSpec` YAML/JSON, and on the CLI as `jokers` and `--jokers`; adds `MPip::MultTimes2Dot` so ×3.25 is exact."
+tags: [epic, shorthand, dsl, joker, cli, built]
+timestamp: '2026-10-22T00:00:00Z'
 resource: docs/EPIC-08_Joker_Shorthand.md
 ---
 
@@ -26,5 +26,9 @@ for the override, `+OFF` for debuffed. A line of tokens is a joker row.
   override has no token and says so.
 * **Serialization stays the map.** Traces, `parse` output and links are
   byte-for-byte unchanged.
-* **The page writes hundredths too** for a two-decimal ×mult, or fixture 20
-  would fail the page's own round trip.
+* **The page writes hundredths too** for a two-decimal ×mult, so a typed
+  ×3.25 is not rounded to ×3.3. (The EPIC expected fixture 20 to break the
+  page's round trip; it did not, because the page passes an `MPip` it does
+  not know through unchanged.)
+* **Built 2026-10-22,** all six phases; see the [decision](/decisions/joker-shorthand.md)
+  and the EPIC's Implementation notes.

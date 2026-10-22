@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Joker shorthand** (EPIC-08). One token per joker: `BARON+FOIL`,
+  `LUCKYCATx3.25`, `JOKER+50c+OFF` (ident, then edition, override and
+  `+OFF` for debuffed). Engine: `parse_joker`, `parse_jokers`,
+  `shorthand_line`, `FromStr for JokerSpec`, `JokerSpec::shorthand`, and the
+  errors `ShorthandError` and `LineError`, all in the prelude. A `BoardSpec`
+  in YAML or JSON may write a joker as a token; it is still written back as
+  a map. New golden fixture `20_shorthand_jokers`; the set may hold 30.
+- **`MPip::MultTimes2Dot`**: ×mult in hundredths (`MultTimes2Dot(325)` is
+  ×3.25), scored by a joker and by a held card. `MultTimes1Dot` is unchanged.
+- **`buffoonery jokers LINE`** (`--json`) explains a line of tokens, and
+  **`--jokers LINE`** on `score`, `link` and `parse` replaces the board's
+  jokers. The component's `read_spec` is now public.
+
 - **`buffoonery` on the command line** (EPIC-07). A new workspace crate,
   `buffoonery-cli` (not published; `cargo install --git
   https://github.com/ImperialBower/buffoonery buffoonery-cli`), calls the same
@@ -97,6 +110,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it; the calculator's "+ Chips" override does.
 
 ### Changed
+
+- **The page writes a two-decimal ×mult exactly** (EPIC-08). A typed ×1.25
+  is now `MultTimes2Dot(125)`; it was rounded to `MultTimes1Dot(13)`, ×1.3. A
+  whole or one-decimal ×mult writes what it did before, and old links read
+  as before. The page also opens a `MultTimes2Dot` joker as a ×mult override.
 
 - The WIT component's size budget is 600 KiB after `jco opt` (was 500 KiB;
   it is 494 KiB). `component/README.md` records where the size goes: YAML
