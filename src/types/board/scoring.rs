@@ -342,6 +342,7 @@ impl BuffoonBoard {
     fn builtin_held_op(card: &BuffoonCard) -> ScoreOp {
         match card.enhancement {
             MPip::MultTimes1Dot(n) => ScoreOp::TimesMult(n as f64 / 10.0),
+            MPip::MultTimes2Dot(n) => ScoreOp::TimesMult(n as f64 / 100.0),
             MPip::MultTimes(n) => ScoreOp::TimesMult(n as f64),
             _ => ScoreOp::Nothing,
         }
@@ -354,7 +355,8 @@ impl BuffoonBoard {
     ///
     /// Additive jokers contribute via [`BuffoonPile::calculate_plus`] (chips /
     /// +mult); multiplicative jokers scale the running mult — unconditional
-    /// (`MultTimes(n)` = ×n, `MultTimes1Dot(n)` = ×n/10) or hand-conditional
+    /// (`MultTimes(n)` = ×n, `MultTimes1Dot(n)` = ×n/10, `MultTimes2Dot(n)` =
+    /// ×n/100) or hand-conditional
     /// (`MultTimesOn{Pair,Trips,4OfAKind,Straight,Flush}` — The Duo/Trio/Family/
     /// Order/Tribe — which fire when the played hand *contains* that category).
     ///
@@ -654,6 +656,7 @@ impl BuffoonBoard {
             // Michel compound shape, on the ×mult side.
             MPip::MultTimes(n) | MPip::MultTimesChanceDestroyed(n, _, _) => n as f64,
             MPip::MultTimes1Dot(n) => n as f64 / 10.0,
+            MPip::MultTimes2Dot(n) => n as f64 / 100.0,
             MPip::MultTimesOnPair(n) if played.has_pair() => n as f64,
             MPip::MultTimesOnTrips(n) if played.has_trips() => n as f64,
             MPip::MultTimesOn4OfAKind(n) if played.has_4_of_a_kind() => n as f64,

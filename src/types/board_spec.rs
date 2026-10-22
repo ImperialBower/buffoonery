@@ -690,6 +690,7 @@ jokers:
         let yaml = |value: &dyn erased::Yaml| value.to_yaml();
         assert_eq!(yaml(&MPip::MultPlus(4)), "!MultPlus 4\n");
         assert_eq!(yaml(&MPip::Lucky(5, 15)), "!Lucky\n- 5\n- 15\n");
+        assert_eq!(yaml(&MPip::MultTimes2Dot(325)), "!MultTimes2Dot 325\n");
         assert_eq!(yaml(&MPip::Blank), "Blank\n");
         assert_eq!(yaml(&Edition::Polychrome), "Polychrome\n");
     }

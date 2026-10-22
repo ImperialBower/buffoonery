@@ -2495,6 +2495,22 @@ mod funky__types__board__buffoon_board_tests {
     }
 
     #[test]
+    fn mult_times_2dot__joker_scores_hundredths() {
+        let mut board = board_playing("AS AH");
+        board
+            .jokers
+            .push(enhanced(card::JOKER, MPip::MultTimes2Dot(325))); // x3.25
+        // 8 mult x 3.25 = 26, not x3.3 = 26.4.
+        assert_eq!(
+            board.scoring_phase4_joker_scoring(Score::new(10, 8.0)),
+            Score {
+                chips: 10,
+                mult: 26.0
+            }
+        );
+    }
+
+    #[test]
     fn phase_4_joker__order_matters_add_then_multiply() {
         // JOKER = +4 mult (additive), then a x2 joker.
         let mut board = board_playing("2S");
@@ -2732,6 +2748,21 @@ mod funky__types__board__buffoon_board_tests {
             Score {
                 chips: 151,
                 mult: 12.0
+            }
+        );
+    }
+
+    #[test]
+    fn mult_times_2dot__held_card_scores_hundredths() {
+        let mut board = board_playing("AS KS QS JS TS");
+        board.in_hand =
+            BuffoonPile::from(vec![enhanced(basic::KING_HEARTS, MPip::MultTimes2Dot(325))]);
+        // 8 mult x 3.25 = 26, not x3.3 = 26.4.
+        assert_eq!(
+            board.scoring_phase3_effects_in_hand(Score::new(151, 8.0)),
+            Score {
+                chips: 151,
+                mult: 26.0
             }
         );
     }

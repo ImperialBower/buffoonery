@@ -109,6 +109,10 @@ pub enum MPip {
     MultTimesEveryXHands(usize, usize),
     MultTimesOnEmptyJokerSlots(usize),
     MultTimes1Dot(usize),
+    /// ×mult in hundredths: `MultTimes2Dot(325)` is ×3.25. The shorthand
+    /// writes this when a factor has two decimals; `MultTimes1Dot` keeps
+    /// tenths, and its YAML shape is pinned.
+    MultTimes2Dot(usize),
     MultTimesOnPair(usize),
     MultTimesOnTrips(usize),
     MultTimesOn4OfAKind(usize),
@@ -529,6 +533,7 @@ impl Display for MPip {
                 write!(f, "MultTimesOnEmptyJokerSlots({value})")
             }
             Self::MultTimes1Dot(value) => write!(f, "MultTimes1Dot({value})"),
+            Self::MultTimes2Dot(value) => write!(f, "MultTimes2Dot({value})"),
             Self::MultTimesOnPair(value) => write!(f, "MultTimesOnPair({value})"),
             Self::MultTimesOnTrips(value) => write!(f, "MultTimesOnTrips({value})"),
             Self::MultTimesOn4OfAKind(value) => write!(f, "MultTimesOn4OfAKind({value})"),
@@ -704,6 +709,12 @@ mod funky__types__mpips_tests {
     #[test]
     fn default() {
         assert_eq!(MPip::default(), MPip::Blank);
+    }
+
+    #[test]
+    fn display__mult_times_dot_variants() {
+        assert_eq!(MPip::MultTimes1Dot(15).to_string(), "MultTimes1Dot(15)");
+        assert_eq!(MPip::MultTimes2Dot(325).to_string(), "MultTimes2Dot(325)");
     }
 
     #[test]

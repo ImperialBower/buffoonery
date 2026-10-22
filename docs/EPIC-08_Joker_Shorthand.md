@@ -8,7 +8,7 @@ Oct 21, 2026 · @Christoph · *Written against branch `epic05-close` at `7383070
 - **Why:** today a joker with an edition or an override is a four-line YAML map. Cards already have a shorthand (`AS`); jokers do not. A solver, a script, a chat message or a CLI flag wants one.
 - **Shape:** `JokerSpec` learns `FromStr` and a canonical `shorthand()`, in a new engine module with no dependencies. `BoardSpec` accepts a joker as a bare string, as it accepts a card. The CLI gets a `jokers` command and a `--jokers` flag. One new `MPip` variant, `MultTimes2Dot`, so ×3.25 is exact.
 - **Proves it:** every joker in the catalog round-trips through its token; a golden fixture written with tokens scores to a blessed trace; `buffoonery score --jokers "BARON+FOIL LUCKYCATx3.25"` prints the same JSON as the YAML map form.
-- **Status:** Planned. Nothing landed yet.
+- **Status:** Phase 0 built 2026-10-22 (`MultTimes2Dot`). Phases 1–5 planned.
 
 ---
 
@@ -42,11 +42,11 @@ The joker already has a data form. The shorthand is a second spelling of it, not
 
 ## Status
 
-As of 2026-10-21, branch `epic05-close` at `7383070`.
+As of 2026-10-22, branch `epic08-shorthand` (not yet merged). `make ayce` green.
 
 | Component | Status |
 | --- | --- |
-| Phase 0 — `MPip::MultTimes2Dot` | Planned |
+| Phase 0 — `MPip::MultTimes2Dot` | **Complete**: variant, `Display`, two scoring arms, `scores_hand`; 598 lib tests |
 | Phase 1 — `joker_shorthand`: parse one token, parse a line, `shorthand()` | Planned |
 | Phase 2 — `BoardSpec` accepts a joker as a string; fixture 20 | Planned |
 | Phase 3 — CLI `jokers` command and `--jokers` flag | Planned |
@@ -276,10 +276,10 @@ Reading alone is not enough. `slotFromSpec` (`web/src/model.js:296`) would turn 
 
 ### Phase 0 — `MultTimes2Dot`
 
-- [ ] **0a.** Add `MPip::MultTimes2Dot(usize)` after `MultTimes1Dot` (`src/types/mpip.rs:111`) with its doc comment, and its `Display` arm (`:430`).
-- [ ] **0b.** Hundredths arms in `builtin_held_op` (`src/types/board/scoring.rs:344`) and the joker factor (`:656`). List it in `Joker::scores_hand` (`src/decks/joker.rs:2517`). Build until the exhaustive matches compile.
-- [ ] **0c.** Tests: `mult_times_2dot__joker_scores_hundredths` (a `JOKER` with `MultTimes2Dot(325)` on a pair: mult × 3.25 exactly), `mult_times_2dot__held_card_scores_hundredths`, and `MultTimes2Dot(325)` added to `yaml__mpip_and_edition_format` (`src/types/board_spec.rs:689`) as `!MultTimes2Dot 325\n`.
-- [ ] **0d.** `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` green. `BLESS=1` is not needed: no fixture uses the variant yet.
+- [x] **0a.** Add `MPip::MultTimes2Dot(usize)` after `MultTimes1Dot` (`src/types/mpip.rs:111`) with its doc comment, and its `Display` arm (`:430`).
+- [x] **0b.** Hundredths arms in `builtin_held_op` (`src/types/board/scoring.rs:344`) and the joker factor (`:656`). List it in `Joker::scores_hand` (`src/decks/joker.rs:2517`). Build until the exhaustive matches compile.
+- [x] **0c.** Tests: `mult_times_2dot__joker_scores_hundredths` (a `JOKER` with `MultTimes2Dot(325)` on a pair: mult × 3.25 exactly), `mult_times_2dot__held_card_scores_hundredths`, and `MultTimes2Dot(325)` added to `yaml__mpip_and_edition_format` (`src/types/board_spec.rs:689`) as `!MultTimes2Dot 325\n`.
+- [x] **0d.** `cargo test --workspace` and `cargo clippy --workspace --all-targets -- -D warnings` green. `BLESS=1` is not needed: no fixture uses the variant yet.
 
 ### Phase 1 — `joker_shorthand`
 

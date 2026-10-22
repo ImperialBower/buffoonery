@@ -2515,6 +2515,7 @@ mod funky__decks__joker_tests {
             | MPip::MultPlusXOnLowestRankInHand(_)
             | MPip::MultTimes(_)
             | MPip::MultTimes1Dot(_)
+            | MPip::MultTimes2Dot(_)
             | MPip::MultTimesOnEmptyJokerSlots(_)
             | MPip::MultTimesOnPair(_)
             | MPip::MultTimesOnTrips(_)
