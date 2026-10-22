@@ -1,6 +1,6 @@
 # EPIC-07: Buffoonery from the web and the command line (DOORS)
 
-Oct 20, 2026 · @Christoph · *Written against branch `epic05-custom-effects` at `f54016d`. Numbered in the shared cardpack / buffoonery space: EPIC-05 moved here from cardpack, and EPIC-06 (Funky Extraction) stays in cardpack.*
+Oct 20, 2026 · @Christoph · *Written against branch `epic05-custom-effects` at `f54016d`. Numbered in the shared cardpack / buffoonery space: EPIC-05 moved here from cardpack, and EPIC-06 (Funky Extraction) stays in cardpack. **Closed 2026-10-22: Complete** on `main` at `d948355`; the live page passed its check (task 17).*
 
 ## Summary
 
@@ -8,7 +8,7 @@ Oct 20, 2026 · @Christoph · *Written against branch `epic05-custom-effects` at
 - **Why:** the page exists but only runs on a developer's machine (`make dev`), and there is no way to score a board from a shell, a script or CI.
 - **Shape:** both doors call the same adapter functions in `component/src/lib.rs`. The CLI links them natively; the page loads them as wasm. A board link carries a board from one door to the other.
 - **Proves it:** for every golden fixture, `buffoonery score --json` equals the fixture's `.trace.json`, and a link printed by `buffoonery link` opens the same table in the browser.
-- **Status:** Built 2026-10-21, except what needs the live site: Pages must be turned on in the repo settings (task 15), then the live page checked (task 17).
+- **Status:** Complete 2026-10-22. Built 2026-10-21 (PR #6); the page is live at <https://imperialbower.github.io/buffoonery/> and passed its check (task 17).
 
 ---
 
@@ -37,7 +37,7 @@ The engine already has one door. The CLI and the hosting are the missing parts.
 
 ## Status
 
-As of 2026-10-21, branch `epic07-cli` (not yet merged). `make ayce` green.
+As of 2026-10-22, `main` at `d948355` (merged in PR #6). `make ayce` green; CI, Security and Pages workflows green.
 
 | Component | Status |
 | --- | --- |
@@ -45,7 +45,7 @@ As of 2026-10-21, branch `epic07-cli` (not yet merged). `make ayce` green.
 | Phase 1 — `buffoonery version`, `parse`, `catalog` | **Complete** |
 | Phase 2 — `buffoonery score` (JSON and table, seed, custom effects) | **Complete**: all 19 fixtures, JSON and table snapshots |
 | Phase 3 — `buffoonery link` (CLI to web bridge) | **Complete**: every fixture through `readHash`; one link in Chromium |
-| Phase 4 — the page on GitHub Pages | Workflow and footer **built**; 🔒 Gated: the maintainer turns on Pages (task 15), then the live check (task 17) |
+| Phase 4 — the page on GitHub Pages | **Complete**: Pages on (source "GitHub Actions"), deployed from `main`; live check passed 2026-10-22 |
 | Phase 5 — docs, OKF, CHANGELOG, `make` targets | **Complete** |
 
 ---
@@ -247,9 +247,9 @@ The page footer already names the engine version (`web/src/main.js:406`). Phase 
 ### Phase 4 — the page on GitHub Pages
 
 - [x] **14.** `.github/workflows/pages.yaml`: on push to `main`, build the component, run `npm test` and the Playwright tests, then upload and deploy `web/dist`.
-- [ ] **15.** Enable Pages in the repo settings, source "GitHub Actions". This is a settings change; the maintainer does it.
+- [x] **15.** Enable Pages in the repo settings, source "GitHub Actions". This is a settings change; the maintainer does it.
 - [x] **16.** Footer line in `web/src/main.js:406`: "Also on the command line: `cargo install --git https://github.com/ImperialBower/buffoonery buffoonery-cli`".
-- [ ] **17.** Check the live URL in a browser: the opening board scores, a `#board=` link opens, no sideways scroll at 390 px.
+- [x] **17.** Check the live URL in a browser: the opening board scores, a `#board=` link opens, no sideways scroll at 390 px. *Done 2026-10-22 in Chromium at 390 px: the opening board scores 8,316; the `buffoonery link` link for fixture 02 opens and scores 820, as `buffoonery score` does; page width 390 of 390; the footer shows the install line. The only console error is `/favicon.ico` 404 (the page has no icon).*
 
 ### Phase 5 — Docs and the gate
 
@@ -342,7 +342,7 @@ Exit criteria:
 
 ## Implementation notes
 
-Written 2026-10-21, while Phase 4 waits on the live site. Design vs actual so far:
+Written 2026-10-21, while Phase 4 waited on the live site; closed 2026-10-22 after the live check. Design vs actual:
 
 1. **`--json` is checked as JSON, not byte for byte, against the fixture files.** `--json` prints the component's string unchanged (compact JSON), but the `.trace.json` files are pretty-printed. `score_json_equals_golden` compares parsed values; `no_file_reads_stdin` checks the bytes against `buffoonery_component::score`. The Verification block's `diff` therefore differs in white space only.
 2. **The table follows the page's row text,** not the sketch: columns `#`, Source, Detail, Effect, Chips, Mult, Score; sources read `A♠ · played 1` and `Jolly Joker · slot 1`; the total line is `Pair  82 × 10 = 820`. Numbers round to 2 decimals, as the page does (`10.125` → `10.13`), without thousands separators.

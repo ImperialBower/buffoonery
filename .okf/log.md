@@ -1,5 +1,8 @@
 # Update Log
 
+## 2026-10-22
+* **EPIC-07 closed: Complete.** GitHub Pages is on (source "GitHub Actions"); the Pages workflow deploys `main`. Live check (task 17) in Chromium at 390 px: the opening board scores 8,316; the `buffoonery link` link for fixture 02 opens and scores 820, as the CLI does; no sideways scroll; the install line shows in the footer. Only console error: `/favicon.ico` 404. EPIC status table, [EPIC-07 pointer](references/epic-07-web-and-command-line.md), [index](index.md) and `BACKLOG.md` updated.
+
 ## 2026-10-21
 * **EPIC-08 written: joker shorthand.** Planned: one token per joker (`BARON+FOIL`, `LUCKYCATx3.25`, `JOKER+50c+OFF`) parsed in a new engine module, accepted as a string in `BoardSpec`, `buffoonery jokers` and `--jokers` on the CLI, and `MPip::MultTimes2Dot` so ×3.25 is exact. Jokers only; a whole-board line is a follow-on. New [EPIC-08 pointer](references/epic-08-joker-shorthand.md); [index](index.md) updated.
 * **EPIC-07 built, Phases 0–3 and 5; Phase 4 waits on Pages.** New workspace crate `cli/` (`buffoonery-cli`, binary `buffoonery`): `version`, `parse`, `catalog`, `score` (table, `--json`, `--all`, `--seed`, `--effects`), `link`. 38 CLI tests: 29 unit tests, every golden fixture's JSON and table snapshot (`fixtures/cli/`), and the binary's exit codes. A web Node test reads every CLI link with `readHash`; a Playwright test opens one, and one checks the page at 320 px. New `.github/workflows/pages.yaml`; CI's `component` job builds the CLI; `make cli`, and `make web` needs it. `clap` 4.6.7 without `suggestions`: `cargo deny check` passes. New [CLI decision](decisions/cli.md); [index](index.md), [EPIC-07 pointer](references/epic-07-web-and-command-line.md) and [quality gate](processes/quality-gate.md) updated.

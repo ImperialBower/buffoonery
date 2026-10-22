@@ -11,10 +11,11 @@ Sources scanned: `docs/EPIC-*.md`, `CHANGELOG.md` (Unreleased), source comments
 
 ## EPICs and features
 
-- [ ] **EPIC-07 — the CLI and the page on the web ("DOORS")** — built
-  2026-10-21 except the live site: turn on GitHub Pages in the repo settings
-  (source "GitHub Actions"), then check the live page (tasks 15 and 17).
+- [x] **EPIC-07 — the CLI and the page on the web ("DOORS")** — closed
+  2026-10-22; the page is live at <https://imperialbower.github.io/buffoonery/>.
   ([docs/EPIC-07_Web_And_Command_Line.md](docs/EPIC-07_Web_And_Command_Line.md))
+- [ ] **EPIC-08 — joker shorthand (`BARON+FOIL`, `LUCKYCATx3.25`)** — planned,
+  no code yet. ([docs/EPIC-08_Joker_Shorthand.md](docs/EPIC-08_Joker_Shorthand.md))
 - [ ] **Release `buffoonery` 0.1.0** — crates.io has 0.0.1; `CHANGELOG.md`
   Unreleased holds 27 entries, including breaking changes (fractional `Score`,
   `ScoreOp` JSON). ([CHANGELOG.md](CHANGELOG.md))
