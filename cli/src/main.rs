@@ -22,6 +22,17 @@ enum Commands {
     Parse {
         /// The board file; `-` or none reads stdin.
         file: Option<PathBuf>,
+        /// Replace the board's jokers with this line, e.g. "BARON+FOIL LUCKYCATx3.25".
+        #[arg(long, value_name = "LINE")]
+        jokers: Option<String>,
+    },
+    /// Explain a line of joker tokens, e.g. "BARON+FOIL LUCKYCATx3.25 JOKER+OFF".
+    Jokers {
+        /// The tokens, separated by spaces or commas.
+        line: String,
+        /// Print the jokers as JSON, in the board's map form.
+        #[arg(long)]
+        json: bool,
     },
     /// List the jokers.
     Catalog {
@@ -48,6 +59,9 @@ enum Commands {
         /// Custom effects: a JSON file with the list the page puts in its link.
         #[arg(long, value_name = "FILE")]
         effects: Option<PathBuf>,
+        /// Replace the board's jokers with this line, e.g. "BARON+FOIL LUCKYCATx3.25".
+        #[arg(long, value_name = "LINE")]
+        jokers: Option<String>,
     },
     /// Print a link that opens the board in the Joker Calculator page.
     Link {
@@ -59,6 +73,9 @@ enum Commands {
         /// Custom effects: a JSON file with the list the page puts in its link.
         #[arg(long, value_name = "FILE")]
         effects: Option<PathBuf>,
+        /// Replace the board's jokers with this line, e.g. "BARON+FOIL LUCKYCATx3.25".
+        #[arg(long, value_name = "LINE")]
+        jokers: Option<String>,
         /// The page's address; `make dev` serves it at `http://localhost:5173/`.
         #[arg(long, default_value = buffoonery_cli::link::PAGE)]
         base: String,
@@ -76,7 +93,11 @@ impl From<Commands> for Command {
     fn from(command: Commands) -> Self {
         match command {
             Commands::Version => Self::Version,
-            Commands::Parse { file } => Self::Parse { file: input(file) },
+            Commands::Parse { file, jokers } => Self::Parse {
+                file: input(file),
+                jokers,
+            },
+            Commands::Jokers { line, json } => Self::Jokers { line, json },
             Commands::Catalog { json, find } => Self::Catalog { json, find },
             Commands::Score {
                 file,
@@ -84,22 +105,26 @@ impl From<Commands> for Command {
                 all,
                 seed,
                 effects,
+                jokers,
             } => Self::Score {
                 file: input(file),
                 json,
                 all,
                 seed,
                 effects: effects.map(|path| input(Some(path))),
+                jokers,
             },
             Commands::Link {
                 file,
                 seed,
                 effects,
+                jokers,
                 base,
             } => Self::Link {
                 file: input(file),
                 seed,
                 effects: effects.map(|path| input(Some(path))),
+                jokers,
                 base,
             },
         }

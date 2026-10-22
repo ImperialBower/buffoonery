@@ -77,3 +77,38 @@ fn version_matches_the_engine() {
     assert_eq!(out.status.code(), Some(0));
     assert_eq!(text(&out.stdout), format!("{}\n", buffoonery::VERSION));
 }
+
+#[test]
+fn jokers_explains_a_line() {
+    let out = buffoonery(&["jokers", "BARON+FOIL LUCKYCATx3.25"], "");
+    assert_eq!(out.status.code(), Some(0));
+    let stdout = text(&out.stdout);
+    assert_eq!(stdout.lines().count(), 3, "{stdout}");
+    assert!(stdout.contains("×3.25 Mult"), "{stdout}");
+}
+
+#[test]
+fn jokers_bad_token_exits_1() {
+    let out = buffoonery(&["jokers", "LUCKYCAR"], "");
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(text(&out.stdout), "");
+    assert_eq!(
+        text(&out.stderr),
+        "buffoonery: jokers[0]: \"LUCKYCAR\": unknown joker\n"
+    );
+}
+
+#[test]
+fn score_jokers_flag_scores_the_line() {
+    let out = buffoonery(
+        &[
+            "score",
+            "-",
+            "--jokers",
+            "BARON+FOIL LUCKYCATx3.25 JOKER+OFF",
+        ],
+        "played: [KS, KH, 2C]\nheld: [KD, KC]",
+    );
+    assert_eq!(out.status.code(), Some(0));
+    assert!(text(&out.stdout).ends_with("Pair  80 × 14.63 = 1170\n"));
+}

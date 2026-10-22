@@ -38,6 +38,7 @@ fn score(spec: &Path, json: bool) -> String {
         all: false,
         seed: None,
         effects: None,
+        jokers: None,
     };
     let mut out = Vec::new();
     run(&command, &mut std::io::empty(), &mut out)

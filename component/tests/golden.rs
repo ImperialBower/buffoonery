@@ -5,7 +5,7 @@
 
 use buffoonery::prelude::*;
 use buffoonery_component::{
-    CustomEffect, ScoreOptions, catalog, parse, score, score_with, version,
+    CustomEffect, ScoreOptions, catalog, parse, read_spec, score, score_with, version,
 };
 use serde_json::Value;
 use std::fs;
@@ -84,6 +84,17 @@ fn parse__yaml_fixtures_become_json_that_scores_the_same() {
 #[test]
 fn parse__errors_name_the_field() {
     assert!(parse("colour: red").unwrap_err().starts_with("parse: "));
+}
+
+#[test]
+fn read_spec__reads_json_and_yaml() {
+    let expected = BoardSpec::from_yaml("played: [AS]").unwrap();
+    assert_eq!(read_spec("played: [AS]").unwrap(), expected);
+    assert_eq!(read_spec(r#" {"played": ["AS"]}"#).unwrap(), expected);
+    assert!(matches!(
+        read_spec("colour: red"),
+        Err(BoardSpecError::Parse(_))
+    ));
 }
 
 /// EPIC-08: a joker token reads in; `parse` writes the map form back.

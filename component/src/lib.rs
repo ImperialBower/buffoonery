@@ -135,7 +135,21 @@ pub fn parse(spec: &str) -> Result<String, String> {
     serde_json::to_string(&spec).map_err(|e| e.to_string())
 }
 
-fn read_spec(spec: &str) -> Result<BoardSpec, BoardSpecError> {
+/// Reads a [`BoardSpec`] from JSON (text that starts with `{`) or YAML. The
+/// one sniff every export uses; public so the CLI can edit a spec (its
+/// `--jokers`) without a sniff of its own.
+///
+/// # Errors
+///
+/// [`BoardSpecError::Parse`] when the text is not a spec.
+///
+/// # Examples
+///
+/// ```
+/// let spec = buffoonery_component::read_spec("jokers: [BARON+FOIL]").unwrap();
+/// assert_eq!(spec.jokers[0].ident, "BARON");
+/// ```
+pub fn read_spec(spec: &str) -> Result<BoardSpec, BoardSpecError> {
     if spec.trim_start().starts_with('{') {
         serde_json::from_str(spec).map_err(|e| BoardSpecError::Parse(e.to_string()))
     } else {

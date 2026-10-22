@@ -20,7 +20,14 @@ pub enum Command {
     /// Print the engine version.
     Version,
     /// Read a board, print it as JSON.
-    Parse { file: Input },
+    Parse {
+        file: Input,
+        /// A joker line (`"BARON+FOIL LUCKYCATx3.25"`) that replaces the
+        /// board's jokers.
+        jokers: Option<String>,
+    },
+    /// Explain a joker line: one row per token, or the jokers as JSON.
+    Jokers { line: String, json: bool },
     /// List the jokers: a table, or the component's JSON.
     Catalog { json: bool, find: Option<String> },
     /// Score a board: the trace as a table, or the component's JSON.
@@ -34,12 +41,16 @@ pub enum Command {
         seed: Option<u64>,
         /// Custom effects, as the JSON list the page puts in its link.
         effects: Option<Input>,
+        /// A joker line that replaces the board's jokers.
+        jokers: Option<String>,
     },
     /// Print a link that opens the board in the page.
     Link {
         file: Input,
         seed: Option<u64>,
         effects: Option<Input>,
+        /// A joker line that replaces the board's jokers.
+        jokers: Option<String>,
         /// The page's address, e.g. [`link::PAGE`] or `make dev`'s.
         base: String,
     },
@@ -93,18 +104,21 @@ impl std::fmt::Display for CliError {
 pub fn run(command: &Command, stdin: &mut dyn Read, out: &mut dyn Write) -> Result<(), CliError> {
     let text = match command {
         Command::Version => buffoonery_component::version(),
-        Command::Parse { file } => {
-            buffoonery_component::parse(&read_input(file, stdin)?).map_err(CliError::Board)?
+        Command::Parse { file, jokers } => {
+            let spec = with_jokers(read_input(file, stdin)?, jokers.as_deref())?;
+            buffoonery_component::parse(&spec).map_err(CliError::Board)?
         }
         Command::Catalog { json, find } => catalog(*json, find.as_deref()),
+        Command::Jokers { line, json } => jokers(line, *json)?,
         Command::Score {
             file,
             json,
             all,
             seed,
             effects,
+            jokers,
         } => {
-            let (spec, effects) = read_board(file, effects.as_ref(), stdin)?;
+            let (spec, effects) = read_board(file, effects.as_ref(), jokers.as_deref(), stdin)?;
             let trace = score(&spec, *seed, effects)?;
             if *json {
                 trace
@@ -118,9 +132,10 @@ pub fn run(command: &Command, stdin: &mut dyn Read, out: &mut dyn Write) -> Resu
             file,
             seed,
             effects,
+            jokers,
             base,
         } => {
-            let (spec, effects) = read_board(file, effects.as_ref(), stdin)?;
+            let (spec, effects) = read_board(file, effects.as_ref(), jokers.as_deref(), stdin)?;
             // The page opens only a board it can score; so does the link.
             score(&spec, *seed, effects.clone())?;
             let spec_json = buffoonery_component::parse(&spec).map_err(CliError::Board)?;
@@ -131,11 +146,12 @@ pub fn run(command: &Command, stdin: &mut dyn Read, out: &mut dyn Write) -> Resu
     writeln!(out, "{text}").map_err(|e| CliError::Io(e.to_string()))
 }
 
-/// The board text and its custom effects. Only one of the two can come
-/// from stdin.
+/// The board text, its jokers replaced by `jokers` when given, and its
+/// custom effects. Only one of board and effects can come from stdin.
 fn read_board(
     file: &Input,
     effects: Option<&Input>,
+    jokers: Option<&str>,
     stdin: &mut dyn Read,
 ) -> Result<(String, Vec<buffoonery_component::CustomEffect>), CliError> {
     if *file == Input::Stdin && effects == Some(&Input::Stdin) {
@@ -143,12 +159,73 @@ fn read_board(
             "stdin can hold the board or the effects, not both".to_string(),
         ));
     }
-    let spec = read_input(file, stdin)?;
+    let spec = with_jokers(read_input(file, stdin)?, jokers)?;
     let effects = match effects {
         Some(input) => read_effects(&read_input(input, stdin)?)?,
         None => Vec::new(),
     };
     Ok((spec, effects))
+}
+
+/// `spec` with its jokers replaced by the joker line, as JSON; `spec`
+/// unchanged when there is no line. Replace, not append: the flag is the one
+/// source of the jokers.
+fn with_jokers(spec: String, jokers: Option<&str>) -> Result<String, CliError> {
+    let Some(line) = jokers else {
+        return Ok(spec);
+    };
+    let mut spec =
+        buffoonery_component::read_spec(&spec).map_err(|e| CliError::Board(e.to_string()))?;
+    spec.jokers = parse_jokers(line).map_err(|e| CliError::Board(e.to_string()))?;
+    serde_json::to_string(&spec).map_err(|e| CliError::Board(e.to_string()))
+}
+
+/// A joker line explained: a table of token, name, edition, override and
+/// debuffed, or the `JokerSpec` list as JSON.
+fn jokers(line: &str, json: bool) -> Result<String, CliError> {
+    let jokers = parse_jokers(line).map_err(|e| CliError::Board(e.to_string()))?;
+    if json {
+        return serde_json::to_string(&jokers).map_err(|e| CliError::Board(e.to_string()));
+    }
+    let mut rows = vec![
+        ["Token", "Name", "Edition", "Override", "Debuffed"]
+            .map(String::from)
+            .to_vec(),
+    ];
+    for joker in &jokers {
+        // A parsed joker always has a token and a catalog name.
+        let token = joker
+            .shorthand()
+            .map_err(|e| CliError::Board(e.to_string()))?;
+        let name = Joker::by_ident(&joker.ident)
+            .and_then(|card| Joker::name(&card))
+            .unwrap_or_default();
+        rows.push(vec![
+            token,
+            name.to_string(),
+            joker
+                .edition
+                .map(|edition| edition.to_string())
+                .unwrap_or_default(),
+            joker.enhancement.map(override_text).unwrap_or_default(),
+            if joker.debuffed { "yes" } else { "" }.to_string(),
+        ]);
+    }
+    Ok(table::columns(&rows, &[false; 5]))
+}
+
+/// An override as the breakdown writes its op: `+50 Chips`, `×3.25 Mult`.
+#[allow(clippy::cast_precision_loss)]
+fn override_text(enhancement: MPip) -> String {
+    let op = match enhancement {
+        MPip::Chips(chips) => ScoreOp::AddChips(chips),
+        MPip::MultPlus(mult) => ScoreOp::AddMult(mult),
+        MPip::MultTimes(times) => ScoreOp::TimesMult(times as f64),
+        MPip::MultTimes1Dot(tenths) => ScoreOp::TimesMult(tenths as f64 / 10.0),
+        MPip::MultTimes2Dot(hundredths) => ScoreOp::TimesMult(hundredths as f64 / 100.0),
+        other => return other.to_string(),
+    };
+    op.to_string()
 }
 
 /// The trace as the component's JSON: `score`, or `score_with` when there is
@@ -317,10 +394,12 @@ mod tests {
     fn run_parse_yaml_prints_json() {
         let command = Command::Parse {
             file: fixture("01_high_card.yaml"),
+            jokers: None,
         };
         let yaml = std::fs::read_to_string(match &command {
             Command::Parse {
                 file: Input::Path(path),
+                ..
             } => path,
             _ => unreachable!(),
         })
@@ -333,7 +412,10 @@ mod tests {
 
     #[test]
     fn run_parse_reads_stdin() {
-        let command = Command::Parse { file: Input::Stdin };
+        let command = Command::Parse {
+            file: Input::Stdin,
+            jokers: None,
+        };
         assert_eq!(
             output(&command, "played: [AS]").unwrap(),
             "{\"played\":[\"AS\"]}\n"
@@ -392,6 +474,7 @@ mod tests {
     fn run_missing_file_is_io_error() {
         let command = Command::Parse {
             file: fixture("no_such_board.yaml"),
+            jokers: None,
         };
         let error = output(&command, "").unwrap_err();
         assert!(matches!(error, CliError::Io(_)), "{error:?}");
@@ -406,6 +489,7 @@ mod tests {
             all: false,
             seed: None,
             effects: None,
+            jokers: None,
         }
     }
 
@@ -432,6 +516,7 @@ mod tests {
             all: false,
             seed: Some(7),
             effects: None,
+            jokers: None,
         };
         let yaml = std::fs::read_to_string(match &command {
             Command::Score {
@@ -467,6 +552,7 @@ mod tests {
             all: false,
             seed: None,
             effects: Some(Input::Path(effects)),
+            jokers: None,
         };
         let text = output(
             &command,
@@ -489,6 +575,7 @@ mod tests {
             all: false,
             seed: None,
             effects: Some(Input::Path(effects)),
+            jokers: None,
         };
         let error = output(&command, "played: [AS]").unwrap_err();
         assert!(matches!(error, CliError::Board(_)), "{error:?}");
@@ -503,6 +590,7 @@ mod tests {
             all: false,
             seed: None,
             effects: Some(Input::Stdin),
+            jokers: None,
         };
         let error = output(&command, "played: [AS]").unwrap_err();
         assert_eq!(error.exit_code(), 2, "{error}");
@@ -523,6 +611,7 @@ mod tests {
             file,
             seed,
             effects: None,
+            jokers: None,
             base: link::PAGE.to_string(),
         }
     }
@@ -550,6 +639,7 @@ mod tests {
             file: Input::Stdin,
             seed: None,
             effects: Some(Input::Path(effects)),
+            jokers: None,
             base: "http://x/".to_string(),
         };
         let text = output(
@@ -576,12 +666,155 @@ mod tests {
 
     #[test]
     fn run_bad_spec_is_board_error() {
-        let command = Command::Parse { file: Input::Stdin };
+        let command = Command::Parse {
+            file: Input::Stdin,
+            jokers: None,
+        };
         let error = output(&command, "nonsense: 1").unwrap_err();
         assert_eq!(
             error,
             CliError::Board(buffoonery_component::parse("nonsense: 1").unwrap_err())
         );
         assert_eq!(error.exit_code(), 1);
+    }
+
+    // ---- Joker shorthand (EPIC-08) -------------------------------------------
+
+    /// Fixture 20's hand, without its jokers.
+    const FIXTURE_20_HAND: &str = "played: [KS, KH, 2C]\nheld: [KD, KC]";
+    const FIXTURE_20_JOKERS: &str = "BARON+FOIL LUCKYCATx3.25 JOKER+OFF";
+
+    fn jokers(line: &str, json: bool) -> Command {
+        Command::Jokers {
+            line: line.to_string(),
+            json,
+        }
+    }
+
+    #[test]
+    fn run_jokers_prints_one_row_per_token() {
+        let text = output(&jokers(FIXTURE_20_JOKERS, false), "").unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        assert_eq!(lines.len(), 4, "a header and three jokers:\n{text}");
+        for heading in ["Token", "Name", "Edition", "Override", "Debuffed"] {
+            assert!(lines[0].contains(heading), "{text}");
+        }
+        assert!(lines[1].starts_with("BARON+FOIL"), "{text}");
+        assert!(
+            lines[1].contains("Baron") && lines[1].contains("Foil"),
+            "{text}"
+        );
+        assert!(lines[2].starts_with("LUCKYCATx3.25"), "{text}");
+        assert!(
+            lines[2].contains("Lucky Cat") && lines[2].contains("×3.25 Mult"),
+            "{text}"
+        );
+        assert!(lines[3].starts_with("JOKER+OFF"), "{text}");
+        assert!(lines[3].trim_end().ends_with("yes"), "{text}");
+    }
+
+    #[test]
+    fn run_jokers_writes_the_canonical_token() {
+        let text = output(&jokers("lucky_cat+holographic", false), "").unwrap();
+        assert!(
+            text.lines().nth(1).unwrap().starts_with("LUCKYCAT+HOLO "),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn run_jokers_json_is_joker_spec_list() {
+        let text = output(&jokers(FIXTURE_20_JOKERS, true), "").unwrap();
+        let expected = serde_json::to_string(&parse_jokers(FIXTURE_20_JOKERS).unwrap()).unwrap();
+        assert_eq!(text, format!("{expected}\n"));
+        assert!(text.contains(r#""MultTimes2Dot":325"#), "{text}");
+    }
+
+    #[test]
+    fn run_jokers_bad_token_is_board_error() {
+        let error = output(&jokers("BARON LUCKYCAR", false), "").unwrap_err();
+        assert_eq!(
+            error,
+            CliError::Board(r#"jokers[1]: "LUCKYCAR": unknown joker"#.to_string())
+        );
+        assert_eq!(error.exit_code(), 1);
+    }
+
+    fn score_with_jokers(json: bool, line: &str) -> Command {
+        Command::Score {
+            file: Input::Stdin,
+            json,
+            all: false,
+            seed: None,
+            effects: None,
+            jokers: Some(line.to_string()),
+        }
+    }
+
+    #[test]
+    fn score_jokers_flag_equals_map_form() {
+        let command = score_with_jokers(true, FIXTURE_20_JOKERS);
+        let trace: serde_json::Value =
+            serde_json::from_str(&output(&command, FIXTURE_20_HAND).unwrap()).unwrap();
+        let expected: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../fixtures/golden/20_shorthand_jokers.trace.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(trace, expected);
+    }
+
+    #[test]
+    fn score_jokers_flag_replaces_file_jokers() {
+        let command = score_with_jokers(false, "");
+        let text = output(&command, "played: [AS, AH]\njokers: [JOLLY_JOKER]").unwrap();
+        assert!(text.ends_with("Pair  32 × 2 = 64\n"), "{text}");
+    }
+
+    #[test]
+    fn score_bad_jokers_flag_is_board_error() {
+        let error = output(&score_with_jokers(true, "LUCKYCAR"), "played: [AS]").unwrap_err();
+        assert_eq!(
+            error,
+            CliError::Board(r#"jokers[0]: "LUCKYCAR": unknown joker"#.to_string())
+        );
+    }
+
+    #[test]
+    fn link_jokers_flag_is_in_the_hash() {
+        let command = Command::Link {
+            file: Input::Stdin,
+            seed: None,
+            effects: None,
+            jokers: Some("BARON+FOIL".to_string()),
+            base: "http://x/".to_string(),
+        };
+        assert_eq!(
+            output(&command, "played: [AS]").unwrap(),
+            format!(
+                "{}\n",
+                link::board_link(
+                    "http://x/",
+                    r#"{"played":["AS"],"jokers":[{"ident":"BARON","edition":"Foil"}]}"#,
+                    None,
+                    None
+                )
+            )
+        );
+    }
+
+    #[test]
+    fn parse_jokers_flag_replaces_file_jokers() {
+        let command = Command::Parse {
+            file: Input::Stdin,
+            jokers: Some("JOKER+OFF".to_string()),
+        };
+        assert_eq!(
+            output(&command, "played: [AS]\njokers: [{ident: JOLLY_JOKER}]").unwrap(),
+            "{\"played\":[\"AS\"],\"jokers\":[{\"ident\":\"JOKER\",\"debuffed\":true}]}\n"
+        );
     }
 }
