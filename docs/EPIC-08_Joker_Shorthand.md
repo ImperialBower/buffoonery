@@ -1,6 +1,6 @@
 # EPIC-08: Joker shorthand (TOKENS)
 
-Oct 21, 2026 · @Christoph · *Written against branch `epic05-close` at `7383070`. Numbered in the shared cardpack / buffoonery space, after EPIC-07.*
+Oct 21, 2026 · @Christoph · *Written against branch `epic05-close` at `7383070`. Numbered in the shared cardpack / buffoonery space, after EPIC-07. **Closed 2026-10-22: Complete** on `main` at `e16be87`.*
 
 ## Summary
 
@@ -8,7 +8,7 @@ Oct 21, 2026 · @Christoph · *Written against branch `epic05-close` at `7383070
 - **Why:** today a joker with an edition or an override is a four-line YAML map. Cards already have a shorthand (`AS`); jokers do not. A solver, a script, a chat message or a CLI flag wants one.
 - **Shape:** `JokerSpec` learns `FromStr` and a canonical `shorthand()`, in a new engine module with no dependencies. `BoardSpec` accepts a joker as a bare string, as it accepts a card. The CLI gets a `jokers` command and a `--jokers` flag. One new `MPip` variant, `MultTimes2Dot`, so ×3.25 is exact.
 - **Proves it:** every joker in the catalog round-trips through its token; a golden fixture written with tokens scores to a blessed trace; `buffoonery score --jokers "BARON+FOIL LUCKYCATx3.25"` prints the same JSON as the YAML map form.
-- **Status:** Built 2026-10-22, all six phases, on branch `epic08-shorthand`. Closes when it merges.
+- **Status:** Complete 2026-10-22. All six phases merged to `main` at `e16be87`.
 
 ---
 
@@ -42,7 +42,7 @@ The joker already has a data form. The shorthand is a second spelling of it, not
 
 ## Status
 
-As of 2026-10-22, branch `epic08-shorthand` (not yet merged), all phases built. `make ayce` green.
+As of 2026-10-22, `main` at `e16be87` (merged from branch `epic08-shorthand`, no pull request). `make ayce` green; CI, Security and Pages green.
 
 | Component | Status |
 | --- | --- |

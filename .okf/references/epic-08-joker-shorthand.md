@@ -1,8 +1,8 @@
 ---
 type: reference
 title: EPIC-08 — Joker shorthand
-description: "Built 2026-10-22 (branch `epic08-shorthand`): a one-token text form for a joker (`BARON+FOIL`, `LUCKYCATx3.25`) parsed in the engine, accepted as a string in `BoardSpec` YAML/JSON, and on the CLI as `jokers` and `--jokers`; adds `MPip::MultTimes2Dot` so ×3.25 is exact."
-tags: [epic, shorthand, dsl, joker, cli, built]
+description: "Complete (closed 2026-10-22): a one-token text form for a joker (`BARON+FOIL`, `LUCKYCATx3.25`) parsed in the engine, accepted as a string in `BoardSpec` YAML/JSON, and on the CLI as `jokers` and `--jokers`; adds `MPip::MultTimes2Dot` so ×3.25 is exact."
+tags: [epic, shorthand, dsl, joker, cli, complete]
 timestamp: '2026-10-22T00:00:00Z'
 resource: docs/EPIC-08_Joker_Shorthand.md
 ---
@@ -30,5 +30,5 @@ for the override, `+OFF` for debuffed. A line of tokens is a joker row.
   ×3.25 is not rounded to ×3.3. (The EPIC expected fixture 20 to break the
   page's round trip; it did not, because the page passes an `MPip` it does
   not know through unchanged.)
-* **Built 2026-10-22,** all six phases; see the [decision](/decisions/joker-shorthand.md)
+* **Complete, closed 2026-10-22** at `e16be87`, all six phases; see the [decision](/decisions/joker-shorthand.md)
   and the EPIC's Implementation notes.
