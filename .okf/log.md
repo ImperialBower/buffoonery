@@ -1,5 +1,8 @@
 # Update Log
 
+## 2026-10-23
+* **EPIC-09 written: a whole board on one line.** `docs/EPIC-09_Board_Line.md`, Planned, against `main` at `679c03d`. Played / held / jokers / settings, split by `/`; card tokens (`KS+STEEL`); `key=value` settings; the component's sniff reads a line, so the CLI, paste box and links get it free. New [EPIC-09 pointer](references/epic-09-board-line.md); [index](index.md) and `BACKLOG.md` updated.
+
 ## 2026-10-22
 * **EPIC-08 closed: Complete.** All six phases merged to `main` at `e16be87` (fast-forward from `epic08-shorthand`, no pull request); CI, Security and Pages green. EPIC status, [EPIC-08 pointer](references/epic-08-joker-shorthand.md), [index](index.md) and `BACKLOG.md` updated.
 * **EPIC-08 Phase 5: docs; the EPIC is built.** README: a "Joker shorthand" section (grammar table, a Rust example) and `jokers` / `--jokers` under "Command line". CHANGELOG Unreleased: Added (shorthand, `MultTimes2Dot`, CLI, public `read_spec`) and Changed (the page writes hundredths). New [joker shorthand decision](decisions/joker-shorthand.md); [engine](architecture/engine.md) (`MPip` is 143 variants), [EPIC-08 pointer](references/epic-08-joker-shorthand.md), [index](index.md) and `BACKLOG.md` updated.
