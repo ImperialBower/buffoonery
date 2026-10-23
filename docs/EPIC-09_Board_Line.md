@@ -8,7 +8,7 @@ Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in 
 - **Why:** a board is a YAML file today. EPIC-08 gave jokers a token, but a hand still needs a file. A chat message, a bug report, a shell one-liner or a test table wants the whole board in one line.
 - **Shape:** `BoardSpec` learns `FromStr` and a canonical `line()`, in a new engine module with no dependencies. Cards get tokens of their own (`KS+STEEL`, `AH+GLASS+POLY`). The jokers section is EPIC-08's token line, unchanged. The component's sniff learns a third form, so the CLI, the page's paste box and `#board=` links accept a line with no WIT change.
 - **Proves it:** every golden fixture round-trips through its line and scores to the same trace; `fixtures/cli/lines.txt` pins the 20 lines; `buffoonery score --board "…"` prints the same JSON as the YAML file.
-- **Status:** In progress on branch `epic09-board-line`: Phases 0–2 done.
+- **Status:** In progress on branch `epic09-board-line`: Phases 0–3 done.
 
 ---
 
@@ -47,7 +47,7 @@ As of 2026-10-23, branch `epic09-board-line`. `make ayce` green after each finis
 | Phase 0 — `LineError` names its section; `ShorthandError` gains card and setting variants | **Complete**: 2 new tests, 4 updated; every EPIC-08 message unchanged but one (note 1) |
 | Phase 1 — card tokens: `parse_card`, `CardSpec::shorthand` | **Complete**: 17 unit tests, 4 doc tests |
 | Phase 2 — settings words and the board line: `BoardSpec: FromStr`, `BoardSpec::line` | **Complete**: 21 unit tests, 3 doc tests; 682 lib tests |
-| Phase 3 — the component's sniff reads a line; every golden fixture round-trips | Planned |
+| Phase 3 — the component's sniff reads a line; every golden fixture round-trips | **Complete**: 6 component tests, 1 golden test; all 20 fixtures have a line; component 510 KiB |
 | Phase 4 — CLI: `--board LINE` and the `line` command; `fixtures/cli/lines.txt` | Planned |
 | Phase 5 — the page: a pasted line opens (Playwright) | Planned |
 | Phase 6 — docs, OKF, CHANGELOG | Planned |
@@ -329,8 +329,8 @@ pub enum Command {
 
 ### Phase 3 — The sniff and the golden set
 
-- [ ] **9.** `read_spec` reads a line (`component/src/lib.rs:152`); `is_board_line`. Tests `read_spec__reads_a_board_line`, `read_spec__yaml_with_a_colon_is_still_yaml`, `read_spec__empty_text_is_still_yaml` (today's behavior, pinned), `parse__board_line_becomes_the_map_form` (the component's `parse` on fixture 20's line returns the same JSON as on its YAML), `score__a_bad_line_names_section_and_position`. Update the doc comments on `score` and `parse` in `component/wit/world.wit:22`, `:28`: "JSON, YAML or a board line". `make component` green, size under budget.
-- [ ] **10.** `tests/golden.rs`: `every_fixture_round_trips_through_its_line` — for each fixture, `line()` succeeds, `parse(line) == spec`, and scoring the parsed spec gives the blessed trace. All 20 fixtures have a line (checked 2026-10-23: every enhanced card uses a tarot value). A fixture added later with no line fails here and must say why in the test's allow-list.
+- [x] **9.** `read_spec` reads a line (`component/src/lib.rs:152`); `is_board_line`. Tests `read_spec__reads_a_board_line`, `read_spec__yaml_with_a_colon_is_still_yaml`, `read_spec__empty_text_is_still_yaml` (today's behavior, pinned), `parse__board_line_becomes_the_map_form` (the component's `parse` on fixture 20's line returns the same JSON as on its YAML), `score__a_bad_line_names_section_and_position`. Update the doc comments on `score` and `parse` in `component/wit/world.wit:22`, `:28`: "JSON, YAML or a board line". `make component` green, size under budget.
+- [x] **10.** `tests/golden.rs`: `every_fixture_round_trips_through_its_line` — for each fixture, `line()` succeeds, `parse(line) == spec`, and scoring the parsed spec gives the blessed trace. All 20 fixtures have a line (checked 2026-10-23: every enhanced card uses a tarot value). A fixture added later with no line fails here and must say why in the test's allow-list.
 
 ### Phase 4 — CLI
 
@@ -451,3 +451,7 @@ Written as each phase lands. Design vs actual:
 6. **Duplicate words for settings:** `money settings`, `hands settings`, `discards settings`, `blind settings`, and `levels for one hand` (`"flush=3": two levels for one hand`).
 7. **Spaces around `/` are optional on input** (`AS//JOKER` reads as `AS / / JOKER`). `line()` joins with ` / ` and collapses runs of spaces, so an empty first section writes `/ KD`.
 8. **`parse_whole` became `pub(crate)`** for the settings, as Phase 1 planned. `BoardLineError` is in the prelude with `parse_card`. Extra tests beyond the plan: `settings__each_key_sets_its_field`, `line__round_trips_every_field`.
+9. **A bad line's error starts with `parse: `** (Phase 3). The component maps `BoardLineError` to `BoardSpecError::Parse`, as it does a bad YAML token, so the text is `parse: played[1]: "KX": unknown card`. The page's paste box will show `Could not open it: parse: played[1]: …`, not the Phase 5 text in the plan.
+10. **The sniff also refuses `\r`,** not only `\n`, so a Windows line ending inside the text keeps it on the YAML path. Trailing line endings are trimmed first, so a file holding one line and a newline reads as a line.
+11. **The golden round trip passed on its first run.** It tests Phase 2's code over the 20 fixtures, so it could not fail first; it guards any later fixture. Its allow-list `NO_LINE` is empty.
+12. **The component grew from about 492 KiB to 510 KiB** (`buffoonery_component.opt.wasm`), under the 600 KiB budget. The board line pulls `board_line` and the joker catalog lookup into the adapter.

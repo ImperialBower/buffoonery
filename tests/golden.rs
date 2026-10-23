@@ -97,6 +97,40 @@ fn golden__traces_match() {
     }
 }
 
+/// EPIC-09: every fixture has a board line; the line reads back to the same
+/// spec and scores to the blessed trace. A fixture added with no line form
+/// fails here, and must say why in `NO_LINE`.
+#[test]
+fn every_fixture_round_trips_through_its_line() {
+    const NO_LINE: [&str; 0] = [];
+    for path in fixtures() {
+        let name = path
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .expect("a name");
+        let yaml = fs::read_to_string(&path).expect("readable fixture");
+        let spec = BoardSpec::from_yaml(&yaml).expect("a spec");
+        let Ok(line) = spec.line() else {
+            assert!(
+                NO_LINE.contains(&name),
+                "{name} has no line: {:?}",
+                spec.line()
+            );
+            continue;
+        };
+        let read_back: BoardSpec = line
+            .parse()
+            .unwrap_or_else(|e| panic!("{name}: {line:?}: {e}"));
+        assert_eq!(read_back, spec, "{name}: {line}");
+
+        let board = BuffoonBoard::try_from(&read_back).expect("a board");
+        let actual = serde_json::to_value(board.score_traced()).expect("trace serializes");
+        let text = fs::read_to_string(trace_path(&path)).expect("a blessed trace");
+        let expected: serde_json::Value = serde_json::from_str(&text).expect("valid JSON");
+        assert_eq!(actual, expected, "{name}: {line}");
+    }
+}
+
 /// The trace and the untraced pipeline agree on every fixture.
 #[test]
 fn golden__trace_total_is_score() {

@@ -59,7 +59,7 @@ Known and tracked before:
 
 - Created Stone cards have a fixed base, a deliberate divergence from
   Balatro. (`src/decks/basic.rs:193`)
-- Component size: 494 of 600 KiB; YAML is 40% of it. The JSON-only lever is
+- Component size: 510 of 600 KiB (2026-10-23); YAML is about 40% of it. The JSON-only lever is
   documented. (`component/README.md`, Size)
 
 ## Recently completed

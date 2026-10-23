@@ -1,8 +1,8 @@
 //! The buffoonery engine as a WebAssembly component (EPIC-05 Story 4).
 //!
 //! The component exports the `calculator` interface in `wit/world.wit`. This
-//! crate is the adapter: it owns the formats (JSON and YAML in, JSON out) and
-//! does no scoring of its own. The engine crate knows nothing about WIT.
+//! crate is the adapter: it owns the formats (JSON, YAML or a board line in,
+//! JSON out) and does no scoring of its own. The engine crate knows nothing about WIT.
 //!
 //! Build it with
 //!
@@ -16,9 +16,8 @@
 
 use buffoonery::prelude::*;
 
-/// Scores a board: a [`BoardSpec`] as JSON or YAML in, its [`ScoreTrace`] as
-/// JSON out. Input that starts with `{` is read as JSON, anything else as
-/// YAML.
+/// Scores a board: a [`BoardSpec`] as JSON, YAML or a board line in, its
+/// [`ScoreTrace`] as JSON out. [`read_spec`] tells the three apart.
 ///
 /// # Errors
 ///
@@ -116,9 +115,9 @@ pub fn score_with(spec: &str, options: &ScoreOptions) -> Result<String, String> 
     serde_json::to_string(&trace).map_err(|e| e.to_string())
 }
 
-/// Reads a [`BoardSpec`] as JSON or YAML and writes it back as JSON, so a host
-/// without a YAML parser can load a YAML board. It checks the shape only; an
-/// unknown joker ident or card index is reported by [`score`].
+/// Reads a [`BoardSpec`] as JSON, YAML or a board line and writes it back as
+/// JSON, so a host without a YAML parser can load a YAML board. It checks the
+/// shape only; an unknown joker ident or card index is reported by [`score`].
 ///
 /// # Errors
 ///
@@ -135,26 +134,44 @@ pub fn parse(spec: &str) -> Result<String, String> {
     serde_json::to_string(&spec).map_err(|e| e.to_string())
 }
 
-/// Reads a [`BoardSpec`] from JSON (text that starts with `{`) or YAML. The
-/// one sniff every export uses; public so the CLI can edit a spec (its
-/// `--jokers`) without a sniff of its own.
+/// Reads a [`BoardSpec`] from JSON (text that starts with `{`), a board line
+/// (EPIC-09: one line with no `:`, such as `KS KH / KD / BARON+FOIL`), or
+/// YAML. The one sniff every export uses; public so the CLI can edit a spec
+/// (its `--jokers`) without a sniff of its own.
 ///
 /// # Errors
 ///
-/// [`BoardSpecError::Parse`] when the text is not a spec.
+/// [`BoardSpecError::Parse`] when the text is not a spec. For a board line
+/// the message names the section and position: `played[1]: "KX": unknown
+/// card`.
 ///
 /// # Examples
 ///
 /// ```
 /// let spec = buffoonery_component::read_spec("jokers: [BARON+FOIL]").unwrap();
 /// assert_eq!(spec.jokers[0].ident, "BARON");
+///
+/// let spec = buffoonery_component::read_spec("AS AD / / BARON+FOIL").unwrap();
+/// assert_eq!(spec.played.len(), 2);
 /// ```
 pub fn read_spec(spec: &str) -> Result<BoardSpec, BoardSpecError> {
-    if spec.trim_start().starts_with('{') {
+    let trimmed = spec.trim();
+    if trimmed.starts_with('{') {
         serde_json::from_str(spec).map_err(|e| BoardSpecError::Parse(e.to_string()))
+    } else if is_board_line(trimmed) {
+        trimmed
+            .parse()
+            .map_err(|e: BoardLineError| BoardSpecError::Parse(e.to_string()))
     } else {
         BoardSpec::from_yaml(spec)
     }
+}
+
+/// Whether trimmed text is a board line: not empty, one line, no `:`. A
+/// non-empty YAML board is a map, so it always has a `:`; no text that read
+/// as YAML before reads as a line now.
+fn is_board_line(trimmed: &str) -> bool {
+    !trimmed.is_empty() && !trimmed.contains(['\n', '\r', ':'])
 }
 
 /// Every joker as a JSON array of [`JokerInfo`], in [`Joker::ALL_JOKERS`]

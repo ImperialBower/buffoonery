@@ -29,12 +29,12 @@ shrinks it with `jco opt` (`wasm-opt -Oz`), turns it into an ES module with
 
 ## Size
 
-Measured 2026-10-20, Rust 1.99.1, `--profile component`:
+Measured 2026-10-23 (EPIC-09, board line), Rust 1.99.1, `--profile component`:
 
 | File | Raw | gzip -9 |
 | --- | --- | --- |
-| `buffoonery_component.wasm` | 603 KiB | 180 KiB |
-| after `jco opt -Oz` | 494 KiB | 178 KiB |
+| `buffoonery_component.wasm` | 624 KiB | 187 KiB |
+| after `jco opt -Oz` | 510 KiB | 184 KiB |
 
 The budget is 600 KiB raw after `jco opt`, checked by `js/golden.test.mjs`.
 It was 500 KiB until 2026-10-20, when the component reached 494 KiB. Raised

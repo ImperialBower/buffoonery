@@ -97,6 +97,66 @@ fn read_spec__reads_json_and_yaml() {
     ));
 }
 
+/// EPIC-09: fixture 20 as one line.
+const LINE_20: &str = "KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25 JOKER+OFF";
+
+#[test]
+fn read_spec__reads_a_board_line() {
+    let yaml = fs::read_to_string(fixtures_dir().join("20_shorthand_jokers.yaml")).unwrap();
+    let expected = BoardSpec::from_yaml(&yaml).unwrap();
+    assert_eq!(read_spec(LINE_20).unwrap(), expected);
+    assert_eq!(read_spec(&format!("  {LINE_20}\n")).unwrap(), expected);
+    assert_eq!(
+        read_spec("AS").unwrap().played,
+        vec![CardSpec::Index("AS".to_string())]
+    );
+}
+
+#[test]
+fn read_spec__yaml_with_a_colon_is_still_yaml() {
+    assert_eq!(
+        read_spec("played: [AS]").unwrap(),
+        BoardSpec::from_yaml("played: [AS]").unwrap()
+    );
+    // Two lines with no colon are not a board line: YAML reads them, and fails.
+    assert!(matches!(read_spec("AS\nKS"), Err(BoardSpecError::Parse(_))));
+}
+
+#[test]
+fn read_spec__empty_text_is_still_yaml() {
+    for text in ["", "  ", "\n"] {
+        assert_eq!(
+            read_spec(text).map_err(|e| e.to_string()),
+            BoardSpec::from_yaml(text).map_err(|e| e.to_string()),
+            "{text:?}"
+        );
+    }
+}
+
+#[test]
+fn parse__board_line_becomes_the_map_form() {
+    let yaml = fs::read_to_string(fixtures_dir().join("20_shorthand_jokers.yaml")).unwrap();
+    assert_eq!(parse(LINE_20).unwrap(), parse(&yaml).unwrap());
+}
+
+#[test]
+fn score__a_board_line_scores_its_fixture() {
+    let path = fixtures_dir().join("20_shorthand_jokers.yaml");
+    assert_eq!(parsed(&score(LINE_20).unwrap()), expected(&path));
+}
+
+#[test]
+fn score__a_bad_line_names_section_and_position() {
+    assert_eq!(
+        score("AS KX / KD").unwrap_err(),
+        r#"parse: played[1]: "KX": unknown card"#
+    );
+    assert_eq!(
+        score("AS / / / / money=1").unwrap_err(),
+        "parse: a board line has at most 4 sections; found 5"
+    );
+}
+
 /// EPIC-08: a joker token reads in; `parse` writes the map form back.
 #[test]
 fn parse__token_jokers_become_the_map_form() {
