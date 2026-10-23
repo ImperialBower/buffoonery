@@ -13,7 +13,7 @@ pub use crate::decks::tarot::MajorArcana;
 pub use crate::decks::tarot::card::*;
 pub use crate::types::blind::{Blind, BossBlind};
 pub use crate::types::board::BuffoonBoard;
-pub use crate::types::board_line::parse_card;
+pub use crate::types::board_line::{BoardLineError, parse_card};
 pub use crate::types::board_spec::{BoardSpec, BoardSpecError, CardSpec, JokerSpec};
 pub use crate::types::buffoon_card::{BCardType, BuffoonCard};
 pub use crate::types::buffoon_pile::{BuffoonPile, HandRules};

@@ -1,34 +1,52 @@
-//! A whole board on one line (EPIC-09): `KS KH 2C / KD KC / BARON+FOIL`.
+//! A whole board on one line (EPIC-09): `KS KH 2C / KD KC / BARON+FOIL / FLUSH=2`.
 //!
-//! A card token is a card index, then modifiers: `KS`, `KS+STEEL`,
-//! `AH+GLASS+POLY`.
+//! A board line is a third spelling of a [`BoardSpec`], after YAML and JSON.
+//! Four sections, split by `/`, by place: played cards, held cards, jokers,
+//! settings. A section may be empty; trailing sections may be left out.
 //!
 //! ```text
-//! card        = index { "+" modifier }      ; any case
-//! index       = rank suit                   ; one of the 52 playing cards
-//! modifier    = enhancement | edition       ; each at most once, any order
-//! enhancement = BONUS MULT WILD GLASS STEEL STONE GOLD LUCKY
-//! edition     = FOIL HOLO POLY NEG, or the long word
+//! board       = section [ "/" section [ "/" section [ "/" section ] ] ]
+//! section     = [ word { sep word } ]            ; sep: any run of spaces, tabs, commas
+//!
+//! played, held: card  = index { "+" modifier }   ; any case
+//!               index = rank suit                ; one of the 52 playing cards
+//!               modifier = enhancement | edition ; each at most once, any order
+//!               enhancement = BONUS MULT WILD GLASS STEEL STONE GOLD LUCKY
+//!               edition = FOIL HOLO POLY NEG, or the long word
+//! jokers:       a joker token (see joker_shorthand)
+//! settings:     HAND=level | money=[-]n | hands=n | discards=n | blind=BLIND
+//!               HAND  = HIGHCARD PAIR TWOPAIR … FLUSHFIVE ; "_" ignored
+//!               BLIND = SMALL BIG [THE]NEEDLE [THE]WATER [THE]MANACLE
 //! ```
 //!
 //! Each enhancement word is the fixed value its tarot puts on a card
-//! (`STEEL` is The Chariot's `MultTimes1Dot(15)`). A card with another
-//! enhancement has no token; [`CardSpec::shorthand`] says so instead of
-//! rounding.
+//! (`STEEL` is The Chariot's `MultTimes1Dot(15)`). Case is ignored on input.
+//! [`BoardSpec::line`] writes the canonical form, and refuses a spec it
+//! cannot write exactly instead of rounding.
 //!
 //! ```
 //! use buffoonery::prelude::*;
+//!
+//! let spec: BoardSpec = "ks kh 2c / kd kc / baron+foil / flush=2 money=20".parse().unwrap();
+//! assert_eq!(spec.money, Some(20));
+//! assert_eq!(spec.line().unwrap(), "KS KH 2C / KD KC / BARON+FOIL / FLUSH=2 money=20");
 //!
 //! let card = parse_card("ah+poly+glass").unwrap();
 //! assert_eq!(card.shorthand().unwrap(), "AH+GLASS+POLY");
 //! ```
 
 use crate::decks::tarot::card::{EMPRESS, JUSTICE, LOVERS, MAGICIAN};
-use crate::types::board_spec::CardSpec;
+use crate::types::blind::{Blind, BossBlind};
+use crate::types::board_spec::{BoardSpec, CardSpec};
 use crate::types::buffoon_card::{BCardType, BuffoonCard};
 use crate::types::edition::Edition;
-use crate::types::joker_shorthand::{ShorthandError, edition_word, parse_edition, set_once};
+use crate::types::hands::HandType;
+use crate::types::joker_shorthand::{
+    LineError, ShorthandError, edition_word, parse_edition, parse_jokers, parse_whole, set_once,
+    shorthand_line,
+};
 use crate::types::mpip::MPip;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 /// The eight card enhancements, by word. Read from the tarots and `MPip`'s
@@ -216,6 +234,323 @@ fn enhancement_word(value: MPip) -> Option<&'static str> {
         .map(|(name, _)| *name)
 }
 
+/// The sections of a board line, in place order.
+const SECTIONS: [&str; 4] = ["played", "held", "jokers", "settings"];
+
+/// Every hand type, in `HandType` order. With [`hand_word`]'s exhaustive
+/// match, a new hand fails to compile or fails `hands__list_has_every_variant`.
+const HANDS: [HandType; 13] = [
+    HandType::HighCard,
+    HandType::Pair,
+    HandType::TwoPair,
+    HandType::ThreeOfAKind,
+    HandType::Straight,
+    HandType::Flush,
+    HandType::FullHouse,
+    HandType::FourOfAKind,
+    HandType::StraightFlush,
+    HandType::RoyalFlush,
+    HandType::FiveOfAKind,
+    HandType::FlushHouse,
+    HandType::FlushFive,
+];
+
+/// Every blind. With [`blind_word`]'s exhaustive match, a new boss fails to
+/// compile or fails `blinds__every_blind_has_a_word`.
+const BLINDS: [Blind; 5] = [
+    Blind::Small,
+    Blind::Big,
+    Blind::Boss(BossBlind::TheNeedle),
+    Blind::Boss(BossBlind::TheWater),
+    Blind::Boss(BossBlind::TheManacle),
+];
+
+/// Why a board line could not be read, or a spec written as one.
+///
+/// ```
+/// use buffoonery::prelude::*;
+///
+/// let error = "AS KX".parse::<BoardSpec>().unwrap_err();
+/// assert_eq!(error.to_string(), r#"played[1]: "KX": unknown card"#);
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BoardLineError {
+    /// More than four `/`-separated sections.
+    TooManySections { found: usize },
+    /// One token failed, with its section and position.
+    Token(LineError),
+}
+
+impl Display for BoardLineError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TooManySections { found } => {
+                write!(f, "a board line has at most 4 sections; found {found}")
+            }
+            Self::Token(error) => write!(f, "{error}"),
+        }
+    }
+}
+
+impl std::error::Error for BoardLineError {}
+
+/// Reads a board line, section by section.
+///
+/// ```
+/// use buffoonery::prelude::*;
+///
+/// let spec: BoardSpec = "KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25".parse().unwrap();
+/// assert_eq!(spec.played.len(), 3);
+/// assert_eq!(spec.held.len(), 2);
+/// assert_eq!(spec.jokers[1].enhancement, Some(MPip::MultTimes2Dot(325)));
+/// ```
+impl FromStr for BoardSpec {
+    type Err = BoardLineError;
+
+    fn from_str(line: &str) -> Result<Self, Self::Err> {
+        let sections: Vec<&str> = line.split('/').collect();
+        if sections.len() > SECTIONS.len() {
+            return Err(BoardLineError::TooManySections {
+                found: sections.len(),
+            });
+        }
+        let mut spec = Self::default();
+        for (section, text) in SECTIONS.into_iter().zip(sections) {
+            match section {
+                "played" => spec.played = parse_cards(section, text)?,
+                "held" => spec.held = parse_cards(section, text)?,
+                "jokers" => spec.jokers = parse_jokers(text).map_err(BoardLineError::Token)?,
+                _ => {
+                    for (position, word) in words(text).enumerate() {
+                        apply_setting(&mut spec, word).map_err(|error| {
+                            BoardLineError::Token(LineError {
+                                section,
+                                position,
+                                error,
+                            })
+                        })?;
+                    }
+                }
+            }
+        }
+        Ok(spec)
+    }
+}
+
+impl BoardSpec {
+    /// The canonical board line: sections joined by ` / `, an empty middle
+    /// section written as nothing (`AS / / JOKER`), trailing empty sections
+    /// dropped. Settings in this order: hand levels in `HandType` order,
+    /// then `money`, `hands`, `discards`, `blind`. Reading it back gives an
+    /// equal spec.
+    ///
+    /// # Errors
+    ///
+    /// [`BoardLineError::Token`] for the first card or joker with no token
+    /// form (see [`CardSpec::shorthand`] and [`JokerSpec::shorthand`]), with
+    /// its section and position.
+    ///
+    /// [`JokerSpec::shorthand`]: crate::types::board_spec::JokerSpec::shorthand
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use buffoonery::prelude::*;
+    ///
+    /// let spec = BoardSpec {
+    ///     played: vec![CardSpec::Index("AS".to_string())],
+    ///     money: Some(20),
+    ///     ..BoardSpec::default()
+    /// };
+    /// assert_eq!(spec.line().unwrap(), "AS / / / money=20");
+    /// ```
+    pub fn line(&self) -> Result<String, BoardLineError> {
+        let mut parts = vec![
+            cards_line("played", &self.played)?,
+            cards_line("held", &self.held)?,
+            shorthand_line(&self.jokers).map_err(BoardLineError::Token)?,
+            self.settings_line(),
+        ];
+        while parts.last().is_some_and(String::is_empty) {
+            parts.pop();
+        }
+        // Tokens hold no spaces, so collapsing runs only tidies empty sections.
+        Ok(parts
+            .join(" / ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" "))
+    }
+
+    /// The settings section: every setting has a word, so it cannot fail.
+    fn settings_line(&self) -> String {
+        let mut words: Vec<String> = self
+            .hand_levels
+            .iter()
+            .map(|(hand, level)| format!("{}={level}", hand_word(*hand)))
+            .collect();
+        if let Some(money) = self.money {
+            words.push(format!("money={money}"));
+        }
+        if let Some(hands) = self.hands_left {
+            words.push(format!("hands={hands}"));
+        }
+        if let Some(discards) = self.discards_left {
+            words.push(format!("discards={discards}"));
+        }
+        if let Some(blind) = self.blind {
+            words.push(format!("blind={}", blind_word(blind)));
+        }
+        words.join(" ")
+    }
+}
+
+/// The words of one section: any run of spaces, tabs and commas separates.
+fn words(text: &str) -> impl Iterator<Item = &str> {
+    text.split(|c: char| c.is_whitespace() || c == ',')
+        .filter(|word| !word.is_empty())
+}
+
+/// Reads a played or held section.
+fn parse_cards(section: &'static str, text: &str) -> Result<Vec<CardSpec>, BoardLineError> {
+    words(text)
+        .enumerate()
+        .map(|(position, token)| {
+            parse_card(token).map_err(|error| {
+                BoardLineError::Token(LineError {
+                    section,
+                    position,
+                    error,
+                })
+            })
+        })
+        .collect()
+}
+
+/// Writes a played or held section.
+fn cards_line(section: &'static str, cards: &[CardSpec]) -> Result<String, BoardLineError> {
+    let tokens = cards
+        .iter()
+        .enumerate()
+        .map(|(position, card)| {
+            card.shorthand().map_err(|error| {
+                BoardLineError::Token(LineError {
+                    section,
+                    position,
+                    error,
+                })
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(tokens.join(" "))
+}
+
+/// Lays one `key=value` setting onto `spec`, refusing a second of a key.
+fn apply_setting(spec: &mut BoardSpec, word: &str) -> Result<(), ShorthandError> {
+    let unknown = |key: &str| ShorthandError::UnknownSetting {
+        token: word.to_string(),
+        key: key.to_string(),
+    };
+    let Some((key, value)) = word.split_once('=') else {
+        return Err(unknown(word));
+    };
+    let duplicate = |what| ShorthandError::Duplicate {
+        token: word.to_string(),
+        what,
+    };
+    let bad_number = || ShorthandError::BadNumber {
+        token: word.to_string(),
+        number: value.to_string(),
+    };
+    match name(key).as_str() {
+        "MONEY" => {
+            let money = parse_signed(value).ok_or_else(bad_number)?;
+            set_once(&mut spec.money, money).ok_or_else(|| duplicate("money settings"))
+        }
+        "HANDS" => {
+            let hands = parse_whole(value).ok_or_else(bad_number)?;
+            set_once(&mut spec.hands_left, hands).ok_or_else(|| duplicate("hands settings"))
+        }
+        "DISCARDS" => {
+            let discards = parse_whole(value).ok_or_else(bad_number)?;
+            set_once(&mut spec.discards_left, discards)
+                .ok_or_else(|| duplicate("discards settings"))
+        }
+        "BLIND" => {
+            let blind = parse_blind(value).ok_or_else(|| ShorthandError::UnknownBlind {
+                token: word.to_string(),
+                blind: value.to_string(),
+            })?;
+            set_once(&mut spec.blind, blind).ok_or_else(|| duplicate("blind settings"))
+        }
+        hand_name => {
+            let hand = HANDS
+                .into_iter()
+                .find(|hand| hand_word(*hand) == hand_name)
+                .ok_or_else(|| unknown(key))?;
+            let level = parse_whole(value).ok_or_else(bad_number)?;
+            if spec.hand_levels.contains_key(&hand) {
+                return Err(duplicate("levels for one hand"));
+            }
+            spec.hand_levels.insert(hand, level);
+            Ok(())
+        }
+    }
+}
+
+/// A name as the grammar compares it: underscores dropped, upper case.
+fn name(text: &str) -> String {
+    text.replace('_', "").to_ascii_uppercase()
+}
+
+/// A whole number with an optional leading `-`.
+fn parse_signed(number: &str) -> Option<isize> {
+    match number.strip_prefix('-') {
+        Some(digits) => isize::try_from(parse_whole(digits)?).ok()?.checked_neg(),
+        None => isize::try_from(parse_whole(number)?).ok(),
+    }
+}
+
+/// The blind a word names; a boss may have `THE` in front.
+fn parse_blind(word: &str) -> Option<Blind> {
+    let word = name(word);
+    BLINDS.into_iter().find(|blind| {
+        let canonical = blind_word(*blind);
+        word == canonical || (blind.is_boss() && word == format!("THE{canonical}"))
+    })
+}
+
+/// The canonical word for a hand: `FLUSH`, `TWOPAIR`.
+fn hand_word(hand: HandType) -> &'static str {
+    match hand {
+        HandType::HighCard => "HIGHCARD",
+        HandType::Pair => "PAIR",
+        HandType::TwoPair => "TWOPAIR",
+        HandType::ThreeOfAKind => "THREEOFAKIND",
+        HandType::Straight => "STRAIGHT",
+        HandType::Flush => "FLUSH",
+        HandType::FullHouse => "FULLHOUSE",
+        HandType::FourOfAKind => "FOUROFAKIND",
+        HandType::StraightFlush => "STRAIGHTFLUSH",
+        HandType::RoyalFlush => "ROYALFLUSH",
+        HandType::FiveOfAKind => "FIVEOFAKIND",
+        HandType::FlushHouse => "FLUSHHOUSE",
+        HandType::FlushFive => "FLUSHFIVE",
+    }
+}
+
+/// The canonical word for a blind: `SMALL`, `BIG`, `NEEDLE`, `WATER`,
+/// `MANACLE`.
+fn blind_word(blind: Blind) -> &'static str {
+    match blind {
+        Blind::Small => "SMALL",
+        Blind::Big => "BIG",
+        Blind::Boss(BossBlind::TheNeedle) => "NEEDLE",
+        Blind::Boss(BossBlind::TheWater) => "WATER",
+        Blind::Boss(BossBlind::TheManacle) => "MANACLE",
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod funky__types__board_line_tests {
@@ -224,9 +559,11 @@ mod funky__types__board_line_tests {
     use crate::decks::tarot::card::{
         DEVIL, EMPRESS, HIEROPHANT, JUSTICE, LOVERS, MAGICIAN, THE_CHARIOT, TOWER,
     };
-    use crate::types::board_spec::CardSpec;
+    use crate::types::blind::{Blind, BossBlind};
+    use crate::types::board_spec::{BoardSpec, CardSpec, JokerSpec};
     use crate::types::edition::Edition;
-    use crate::types::joker_shorthand::ShorthandError;
+    use crate::types::hands::HandType;
+    use crate::types::joker_shorthand::{LineError, ShorthandError};
     use crate::types::mpip::MPip;
 
     fn index(card: &str) -> CardSpec {
@@ -473,5 +810,348 @@ mod funky__types__board_line_tests {
                 "{card}"
             );
         }
+    }
+
+    // ---- Settings -----------------------------------------------------------
+
+    fn board(line: &str) -> Result<BoardSpec, BoardLineError> {
+        line.parse()
+    }
+
+    fn settings(line: &str) -> Result<BoardSpec, BoardLineError> {
+        board(&format!("/ / / {line}"))
+    }
+
+    fn setting_error(position: usize, error: ShorthandError) -> Result<BoardSpec, BoardLineError> {
+        Err(BoardLineError::Token(LineError {
+            section: "settings",
+            position,
+            error,
+        }))
+    }
+
+    #[test]
+    fn hands__list_has_every_variant() {
+        assert_eq!(HANDS.len(), 13);
+        let distinct: std::collections::BTreeSet<HandType> = HANDS.into_iter().collect();
+        assert_eq!(distinct.len(), 13);
+        for hand in HANDS {
+            let word = hand_word(hand);
+            let spec = settings(&format!("{word}=2")).unwrap();
+            assert_eq!(spec.hand_levels.get(&hand), Some(&2), "{word}");
+        }
+    }
+
+    #[test]
+    fn blinds__every_blind_has_a_word() {
+        let blinds = [
+            (Blind::Small, "SMALL"),
+            (Blind::Big, "BIG"),
+            (Blind::Boss(BossBlind::TheNeedle), "NEEDLE"),
+            (Blind::Boss(BossBlind::TheWater), "WATER"),
+            (Blind::Boss(BossBlind::TheManacle), "MANACLE"),
+        ];
+        assert_eq!(BLINDS.len(), blinds.len());
+        for (blind, word) in blinds {
+            assert_eq!(blind_word(blind), word);
+            assert_eq!(
+                settings(&format!("blind={word}")).unwrap().blind,
+                Some(blind)
+            );
+        }
+    }
+
+    #[test]
+    fn settings__the_is_optional() {
+        let water = Some(Blind::Boss(BossBlind::TheWater));
+        assert_eq!(settings("blind=THEWATER").unwrap().blind, water);
+        assert_eq!(settings("blind=WATER").unwrap().blind, water);
+        assert_eq!(settings("blind=the_water").unwrap().blind, water);
+    }
+
+    #[test]
+    fn settings__case_and_underscores_ignored() {
+        let spec = settings("two_pair=2 Flush=3 MONEY=4 Hands=1").unwrap();
+        assert_eq!(spec.hand_levels.get(&HandType::TwoPair), Some(&2));
+        assert_eq!(spec.hand_levels.get(&HandType::Flush), Some(&3));
+        assert_eq!(spec.money, Some(4));
+        assert_eq!(spec.hands_left, Some(1));
+    }
+
+    #[test]
+    fn settings__each_key_sets_its_field() {
+        let spec = settings("FLUSH=2 money=20 hands=3 discards=2 blind=BIG").unwrap();
+        assert_eq!(spec.hand_levels.get(&HandType::Flush), Some(&2));
+        assert_eq!(spec.money, Some(20));
+        assert_eq!(spec.hands_left, Some(3));
+        assert_eq!(spec.discards_left, Some(2));
+        assert_eq!(spec.blind, Some(Blind::Big));
+    }
+
+    #[test]
+    fn settings__money_may_be_negative() {
+        assert_eq!(settings("money=-5").unwrap().money, Some(-5));
+    }
+
+    #[test]
+    fn settings__counts_may_not() {
+        for (word, number) in [
+            ("hands=-1", "-1"),
+            ("discards=x", "x"),
+            ("FLUSH=", ""),
+            ("money=--5", "--5"),
+        ] {
+            assert_eq!(
+                settings(word),
+                setting_error(
+                    0,
+                    ShorthandError::BadNumber {
+                        token: word.to_string(),
+                        number: number.to_string(),
+                    }
+                ),
+                "{word}"
+            );
+        }
+    }
+
+    #[test]
+    fn settings__each_key_once() {
+        let cases = [
+            ("money=1 money=2", "money=2", "money settings"),
+            ("hands=1 hands=2", "hands=2", "hands settings"),
+            ("discards=1 discards=2", "discards=2", "discards settings"),
+            ("blind=BIG blind=SMALL", "blind=SMALL", "blind settings"),
+            ("FLUSH=2 flush=3", "flush=3", "levels for one hand"),
+        ];
+        for (line, token, what) in cases {
+            assert_eq!(
+                settings(line),
+                setting_error(
+                    1,
+                    ShorthandError::Duplicate {
+                        token: token.to_string(),
+                        what,
+                    }
+                ),
+                "{line}"
+            );
+        }
+    }
+
+    #[test]
+    fn settings__unknown_key_and_blind_name_it() {
+        for (word, key) in [
+            ("speed=3", "speed"),
+            ("FLSH=2", "FLSH"),
+            ("$20", "$20"),
+            ("FLUSH", "FLUSH"),
+        ] {
+            assert_eq!(
+                settings(word),
+                setting_error(
+                    0,
+                    ShorthandError::UnknownSetting {
+                        token: word.to_string(),
+                        key: key.to_string(),
+                    }
+                ),
+                "{word}"
+            );
+        }
+        assert_eq!(
+            settings("blind=WALL"),
+            setting_error(
+                0,
+                ShorthandError::UnknownBlind {
+                    token: "blind=WALL".to_string(),
+                    blind: "WALL".to_string(),
+                }
+            )
+        );
+    }
+
+    // ---- The board line -----------------------------------------------------
+
+    fn jokers(line: &str) -> Vec<JokerSpec> {
+        crate::types::joker_shorthand::parse_jokers(line).unwrap()
+    }
+
+    #[test]
+    fn line__sections_by_place() {
+        assert_eq!(
+            board("AS AD"),
+            Ok(BoardSpec {
+                played: vec![index("AS"), index("AD")],
+                ..BoardSpec::default()
+            })
+        );
+        assert_eq!(
+            board("AS / KD"),
+            Ok(BoardSpec {
+                played: vec![index("AS")],
+                held: vec![index("KD")],
+                ..BoardSpec::default()
+            })
+        );
+        assert_eq!(
+            board("AS / KD / BARON"),
+            Ok(BoardSpec {
+                played: vec![index("AS")],
+                held: vec![index("KD")],
+                jokers: jokers("BARON"),
+                ..BoardSpec::default()
+            })
+        );
+        assert_eq!(
+            board("AS / KD / BARON / money=3"),
+            Ok(BoardSpec {
+                played: vec![index("AS")],
+                held: vec![index("KD")],
+                jokers: jokers("BARON"),
+                money: Some(3),
+                ..BoardSpec::default()
+            })
+        );
+    }
+
+    #[test]
+    fn line__empty_middle_section() {
+        assert_eq!(
+            board("AS / / JOKER"),
+            Ok(BoardSpec {
+                played: vec![index("AS")],
+                jokers: jokers("JOKER"),
+                ..BoardSpec::default()
+            })
+        );
+        assert_eq!(
+            board("AS//JOKER"),
+            board("AS / / JOKER"),
+            "spaces around / are optional"
+        );
+    }
+
+    #[test]
+    fn line__empty_is_the_default_spec() {
+        assert_eq!(board(""), Ok(BoardSpec::default()));
+        assert_eq!(board("  "), Ok(BoardSpec::default()));
+        assert_eq!(board(" / / / "), Ok(BoardSpec::default()));
+    }
+
+    #[test]
+    fn line__five_sections_is_an_error() {
+        assert_eq!(
+            board("AS / / / / money=1"),
+            Err(BoardLineError::TooManySections { found: 5 })
+        );
+        assert_eq!(
+            BoardLineError::TooManySections { found: 5 }.to_string(),
+            "a board line has at most 4 sections; found 5"
+        );
+    }
+
+    #[test]
+    fn line__error_names_section_and_position() {
+        let message = |line: &str| board(line).unwrap_err().to_string();
+        assert_eq!(message("AS KX"), r#"played[1]: "KX": unknown card"#);
+        assert_eq!(
+            message("AS / KS+SHINY"),
+            r#"held[0]: "KS+SHINY": unknown modifier "+SHINY""#
+        );
+        assert_eq!(
+            message("/ / BARON JOKER LUCKYCAR"),
+            r#"jokers[2]: "LUCKYCAR": unknown joker"#
+        );
+        assert_eq!(
+            message("/ / / speed=3"),
+            r#"settings[0]: "speed=3": unknown setting"#
+        );
+    }
+
+    #[test]
+    fn line__separators_are_any_run() {
+        let expected = board("AS AD / KD / BARON JOKER / money=1 hands=2");
+        assert_eq!(board("AS,,AD/KD/BARON , JOKER/money=1\thands=2"), expected);
+        assert_eq!(
+            board("\tAS  AD /KD/ BARON,JOKER / money=1,hands=2 "),
+            expected
+        );
+    }
+
+    #[test]
+    fn line__canonical_form() {
+        let fixture_20 = "KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25 JOKER+OFF";
+        assert_eq!(
+            board(fixture_20).unwrap().line(),
+            Ok(fixture_20.to_string())
+        );
+        let fixture_03 = "AH+BONUS JH+MULT 9H 6H 3H / / DROLLJOKER CRAFTYJOKER / FLUSH=2";
+        assert_eq!(
+            board(fixture_03).unwrap().line(),
+            Ok(fixture_03.to_string())
+        );
+        assert_eq!(BoardSpec::default().line(), Ok(String::new()));
+        assert_eq!(
+            board("/ KD").unwrap().line(),
+            Ok("/ KD".to_string()),
+            "an empty first section"
+        );
+    }
+
+    #[test]
+    fn line__settings_in_canonical_order() {
+        let spec = settings("blind=the_water discards=2 hands=3 money=-1 flush=2 pair=3").unwrap();
+        assert_eq!(
+            spec.line(),
+            Ok("/ / / PAIR=3 FLUSH=2 money=-1 hands=3 discards=2 blind=WATER".to_string())
+        );
+    }
+
+    #[test]
+    fn line__trailing_empty_sections_dropped() {
+        assert_eq!(board("AS / / /").unwrap().line(), Ok("AS".to_string()));
+        assert_eq!(
+            board("AS / KD / /").unwrap().line(),
+            Ok("AS / KD".to_string())
+        );
+    }
+
+    #[test]
+    fn line__round_trips_every_field() {
+        let line = "AS+STEEL+FOIL KS / 7D+WILD / BARON+HOLO LUCKYCATx3.25 / TWOPAIR=2 money=7 hands=1 discards=0 blind=SMALL";
+        let spec = board(line).unwrap();
+        assert_eq!(spec.line(), Ok(line.to_string()));
+        assert_eq!(board(&spec.line().unwrap()), Ok(spec));
+    }
+
+    #[test]
+    fn line__no_line_names_section_and_position() {
+        let spec = BoardSpec {
+            held: vec![detailed("KH", Some(MPip::Chips(50)), None)],
+            ..BoardSpec::default()
+        };
+        assert_eq!(
+            spec.line().unwrap_err().to_string(),
+            "held[0]: KH: Chips(50) has no shorthand"
+        );
+        let spec = BoardSpec {
+            jokers: vec![JokerSpec {
+                enhancement: Some(MPip::Custom(1)),
+                ..jokers("JOKER").remove(0)
+            }],
+            ..BoardSpec::default()
+        };
+        assert_eq!(
+            spec.line().unwrap_err().to_string(),
+            "jokers[0]: JOKER: Custom(1) has no shorthand"
+        );
+    }
+
+    #[test]
+    fn from_str__board_line_error_is_an_error() {
+        let error: Box<dyn std::error::Error> =
+            Box::new(BoardLineError::TooManySections { found: 6 });
+        assert!(error.to_string().contains("found 6"));
     }
 }

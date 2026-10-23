@@ -74,10 +74,10 @@ pub enum ShorthandError {
     NoShorthand { ident: String, value: String },
     /// `index` is not one of the 52 card indexes.
     UnknownCard { token: String, index: String },
-    /// `key` is not one of the board line's setting keys.
+    /// `key` is not one of the board line's setting keys (`money`, `hands`,
+    /// `discards`, `blind`) nor a hand name; or the word has no `=`, and
+    /// `key` is the whole word.
     UnknownSetting { token: String, key: String },
-    /// `hand` names no hand type.
-    UnknownHand { token: String, hand: String },
     /// `blind` names no blind.
     UnknownBlind { token: String, blind: String },
 }
@@ -95,7 +95,6 @@ impl Display for ShorthandError {
             Self::NoShorthand { ident, value } => write!(f, "{ident}: {value} has no shorthand"),
             Self::UnknownCard { token, .. } => write!(f, "\"{token}\": unknown card"),
             Self::UnknownSetting { token, .. } => write!(f, "\"{token}\": unknown setting"),
-            Self::UnknownHand { token, .. } => write!(f, "\"{token}\": unknown hand"),
             Self::UnknownBlind { token, .. } => write!(f, "\"{token}\": unknown blind"),
         }
     }
@@ -443,7 +442,7 @@ fn split_counted(body: &str) -> Option<(&str, char)> {
 }
 
 /// A whole number: digits only.
-fn parse_whole(number: &str) -> Option<usize> {
+pub(crate) fn parse_whole(number: &str) -> Option<usize> {
     if number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
     }
@@ -770,14 +769,6 @@ mod funky__types__joker_shorthand_tests {
             }
             .to_string(),
             r#""speed=3": unknown setting"#
-        );
-        assert_eq!(
-            ShorthandError::UnknownHand {
-                token: token("FLSH=2"),
-                hand: token("FLSH"),
-            }
-            .to_string(),
-            r#""FLSH=2": unknown hand"#
         );
         assert_eq!(
             ShorthandError::UnknownBlind {

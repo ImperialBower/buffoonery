@@ -8,7 +8,7 @@ Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in 
 - **Why:** a board is a YAML file today. EPIC-08 gave jokers a token, but a hand still needs a file. A chat message, a bug report, a shell one-liner or a test table wants the whole board in one line.
 - **Shape:** `BoardSpec` learns `FromStr` and a canonical `line()`, in a new engine module with no dependencies. Cards get tokens of their own (`KS+STEEL`, `AH+GLASS+POLY`). The jokers section is EPIC-08's token line, unchanged. The component's sniff learns a third form, so the CLI, the page's paste box and `#board=` links accept a line with no WIT change.
 - **Proves it:** every golden fixture round-trips through its line and scores to the same trace; `fixtures/cli/lines.txt` pins the 20 lines; `buffoonery score --board "…"` prints the same JSON as the YAML file.
-- **Status:** In progress on branch `epic09-board-line`: Phases 0–1 done.
+- **Status:** In progress on branch `epic09-board-line`: Phases 0–2 done.
 
 ---
 
@@ -46,7 +46,7 @@ As of 2026-10-23, branch `epic09-board-line`. `make ayce` green after each finis
 | --- | --- |
 | Phase 0 — `LineError` names its section; `ShorthandError` gains card and setting variants | **Complete**: 2 new tests, 4 updated; every EPIC-08 message unchanged but one (note 1) |
 | Phase 1 — card tokens: `parse_card`, `CardSpec::shorthand` | **Complete**: 17 unit tests, 4 doc tests |
-| Phase 2 — settings words and the board line: `BoardSpec: FromStr`, `BoardSpec::line` | Planned |
+| Phase 2 — settings words and the board line: `BoardSpec: FromStr`, `BoardSpec::line` | **Complete**: 21 unit tests, 3 doc tests; 682 lib tests |
 | Phase 3 — the component's sniff reads a line; every golden fixture round-trips | Planned |
 | Phase 4 — CLI: `--board LINE` and the `line` command; `fixtures/cli/lines.txt` | Planned |
 | Phase 5 — the page: a pasted line opens (Playwright) | Planned |
@@ -322,10 +322,10 @@ pub enum Command {
 
 ### Phase 2 — Settings and the board line
 
-- [ ] **5.** Settings words: `hand_word`, `HANDS`, `blind_word`. Tests `hands__list_has_every_variant` (13, each word reads back), `blinds__every_blind_has_a_word` (5, each reads back), `settings__the_is_optional` (`blind=THEWATER` and `blind=WATER`), `settings__underscores_ignored` (`TWO_PAIR=2`), `settings__money_may_be_negative` (`money=-5`), `settings__counts_may_not` (`hands=-1` → `BadNumber`), `settings__each_key_once` (`money=1 money=2` → `Duplicate`), `settings__unknown_key_hand_blind_name_it`.
-- [ ] **6.** `BoardLineError` with `Display` and `Error`; `FromStr for BoardSpec`. Tests `line__sections_by_place` (1, 2, 3 and 4 sections), `line__empty_middle_section` (`AS / / JOKER`), `line__empty_is_the_default_spec`, `line__five_sections_is_an_error`, `line__error_names_section_and_position` (`played[1]`, `held[0]`, `jokers[2]`, `settings[0]`), `line__separators_are_any_run` (spaces, tabs, commas, as EPIC-08).
-- [ ] **7.** `BoardSpec::line`. Tests `line__canonical_form` (fixture 20's and fixture 03's lines from the Design section), `line__settings_in_canonical_order`, `line__trailing_empty_sections_dropped`, `line__no_line_names_section_and_position` (a `Chips(50)` held card → `held[0]`).
-- [ ] **8.** Doc tests on every public item. `cargo test --doc` green.
+- [x] **5.** Settings words: `hand_word`, `HANDS`, `blind_word`. Tests `hands__list_has_every_variant` (13, each word reads back), `blinds__every_blind_has_a_word` (5, each reads back), `settings__the_is_optional` (`blind=THEWATER` and `blind=WATER`), `settings__underscores_ignored` (`TWO_PAIR=2`), `settings__money_may_be_negative` (`money=-5`), `settings__counts_may_not` (`hands=-1` → `BadNumber`), `settings__each_key_once` (`money=1 money=2` → `Duplicate`), `settings__unknown_key_hand_blind_name_it`.
+- [x] **6.** `BoardLineError` with `Display` and `Error`; `FromStr for BoardSpec`. Tests `line__sections_by_place` (1, 2, 3 and 4 sections), `line__empty_middle_section` (`AS / / JOKER`), `line__empty_is_the_default_spec`, `line__five_sections_is_an_error`, `line__error_names_section_and_position` (`played[1]`, `held[0]`, `jokers[2]`, `settings[0]`), `line__separators_are_any_run` (spaces, tabs, commas, as EPIC-08).
+- [x] **7.** `BoardSpec::line`. Tests `line__canonical_form` (fixture 20's and fixture 03's lines from the Design section), `line__settings_in_canonical_order`, `line__trailing_empty_sections_dropped`, `line__no_line_names_section_and_position` (a `Chips(50)` held card → `held[0]`).
+- [x] **8.** Doc tests on every public item. `cargo test --doc` green.
 
 ### Phase 3 — The sniff and the golden set
 
@@ -447,3 +447,7 @@ Written as each phase lands. Design vs actual:
 2. **A card token takes only the 52 playing cards** (Phase 1). Context said `BuffoonCard::from_str` matches the 52 indexes. It also reads the tarots (`FOOL`, `1M`), the blank card `__`, and lower case. `is_playing_card` keeps only `BCardType::Basic` cards written upper case, without `__`. `parse_card__unknown_index_is_an_error` pins `FOOL`, `1M` and `__`. A YAML board can still name a tarot as a played card; it has no line.
 3. **`set_once` became `pub(crate)` as well,** besides `parse_edition` and `edition_word`. `parse_whole` stays private until Phase 2 needs it.
 4. **An extra test, `enhancements__are_the_tarot_values`,** puts each tarot on a King with `BuffoonCard::enhance` and checks the word gives the same `MPip`. The `NoShorthand` text for a `Detailed` card that sets nothing is `KH: a map with no enhancement or edition has no shorthand`.
+5. **No `UnknownHand`** (Phase 2). Phase 0 added it, but `speed=3` and `FLSH=2` cannot be told apart: either may be a bad key or a bad hand name. Every key that is not `money`, `hands`, `discards`, `blind` or a hand name is `UnknownSetting`, and so is a word with no `=` (`$20`, `FLUSH`). The variant is gone; it was never released. So the Scope example `"FLSH=2": unknown hand` reads `"FLSH=2": unknown setting`.
+6. **Duplicate words for settings:** `money settings`, `hands settings`, `discards settings`, `blind settings`, and `levels for one hand` (`"flush=3": two levels for one hand`).
+7. **Spaces around `/` are optional on input** (`AS//JOKER` reads as `AS / / JOKER`). `line()` joins with ` / ` and collapses runs of spaces, so an empty first section writes `/ KD`.
+8. **`parse_whole` became `pub(crate)`** for the settings, as Phase 1 planned. `BoardLineError` is in the prelude with `parse_card`. Extra tests beyond the plan: `settings__each_key_sets_its_field`, `line__round_trips_every_field`.
