@@ -395,7 +395,7 @@ fn apply_modifier(
 }
 
 /// Sets `slot` if it is empty; `None` if it already held a value.
-fn set_once<T>(slot: &mut Option<T>, value: T) -> Option<()> {
+pub(crate) fn set_once<T>(slot: &mut Option<T>, value: T) -> Option<()> {
     if slot.is_some() {
         return None;
     }
@@ -404,7 +404,7 @@ fn set_once<T>(slot: &mut Option<T>, value: T) -> Option<()> {
 }
 
 /// The edition a word names, short or long, any case.
-fn parse_edition(word: &str) -> Option<Edition> {
+pub(crate) fn parse_edition(word: &str) -> Option<Edition> {
     [
         Edition::Foil,
         Edition::Holographic,
@@ -419,7 +419,7 @@ fn parse_edition(word: &str) -> Option<Edition> {
 }
 
 /// The short spelling the canonical token writes.
-fn edition_word(edition: Edition) -> &'static str {
+pub(crate) fn edition_word(edition: Edition) -> &'static str {
     match edition {
         Edition::Foil => "FOIL",
         Edition::Holographic => "HOLO",

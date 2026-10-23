@@ -8,7 +8,7 @@ Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in 
 - **Why:** a board is a YAML file today. EPIC-08 gave jokers a token, but a hand still needs a file. A chat message, a bug report, a shell one-liner or a test table wants the whole board in one line.
 - **Shape:** `BoardSpec` learns `FromStr` and a canonical `line()`, in a new engine module with no dependencies. Cards get tokens of their own (`KS+STEEL`, `AH+GLASS+POLY`). The jokers section is EPIC-08's token line, unchanged. The component's sniff learns a third form, so the CLI, the page's paste box and `#board=` links accept a line with no WIT change.
 - **Proves it:** every golden fixture round-trips through its line and scores to the same trace; `fixtures/cli/lines.txt` pins the 20 lines; `buffoonery score --board "…"` prints the same JSON as the YAML file.
-- **Status:** In progress on branch `epic09-board-line`: Phase 0 done.
+- **Status:** In progress on branch `epic09-board-line`: Phases 0–1 done.
 
 ---
 
@@ -45,7 +45,7 @@ As of 2026-10-23, branch `epic09-board-line`. `make ayce` green after each finis
 | Component | Status |
 | --- | --- |
 | Phase 0 — `LineError` names its section; `ShorthandError` gains card and setting variants | **Complete**: 2 new tests, 4 updated; every EPIC-08 message unchanged but one (note 1) |
-| Phase 1 — card tokens: `parse_card`, `CardSpec::shorthand` | Planned |
+| Phase 1 — card tokens: `parse_card`, `CardSpec::shorthand` | **Complete**: 17 unit tests, 4 doc tests |
 | Phase 2 — settings words and the board line: `BoardSpec: FromStr`, `BoardSpec::line` | Planned |
 | Phase 3 — the component's sniff reads a line; every golden fixture round-trips | Planned |
 | Phase 4 — CLI: `--board LINE` and the `line` command; `fixtures/cli/lines.txt` | Planned |
@@ -315,10 +315,10 @@ pub enum Command {
 
 ### Phase 1 — Card tokens
 
-- [ ] **1.** `src/types/board_line.rs`: module doc, `pub mod board_line;` in `src/types/mod.rs`, re-exports from `src/prelude.rs`. `ENHANCEMENTS` table from the tarot constants. Make `parse_edition`, `edition_word` and `parse_whole` `pub(crate)` (`joker_shorthand.rs:381`, `:396`, `:420`).
-- [ ] **2.** `parse_card`. Tests `parse_card__index_alone_is_index` (`KS` → `CardSpec::Index("KS")`), `parse_card__case_ignored` (`ks+steel`), `parse_card__each_enhancement_word` (all eight → their tarot `MPip`), `parse_card__edition_words` (the seven EPIC-08 spellings), `parse_card__modifiers_in_any_order`, `parse_card__unknown_index_is_an_error` (`KX`), `parse_card__two_enhancements_is_duplicate`, `parse_card__two_editions_is_duplicate`, `parse_card__unknown_modifier_names_it`, `parse_card__empty_is_an_error`.
-- [ ] **3.** `CardSpec::shorthand`. Tests `card_shorthand__canonical_form` (`AH+GLASS+POLY`, index upper case), `card_shorthand__round_trips_every_enhancement_and_edition` (8 × 5 combinations, plus none), `card_shorthand__other_enhancement_is_no_shorthand` (`Chips(50)`, `Custom(1)`), `card_shorthand__edition_none_is_no_shorthand`, `card_shorthand__empty_map_is_no_shorthand`.
-- [ ] **4.** Doc tests on `parse_card`, `FromStr for CardSpec`, `CardSpec::shorthand`.
+- [x] **1.** `src/types/board_line.rs`: module doc, `pub mod board_line;` in `src/types/mod.rs`, re-exports from `src/prelude.rs`. `ENHANCEMENTS` table from the tarot constants. Make `parse_edition`, `edition_word` and `parse_whole` `pub(crate)` (`joker_shorthand.rs:381`, `:396`, `:420`).
+- [x] **2.** `parse_card`. Tests `parse_card__index_alone_is_index` (`KS` → `CardSpec::Index("KS")`), `parse_card__case_ignored` (`ks+steel`), `parse_card__each_enhancement_word` (all eight → their tarot `MPip`), `parse_card__edition_words` (the seven EPIC-08 spellings), `parse_card__modifiers_in_any_order`, `parse_card__unknown_index_is_an_error` (`KX`), `parse_card__two_enhancements_is_duplicate`, `parse_card__two_editions_is_duplicate`, `parse_card__unknown_modifier_names_it`, `parse_card__empty_is_an_error`.
+- [x] **3.** `CardSpec::shorthand`. Tests `card_shorthand__canonical_form` (`AH+GLASS+POLY`, index upper case), `card_shorthand__round_trips_every_enhancement_and_edition` (8 × 5 combinations, plus none), `card_shorthand__other_enhancement_is_no_shorthand` (`Chips(50)`, `Custom(1)`), `card_shorthand__edition_none_is_no_shorthand`, `card_shorthand__empty_map_is_no_shorthand`.
+- [x] **4.** Doc tests on `parse_card`, `FromStr for CardSpec`, `CardSpec::shorthand`.
 
 ### Phase 2 — Settings and the board line
 
@@ -444,3 +444,6 @@ Exit criteria:
 Written as each phase lands. Design vs actual:
 
 1. **`Empty` now says `empty token`, not `empty joker token`** (Phase 0). `parse_card("")` returns the same `ShorthandError::Empty`, and "joker" would be wrong for a card. A line never reaches `Empty` (empty words are skipped), so no line or file error text changes. `error__display_quotes_the_token` pins the new text.
+2. **A card token takes only the 52 playing cards** (Phase 1). Context said `BuffoonCard::from_str` matches the 52 indexes. It also reads the tarots (`FOOL`, `1M`), the blank card `__`, and lower case. `is_playing_card` keeps only `BCardType::Basic` cards written upper case, without `__`. `parse_card__unknown_index_is_an_error` pins `FOOL`, `1M` and `__`. A YAML board can still name a tarot as a played card; it has no line.
+3. **`set_once` became `pub(crate)` as well,** besides `parse_edition` and `edition_word`. `parse_whole` stays private until Phase 2 needs it.
+4. **An extra test, `enhancements__are_the_tarot_values`,** puts each tarot on a King with `BuffoonCard::enhance` and checks the word gives the same `MPip`. The `NoShorthand` text for a `Detailed` card that sets nothing is `KH: a map with no enhancement or edition has no shorthand`.
