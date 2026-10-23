@@ -8,7 +8,7 @@ Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in 
 - **Why:** a board is a YAML file today. EPIC-08 gave jokers a token, but a hand still needs a file. A chat message, a bug report, a shell one-liner or a test table wants the whole board in one line.
 - **Shape:** `BoardSpec` learns `FromStr` and a canonical `line()`, in a new engine module with no dependencies. Cards get tokens of their own (`KS+STEEL`, `AH+GLASS+POLY`). The jokers section is EPIC-08's token line, unchanged. The component's sniff learns a third form, so the CLI, the page's paste box and `#board=` links accept a line with no WIT change.
 - **Proves it:** every golden fixture round-trips through its line and scores to the same trace; `fixtures/cli/lines.txt` pins the 20 lines; `buffoonery score --board "…"` prints the same JSON as the YAML file.
-- **Status:** Planned. No code yet.
+- **Status:** In progress on branch `epic09-board-line`: Phase 0 done.
 
 ---
 
@@ -40,11 +40,11 @@ The board already has a data form. The line is a third spelling of it, after YAM
 
 ## Status
 
-As of 2026-10-23, `main` at `679c03d`. Nothing is built.
+As of 2026-10-23, branch `epic09-board-line`. `make ayce` green after each finished phase.
 
 | Component | Status |
 | --- | --- |
-| Phase 0 — `LineError` names its section; `ShorthandError` gains card and setting variants | Planned |
+| Phase 0 — `LineError` names its section; `ShorthandError` gains card and setting variants | **Complete**: 2 new tests, 4 updated; every EPIC-08 message unchanged but one (note 1) |
 | Phase 1 — card tokens: `parse_card`, `CardSpec::shorthand` | Planned |
 | Phase 2 — settings words and the board line: `BoardSpec: FromStr`, `BoardSpec::line` | Planned |
 | Phase 3 — the component's sniff reads a line; every golden fixture round-trips | Planned |
@@ -309,9 +309,9 @@ pub enum Command {
 
 ### Phase 0 — Errors
 
-- [ ] **0a.** `LineError` gains `section: &'static str` (`src/types/joker_shorthand.rs:102`); `Display` writes `{section}[{position}]` (`:111`); `parse_jokers` and `shorthand_line` set `"jokers"`. Every existing joker test passes unchanged; that is the proof the text did not move.
-- [ ] **0b.** `ShorthandError` gains `UnknownCard`, `UnknownSetting`, `UnknownHand`, `UnknownBlind`, each with a `Display` arm. Test `error__display_new_variants` (one assert per variant).
-- [ ] **0c.** `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings` green.
+- [x] **0a.** `LineError` gains `section: &'static str` (`src/types/joker_shorthand.rs:102`); `Display` writes `{section}[{position}]` (`:111`); `parse_jokers` and `shorthand_line` set `"jokers"`. Every existing joker test passes unchanged; that is the proof the text did not move.
+- [x] **0b.** `ShorthandError` gains `UnknownCard`, `UnknownSetting`, `UnknownHand`, `UnknownBlind`, each with a `Display` arm. Test `error__display_new_variants` (one assert per variant).
+- [x] **0c.** `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings` green.
 
 ### Phase 1 — Card tokens
 
@@ -436,3 +436,11 @@ Exit criteria:
 4. Every existing trace, `parse` output, CLI snapshot and EPIC-08 error message is byte-for-byte unchanged.
 5. The engine's dependency list is unchanged; `--no-default-features` builds and tests. The component stays under its size budget.
 6. `make ayce` is green.
+
+---
+
+## Implementation notes
+
+Written as each phase lands. Design vs actual:
+
+1. **`Empty` now says `empty token`, not `empty joker token`** (Phase 0). `parse_card("")` returns the same `ShorthandError::Empty`, and "joker" would be wrong for a card. A line never reaches `Empty` (empty words are skipped), so no line or file error text changes. `error__display_quotes_the_token` pins the new text.

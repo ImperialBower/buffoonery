@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-10-23
+* **EPIC-09 Phase 0: one error vocabulary for the board line.** `LineError` gains `section` (`"jokers"` from `parse_jokers`; the board line adds `played`, `held`, `settings`); `Display` writes `{section}[{position}]`, so every EPIC-08 message is unchanged. `ShorthandError` gains `UnknownCard`, `UnknownSetting`, `UnknownHand`, `UnknownBlind`. `Empty` now reads `empty token`. 2 new tests.
 * **EPIC-09 written: a whole board on one line.** `docs/EPIC-09_Board_Line.md`, Planned, against `main` at `679c03d`. Played / held / jokers / settings, split by `/`; card tokens (`KS+STEEL`); `key=value` settings; the component's sniff reads a line, so the CLI, paste box and links get it free. New [EPIC-09 pointer](references/epic-09-board-line.md); [index](index.md) and `BACKLOG.md` updated.
 
 ## 2026-10-22

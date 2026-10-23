@@ -41,9 +41,11 @@ use std::str::FromStr;
 
 /// Why one token could not become a [`JokerSpec`], or a spec a token.
 ///
-/// No position: a token does not know where it sits in a line; [`LineError`]
-/// adds that. Every variant but `Empty` and `NoShorthand` carries the token,
-/// and `Display` quotes it first: `"LUCKYCAR": unknown joker`.
+/// One vocabulary for every token of a board line (EPIC-09): jokers, cards
+/// and settings. No position: a token does not know where it sits in a line;
+/// [`LineError`] adds that. Every variant but `Empty` and `NoShorthand`
+/// carries the token, and `Display` quotes it first: `"LUCKYCAR": unknown
+/// joker`.
 ///
 /// ```
 /// use buffoonery::prelude::*;
@@ -61,20 +63,29 @@ pub enum ShorthandError {
     /// `modifier` is none of the grammar's forms.
     UnknownModifier { token: String, modifier: String },
     /// A second modifier of one kind: `what` is `"editions"`, `"overrides"`
-    /// or `"+OFFs"`.
+    /// or `"+OFFs"` for a joker; the board line adds its own words.
     Duplicate { token: String, what: &'static str },
     /// `number` is not a whole number where one is needed, is negative, or
     /// has more than two decimals.
     BadNumber { token: String, number: String },
     /// From [`JokerSpec::shorthand`]: `value` (an override such as
-    /// `Lucky(5, 15)`, or `edition None`) has no token form.
+    /// `Lucky(5, 15)`, or `edition None`) has no token form. For a card,
+    /// `ident` is its index.
     NoShorthand { ident: String, value: String },
+    /// `index` is not one of the 52 card indexes.
+    UnknownCard { token: String, index: String },
+    /// `key` is not one of the board line's setting keys.
+    UnknownSetting { token: String, key: String },
+    /// `hand` names no hand type.
+    UnknownHand { token: String, hand: String },
+    /// `blind` names no blind.
+    UnknownBlind { token: String, blind: String },
 }
 
 impl Display for ShorthandError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Empty => write!(f, "empty joker token"),
+            Self::Empty => write!(f, "empty token"),
             Self::UnknownJoker { token, .. } => write!(f, "\"{token}\": unknown joker"),
             Self::UnknownModifier { token, modifier } => {
                 write!(f, "\"{token}\": unknown modifier \"{modifier}\"")
@@ -82,14 +93,18 @@ impl Display for ShorthandError {
             Self::Duplicate { token, what } => write!(f, "\"{token}\": two {what}"),
             Self::BadNumber { token, number } => write!(f, "\"{token}\": bad number \"{number}\""),
             Self::NoShorthand { ident, value } => write!(f, "{ident}: {value} has no shorthand"),
+            Self::UnknownCard { token, .. } => write!(f, "\"{token}\": unknown card"),
+            Self::UnknownSetting { token, .. } => write!(f, "\"{token}\": unknown setting"),
+            Self::UnknownHand { token, .. } => write!(f, "\"{token}\": unknown hand"),
+            Self::UnknownBlind { token, .. } => write!(f, "\"{token}\": unknown blind"),
         }
     }
 }
 
 impl std::error::Error for ShorthandError {}
 
-/// A [`ShorthandError`] with its place in a line, counted from 0:
-/// `jokers[2]: "LUCKYCAR": unknown joker`.
+/// A [`ShorthandError`] with its place in a line: the section, and the
+/// position counted from 0. `jokers[2]: "LUCKYCAR": unknown joker`.
 ///
 /// ```
 /// use buffoonery::prelude::*;
@@ -100,7 +115,10 @@ impl std::error::Error for ShorthandError {}
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LineError {
-    /// The failing token's index in the line.
+    /// The section the token sits in: `"jokers"` from [`parse_jokers`]; a
+    /// board line also uses `"played"`, `"held"` and `"settings"`.
+    pub section: &'static str,
+    /// The failing token's index in its section.
     pub position: usize,
     /// Why it failed.
     pub error: ShorthandError,
@@ -108,7 +126,7 @@ pub struct LineError {
 
 impl Display for LineError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "jokers[{}]: {}", self.position, self.error)
+        write!(f, "{}[{}]: {}", self.section, self.position, self.error)
     }
 }
 
@@ -172,7 +190,13 @@ pub fn parse_jokers(line: &str) -> Result<Vec<JokerSpec>, LineError> {
     line.split(|c: char| c.is_whitespace() || c == ',')
         .filter(|token| !token.is_empty())
         .enumerate()
-        .map(|(position, token)| parse_joker(token).map_err(|error| LineError { position, error }))
+        .map(|(position, token)| {
+            parse_joker(token).map_err(|error| LineError {
+                section: "jokers",
+                position,
+                error,
+            })
+        })
         .collect()
 }
 
@@ -196,9 +220,11 @@ pub fn shorthand_line(jokers: &[JokerSpec]) -> Result<String, LineError> {
         .iter()
         .enumerate()
         .map(|(position, joker)| {
-            joker
-                .shorthand()
-                .map_err(|error| LineError { position, error })
+            joker.shorthand().map_err(|error| LineError {
+                section: "jokers",
+                position,
+                error,
+            })
         })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(tokens.join(" "))
@@ -715,7 +741,7 @@ mod funky__types__joker_shorthand_tests {
             message("LUCKYCATx3.255"),
             r#""LUCKYCATx3.255": bad number "3.255""#
         );
-        assert_eq!(message(""), "empty joker token");
+        assert_eq!(message(""), "empty token");
         assert_eq!(
             ShorthandError::NoShorthand {
                 ident: "LUCKY_CAT".to_string(),
@@ -727,12 +753,63 @@ mod funky__types__joker_shorthand_tests {
     }
 
     #[test]
+    fn error__display_new_variants() {
+        let token = |text: &str| text.to_string();
+        assert_eq!(
+            ShorthandError::UnknownCard {
+                token: token("KX+STEEL"),
+                index: token("KX"),
+            }
+            .to_string(),
+            r#""KX+STEEL": unknown card"#
+        );
+        assert_eq!(
+            ShorthandError::UnknownSetting {
+                token: token("speed=3"),
+                key: token("speed"),
+            }
+            .to_string(),
+            r#""speed=3": unknown setting"#
+        );
+        assert_eq!(
+            ShorthandError::UnknownHand {
+                token: token("FLSH=2"),
+                hand: token("FLSH"),
+            }
+            .to_string(),
+            r#""FLSH=2": unknown hand"#
+        );
+        assert_eq!(
+            ShorthandError::UnknownBlind {
+                token: token("blind=WALL"),
+                blind: token("WALL"),
+            }
+            .to_string(),
+            r#""blind=WALL": unknown blind"#
+        );
+    }
+
+    #[test]
     fn line_error__display_adds_the_position() {
         let error = LineError {
+            section: "jokers",
             position: 1,
             error: parse_joker("LUCKYCAR").unwrap_err(),
         };
         assert_eq!(error.to_string(), r#"jokers[1]: "LUCKYCAR": unknown joker"#);
+    }
+
+    #[test]
+    fn line_error__display_names_its_section() {
+        let error = LineError {
+            section: "held",
+            position: 0,
+            error: ShorthandError::UnknownCard {
+                token: "KX".to_string(),
+                index: "KX".to_string(),
+            },
+        };
+        assert_eq!(error.to_string(), r#"held[0]: "KX": unknown card"#);
     }
 
     #[test]
@@ -877,6 +954,7 @@ mod funky__types__joker_shorthand_tests {
         assert_eq!(
             parse_jokers("BARON JOKER LUCKYCAR"),
             Err(LineError {
+                section: "jokers",
                 position: 2,
                 error: ShorthandError::UnknownJoker {
                     token: "LUCKYCAR".to_string(),
@@ -911,6 +989,7 @@ mod funky__types__joker_shorthand_tests {
         assert_eq!(
             shorthand_line(&jokers),
             Err(LineError {
+                section: "jokers",
                 position: 1,
                 error: ShorthandError::NoShorthand {
                     ident: "JOKER".to_string(),
