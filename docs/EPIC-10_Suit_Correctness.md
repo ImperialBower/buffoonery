@@ -8,7 +8,7 @@ Oct 24, 2026 · @Christoph · *Written against `main` at `fdac48e`. Numbered in 
 - **Why:** today a Wild card is only its printed suit (`MPip::is_wild` is never called), so `AH KH 9H 4H 2S+WILD` is not a Flush. A Stone card's hidden suit pays Wrathful Joker and passes Blackboard. Smeared Joker widens a flush but not Greedy Joker. The calculator gives wrong numbers for all of these.
 - **Shape:** `BuffoonCard::is_suit(suit, rules)` in the engine, named after Balatro's `Card:is_suit`. Flush sizing and the flush's scoring cards count Wild cards; the three suit-reading joker effects call `is_suit`. `blind_target: usize` becomes `f64`.
 - **Proves it:** golden fixtures 21 (a Wild flush) and 22 (Stone and Wild against suit jokers) score to hand-checked totals; the 20 existing traces do not change.
-- **Status:** In progress on `epic10-suits`. Phases 0 (`is_suit`), 1 (flushes) and 2 (suit jokers) are built.
+- **Status:** In progress on `epic10-suits`. Phases 0 (`is_suit`), 1 (flushes), 2 (suit jokers) and 3 (`blind_target`) are built.
 
 ---
 
@@ -59,7 +59,7 @@ As of 2026-10-24, `main` at `fdac48e`. Nothing is built.
 | Phase 0 — `BuffoonCard::is_suit` | **Complete** |
 | Phase 1 — flushes count Wild cards (sizing and scoring cards) | **Complete** |
 | Phase 2 — the suit jokers, Blackboard and Ancient Joker call `is_suit` | **Complete** |
-| Phase 3 — `blind_target` is `f64` | Planned |
+| Phase 3 — `blind_target` is `f64` | **Complete** |
 | Phase 4 — golden fixtures 21 and 22 | Planned |
 | Phase 5 — docs, OKF, CHANGELOG | Planned |
 
@@ -187,7 +187,7 @@ pub fn count_largest_same_suit_with(&self, rules: HandRules) -> usize {
 
 ### Phase 3 — `blind_target`
 
-- [ ] **8.** `blind_target: f64` (`src/types/board.rs:88`, `:256`, `:967`); drop the `cast_precision_loss` allow on `round_is_won`. Update the test sites (`:4626`–`:6814`; `usize::MAX` becomes `f64::MAX`). Test `round_is_won__a_target_past_u32` (target 5 × 10⁹, a round score of 6 × 10⁹ wins).
+- [x] **8.** `blind_target: f64` (`src/types/board.rs:88`, `:256`, `:967`); drop the `cast_precision_loss` allow on `round_is_won`. Update the test sites (`:4626`–`:6814`; `usize::MAX` becomes `f64::MAX`). Test `round_is_won__a_target_past_u32` (target 5 × 10⁹, a round score of 6 × 10⁹ wins).
 
 ### Phase 4 — Golden fixtures
 
@@ -281,3 +281,4 @@ Written as each phase lands. Design vs actual:
 3. **`count_largest_same_suit` no longer calls cardpack** (Phase 1). It is `count_largest_same_suit_with(HandRules::default())`, and both count with a private `count_suit`. `is_suit` drops Stone cards, so neither needs `detectable()`. It had no caller outside `has_flush_with`. 10 unit tests (one, `flush__stone_still_counts_for_nothing`, passed before the change: it guards the Stone rule), 2 doc tests; 698 lib tests. The 20 golden traces did not change. `score --board "AH KH 9H 4H 2S+WILD"` is now `Flush 71 × 4 = 284`.
 4. **The Phase 2 tests are board tests** (Phase 2). They live in `src/types/board.rs`, next to the Blackboard and Ancient Joker tests, so they run the whole path: `builtin_joker_op` → `BuffoonPile::calculate_plus_with` → `BuffoonCard::calculate_plus_mult_with`. A test helper `wild_at` puts The Lovers on one card. Two tests passed before the change and are guards: `blackboard__smeared_held_heart_fails` and `blackboard__empty_hand_still_fires`. The seven that failed gave the EPIC's wrong numbers (82 × 8, 7 × 4, 15 × 3 for a held Stone card, …). 9 tests, 1 doc test; 707 lib tests. The 20 golden traces did not change. `score --board` gives `AS AD KS+STONE / / WRATHFULJOKER` → `Pair 82 × 5 = 410` and `AS AD / QH+WILD JS / BLACKBOARD` → `Pair 32 × 6 = 192`.
 5. **`HandRules` docs** (Phase 2). The struct and its `smeared` field said Smeared works "for flushes"; they now say every suit check.
+6. **`examples/funky_tour.rs` set `blind_target = 1`** (Phase 3). The EPIC listed only `src/types/board.rs`; the example is now `1.0` and prints the same output (`target 1`). The new test also checks a round score just short of 5 × 10⁹ does not win. `docs/TECHNICAL_DEBT.md` and the [fractional score decision](../.okf/decisions/fractional-score.md) no longer say `usize`. 1 test; 708 lib tests. No trace or snapshot changed: `BoardSpec` has no target.

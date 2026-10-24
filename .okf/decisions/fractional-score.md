@@ -33,8 +33,9 @@ no longer derives `Eq`.
   ×1.25, Baseball ×1.5, Ramen ×1.01, Constellation, Vampire, Ancient Joker,
   Smeared + Ancient, Steel Joker, held Steel, joker Polychrome). The
   `buffoon` example still scores 11254: its hand has no fractional step.
-* Not done here: `blind_target` is still `usize`. Blind targets past
-  4.29 × 10⁹ would overflow on wasm32.
+* Not done here: `blind_target` was still `usize`, so blind targets past
+  4.29 × 10⁹ would overflow on wasm32. EPIC-10 made it `f64`, the type of
+  `round_score`, with no cast in `round_is_won`.
 
 # Citations
 

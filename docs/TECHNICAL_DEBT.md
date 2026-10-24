@@ -14,8 +14,9 @@ from "known gap" notes in the code and open tasks in the EPICs.
 - [x] **Stale comment (EPIC-05 task 0i)** — said Joker Stencil was not
   applied yet. Fixed 2026-10-20; the comment now names only Loyalty Card.
   (`src/types/board/scoring.rs:361`)
-- [ ] **`blind_target` is `usize`** — overflows past 4.29 × 10⁹ on wasm32.
-  EPIC-05 S1 follow-up. (`src/types/board.rs:88`)
+- [x] **`blind_target` is `usize`** — overflows past 4.29 × 10⁹ on wasm32.
+  EPIC-05 S1 follow-up. Fixed 2026-10-24 (EPIC-10 Phase 3): it is `f64`,
+  the type of `round_score`. (`src/types/board.rs:92`)
 - [ ] **Run-level tarots are no-ops** — Death, Judgement, The Hermit, The Wheel
   of Fortune. (`src/types/board.rs:531`)
 - [ ] **Hiker bumps once per hand, not per trigger** — needs scoring to
