@@ -1,6 +1,6 @@
 # EPIC-09: A whole board on one line (LINE)
 
-Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in the shared cardpack / buffoonery space, after EPIC-08. The follow-on that EPIC-08 named.*
+Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in the shared cardpack / buffoonery space, after EPIC-08. The follow-on that EPIC-08 named. **Closed 2026-10-24: Complete** on `main` at `85d510c`.*
 
 ## Summary
 
@@ -8,7 +8,7 @@ Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in 
 - **Why:** a board is a YAML file today. EPIC-08 gave jokers a token, but a hand still needs a file. A chat message, a bug report, a shell one-liner or a test table wants the whole board in one line.
 - **Shape:** `BoardSpec` learns `FromStr` and a canonical `line()`, in a new engine module with no dependencies. Cards get tokens of their own (`KS+STEEL`, `AH+GLASS+POLY`). The jokers section is EPIC-08's token line, unchanged. The component's sniff learns a third form, so the CLI, the page's paste box and `#board=` links accept a line with no WIT change.
 - **Proves it:** every golden fixture round-trips through its line and scores to the same trace; `fixtures/cli/lines.txt` pins the 20 lines; `buffoonery score --board "…"` prints the same JSON as the YAML file.
-- **Status:** Built 2026-10-24 on branch `epic09-board-line`: all seven phases. Closes when merged to `main` with CI green.
+- **Status:** Complete 2026-10-24. All seven phases merged to `main` at `85d510c`.
 
 ---
 
@@ -40,7 +40,7 @@ The board already has a data form. The line is a third spelling of it, after YAM
 
 ## Status
 
-As of 2026-10-23, branch `epic09-board-line`. `make ayce` green after each finished phase.
+As of 2026-10-24, `main` at `85d510c` (merged from branch `epic09-board-line`, no pull request). `make ayce` green; CI, Security and Pages green. The live page opens fixture 20's line from a `#board=` link and scores 1,170.
 
 | Component | Status |
 | --- | --- |

@@ -17,8 +17,8 @@ Sources scanned: `docs/EPIC-*.md`, `CHANGELOG.md` (Unreleased), source comments
 - [x] **EPIC-08 — joker shorthand (`BARON+FOIL`, `LUCKYCATx3.25`)** — closed
   2026-10-22. A whole-board one-liner is the follow-on.
   ([docs/EPIC-08_Joker_Shorthand.md](docs/EPIC-08_Joker_Shorthand.md))
-- [ ] **EPIC-09 — a whole board on one line (`KS KH 2C / KD KC / BARON+FOIL / FLUSH=2`)**
-  — built 2026-10-24 on branch `epic09-board-line`; closes when merged and CI is green.
+- [x] **EPIC-09 — a whole board on one line (`KS KH 2C / KD KC / BARON+FOIL / FLUSH=2`)**
+  — closed 2026-10-24. Open: a page link that carries the line, a "copy line" button.
   ([docs/EPIC-09_Board_Line.md](docs/EPIC-09_Board_Line.md))
 - [ ] **Release `buffoonery` 0.1.0** — crates.io has 0.0.1; `CHANGELOG.md`
   Unreleased holds 27 entries, including breaking changes (fractional `Score`,
