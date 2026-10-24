@@ -8,7 +8,7 @@ Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in 
 - **Why:** a board is a YAML file today. EPIC-08 gave jokers a token, but a hand still needs a file. A chat message, a bug report, a shell one-liner or a test table wants the whole board in one line.
 - **Shape:** `BoardSpec` learns `FromStr` and a canonical `line()`, in a new engine module with no dependencies. Cards get tokens of their own (`KS+STEEL`, `AH+GLASS+POLY`). The jokers section is EPIC-08's token line, unchanged. The component's sniff learns a third form, so the CLI, the page's paste box and `#board=` links accept a line with no WIT change.
 - **Proves it:** every golden fixture round-trips through its line and scores to the same trace; `fixtures/cli/lines.txt` pins the 20 lines; `buffoonery score --board "…"` prints the same JSON as the YAML file.
-- **Status:** In progress on branch `epic09-board-line`: Phases 0–4 done.
+- **Status:** In progress on branch `epic09-board-line`: Phases 0–5 done.
 
 ---
 
@@ -49,7 +49,7 @@ As of 2026-10-23, branch `epic09-board-line`. `make ayce` green after each finis
 | Phase 2 — settings words and the board line: `BoardSpec: FromStr`, `BoardSpec::line` | **Complete**: 21 unit tests, 3 doc tests; 682 lib tests |
 | Phase 3 — the component's sniff reads a line; every golden fixture round-trips | **Complete**: 6 component tests, 1 golden test; all 20 fixtures have a line; component 510 KiB |
 | Phase 4 — CLI: `--board LINE` and the `line` command; `fixtures/cli/lines.txt` | **Complete**: 7 unit tests, 2 golden tests, 3 process tests; `lines.txt` holds 20 lines |
-| Phase 5 — the page: a pasted line opens (Playwright) | Planned |
+| Phase 5 — the page: a pasted line opens (Playwright) | **Complete**: 2 Playwright tests, no page code; all 20 lines open in a link |
 | Phase 6 — docs, OKF, CHANGELOG | Planned |
 
 ---
@@ -341,7 +341,7 @@ pub enum Command {
 
 ### Phase 5 — The page
 
-- [ ] **15.** No page code. `web/e2e/parity.spec.mjs`, beside `a pasted board opens like a link does` (`:85`): `a pasted line opens like its YAML` (fixture 20's line in the paste box gives fixture 20's cells), and `a line in the link opens` (`#board=` with fixture 03's line). A bad line shows `Could not open it: played[1]: "KX": unknown card`. `make e2e` green.
+- [x] **15.** No page code. `web/e2e/parity.spec.mjs`, beside `a pasted board opens like a link does` (`:85`): `a pasted line opens like its YAML` (fixture 20's line in the paste box gives fixture 20's cells), and `a line in the link opens` (`#board=` with fixture 03's line). A bad line shows `Could not open it: played[1]: "KX": unknown card`. `make e2e` green.
 
 ### Phase 6 — Docs and the gate
 
@@ -458,3 +458,4 @@ Written as each phase lands. Design vs actual:
 13. **`Input::Line` holds any board text** (Phase 4). `--board` passes its text to the same `read_spec`, so `--board '{"played": ["AS"]}'` works too; a line is just the form that fits. `line` reads any form as well: `buffoonery line -` turns a YAML or JSON board into its line.
 14. **`lines.txt` is exempt from `every_snapshot_has_a_fixture`** (`cli/tests/golden.rs`), which expects one `.txt` per fixture. One line in that test says why.
 15. **Extra tests:** `run_line_reads_any_form` (a line, and JSON, in; the canonical line out) and `score_board_flag_equals_golden` (all 20 fixtures scored from `--board` with their line give their trace). The process test for `--board` with a file is `board_flag_and_a_file_exits_2`.
+16. **The page tests read `fixtures/cli/lines.txt`** (Phase 5), so the page, the CLI and the engine use the same 20 lines. `every fixture's line in a link opens its table` opens all 20 from `#board=` (the plan named only fixture 03). Both tests passed on the first run: the page needs no code, so they could not fail first; Phase 3's component tests are the ones that failed first. The bad-line message is `Could not open it: parse: played[1]: "KX": unknown card` (note 9).

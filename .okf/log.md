@@ -1,5 +1,8 @@
 # Update Log
 
+## 2026-10-24
+* **EPIC-09 Phase 5: the page opens a board line.** No page code: the paste box and `#board=` links go through the component's `parse`, which reads a line since Phase 3. Two Playwright tests read `fixtures/cli/lines.txt`: a pasted line opens fixture 20's cells, and all 20 lines open from a link. 31 browser tests.
+
 ## 2026-10-23
 * **EPIC-09 Phase 4: the CLI speaks board lines.** `--board LINE` on `score`, `link` and `parse` (`Input::Line`; clap refuses it with a file, exit 2; `--jokers` still replaces). New `buffoonery line [FILE]` prints any board's canonical line. New snapshot `fixtures/cli/lines.txt`: all 20 golden boards as lines. 7 unit, 2 golden and 3 process tests.
 * **EPIC-09 Phase 3: the component reads a board line.** `read_spec` reads JSON (starts with `{`), a board line (one line, no `:`), or YAML. The WIT doc comments say so; the WIT interface is unchanged. All 20 golden fixtures round-trip through their line to the blessed trace (`every_fixture_round_trips_through_its_line`). A bad line's error is `parse: played[1]: "KX": unknown card`. 6 component tests; the component is 510 KiB of 600.

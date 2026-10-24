@@ -13,6 +13,15 @@ import { buildSpec, fmtNum, handScore, initialState, rows } from '../src/model.j
 const golden = join(import.meta.dirname, '../../fixtures/golden');
 const fixtures = readdirSync(golden).filter((name) => name.endsWith('.yaml')).sort();
 
+// EPIC-09: each fixture's board line, `name: line`, as `buffoonery line` writes it.
+const lines = Object.fromEntries(
+  readFileSync(join(import.meta.dirname, '../../fixtures/cli/lines.txt'), 'utf8')
+    .trim()
+    .split('\n')
+    .map((row) => row.split(': ')),
+);
+const traceOf = (name) => JSON.parse(readFileSync(join(golden, `${name}.trace.json`), 'utf8'));
+
 /** The cells the page must show: #, effect, chips, mult, running score. */
 function expectedCells(trace) {
   return rows(trace, [], true).map((row) => [String(row.n), row.effect, fmtNum(row.chips), fmtNum(row.mult), fmtNum(row.score)]);
@@ -99,6 +108,39 @@ test('a pasted board opens like a link does', async ({ page }) => {
   await page.click('#paste-open');
   await expect(page.locator('#paste-status')).toHaveText('Could not open it: jokers[0]: unknown joker ident "NOPE"');
   expect(await shownCells(page)).toEqual(expectedCells(trace));
+});
+
+// EPIC-09: the component reads a board line, so the paste box takes one with
+// no page code.
+test('a pasted line opens like its YAML', async ({ page }) => {
+  const trace = traceOf('20_shorthand_jokers');
+
+  await page.goto('/');
+  await page.click('summary:has-text("Paste a board")');
+  await page.fill('#paste-text', lines['20_shorthand_jokers']);
+  await page.click('#paste-open');
+  await page.check('#show-all');
+  await expect(page.locator('#paste-status')).toHaveText('Opened.');
+  expect(await shownCells(page)).toEqual(expectedCells(trace));
+
+  await page.fill('#paste-text', 'AS KX');
+  await page.click('#paste-open');
+  await expect(page.locator('#paste-status')).toHaveText('Could not open it: parse: played[1]: "KX": unknown card');
+  expect(await shownCells(page)).toEqual(expectedCells(trace));
+});
+
+test('every fixture\'s line in a link opens its table', async ({ page }) => {
+  expect(Object.keys(lines)).toEqual(fixtures.map((name) => name.replace(/\.yaml$/, '')));
+  for (const [name, line] of Object.entries(lines)) {
+    const trace = traceOf(name);
+    // A fresh load each time: a hash change alone keeps the page's board.
+    await page.goto('about:blank');
+    await page.goto(`/#board=${encodeURIComponent(line)}`);
+    await page.check('#show-all');
+    await expect(page.locator('#error'), name).toBeHidden();
+    expect(await shownCells(page), name).toEqual(expectedCells(trace));
+    await expect(page.locator('#foot-score'), name).toHaveText(fmtNum(handScore(trace.total)));
+  }
 });
 
 test('copy board and copy link put the board on the clipboard', async ({ page, context }) => {
