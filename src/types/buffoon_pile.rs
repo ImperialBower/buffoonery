@@ -18,8 +18,8 @@ pub struct BuffoonPile(Vec<BuffoonCard>);
 /// The [`Default`] is vanilla Balatro (a gap-free five-card straight, a
 /// five-card flush, each suit its own); a board loosens it from its active
 /// jokers (Four Fingers → four-card straights & flushes; Shortcut → one-gap
-/// straights; Smeared → Hearts≡Diamonds and Spades≡Clubs for flushes) and
-/// threads it through the `*_with` detection methods.
+/// straights; Smeared → Hearts≡Diamonds and Spades≡Clubs for every suit
+/// check) and threads it through the `*_with` methods.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HandRules {
     /// Max rank gap allowed between adjacent straight cards (1 = gap-free;
@@ -30,7 +30,8 @@ pub struct HandRules {
     /// Cards of one suit a flush needs (5; Four Fingers = 4).
     pub flush_len: usize,
     /// Smeared Joker: Hearts and Diamonds count as one suit, Spades and Clubs as
-    /// one suit, when sizing a flush.
+    /// one suit, in every suit check (see [`BuffoonCard::is_suit`]): flushes,
+    /// the suit jokers, Blackboard and Ancient Joker.
     pub smeared: bool,
 }
 
@@ -42,6 +43,17 @@ impl Default for HandRules {
             flush_len: 5,
             smeared: false,
         }
+    }
+}
+
+/// The suits a flush can be of: the four, or under Smeared the two colours.
+/// `'S'` stands for black and `'H'` for red, because
+/// [`BuffoonCard::is_suit`] merges them.
+const fn flush_suits(rules: HandRules) -> &'static [char] {
+    if rules.smeared {
+        &['S', 'H']
+    } else {
+        &['S', 'H', 'D', 'C']
     }
 }
 
@@ -129,9 +141,10 @@ impl BuffoonPile {
             MPip::MultPlusOnTrips(m) => self.funky_num(m, Self::has_trips),
             // Per-card, rank/suit-conditional (e.g. Fibonacci, Even Steven,
             // the suit jokers): sum each played card's own contribution.
-            MPip::MultPlusOnSuit(_, _) | MPip::MultPlusOn5Ranks(_, _) => {
-                self.iter().map(|c| c.calculate_plus_mult(enhancer)).sum()
-            }
+            MPip::MultPlusOnSuit(_, _) | MPip::MultPlusOn5Ranks(_, _) => self
+                .iter()
+                .map(|c| c.calculate_plus_mult_with(enhancer, rules))
+                .sum(),
             MPip::MultPlusOnUpToXCards(m, x) if self.has_x_or_fewer_cards(x) => m,
             _ => 0,
         }
@@ -285,21 +298,28 @@ impl BuffoonPile {
     }
 
     /// The cards of the suit (or, under Smeared, the colour) that makes the
-    /// flush under `rules`.
+    /// flush under `rules`: its natural cards and every Wild card.
+    ///
+    /// The flush suit is the first suit, in card order, whose group reaches
+    /// `rules.flush_len`, so a natural card decides before a Wild card does.
+    /// If only Wild cards are left to decide, the suit is the first of
+    /// [`flush_suits`] that reaches it; every card then scores anyway.
     fn flush_mask(&self, rules: HandRules) -> Vec<bool> {
-        let group = |card: &BuffoonCard| match card.suit.index {
-            'H' | 'D' if rules.smeared => 'R',
-            'S' | 'C' if rules.smeared => 'B',
-            suit => suit,
-        };
-        let seen = self.detectable();
-        let flush = seen
+        let natural = self
             .iter()
-            .map(group)
-            .find(|&key| seen.iter().filter(|c| group(c) == key).count() >= rules.flush_len);
+            .filter(|card| !card.is_stone() && !card.is_wild())
+            .map(|card| card.suit.index);
+        let flush = natural
+            .chain(flush_suits(rules).iter().copied())
+            .find(|&suit| self.count_suit(suit, rules) >= rules.flush_len);
         self.iter()
-            .map(|card| !card.is_stone() && flush == Some(group(card)))
+            .map(|card| flush.is_some_and(|suit| card.is_suit(suit, rules)))
             .collect()
+    }
+
+    /// The cards that are `suit` under `rules` (see [`BuffoonCard::is_suit`]).
+    fn count_suit(&self, suit: char, rules: HandRules) -> usize {
+        self.iter().filter(|card| card.is_suit(suit, rules)).count()
     }
 
     /// The first card of the highest rank.
@@ -352,33 +372,43 @@ impl BuffoonPile {
         )
     }
 
+    /// The size of the largest suit group: the cards that size a flush.
+    ///
+    /// A Wild card is in every suit's group, and a Stone card is in none (see
+    /// [`BuffoonCard::is_suit`]).
+    ///
+    /// ```
+    /// use buffoonery::decks::tarot::card::LOVERS;
+    /// use buffoonery::prelude::*;
+    ///
+    /// let mut pile = bcards!("AH KH 9H 4H");
+    /// assert_eq!(pile.count_largest_same_suit(), 4);
+    /// pile.push(bcard!(2S).enhance(LOVERS));
+    /// assert_eq!(pile.count_largest_same_suit(), 5);
+    /// ```
     #[must_use]
     pub fn count_largest_same_suit(&self) -> usize {
-        self.detectable()
-            .combos_by_suit()
-            .first()
-            .map_or(0, BasicPile::len)
+        self.count_largest_same_suit_with(HandRules::default())
     }
 
-    /// [`count_largest_same_suit`](Self::count_largest_same_suit), but under
-    /// Smeared it counts the largest *merged* group — Hearts+Diamonds (red) or
-    /// Spades+Clubs (black) — so a mixed red (or black) hand can flush.
+    /// [`count_largest_same_suit`](Self::count_largest_same_suit) under
+    /// `rules`. Under Smeared it counts the largest *merged* group —
+    /// Hearts+Diamonds (red) or Spades+Clubs (black) — so a mixed red (or
+    /// black) hand can flush. A Wild card is in both colours.
+    ///
+    /// ```
+    /// use buffoonery::prelude::*;
+    ///
+    /// let smeared = HandRules { smeared: true, ..HandRules::default() };
+    /// assert_eq!(bcards!("AH KD 9H 4S").count_largest_same_suit_with(smeared), 3);
+    /// ```
     #[must_use]
     pub fn count_largest_same_suit_with(&self, rules: HandRules) -> usize {
-        if !rules.smeared {
-            return self.count_largest_same_suit();
-        }
-        // Suitless (Stone) cards belong to neither colour.
-        let seen = self.detectable();
-        let red = seen
+        flush_suits(rules)
             .iter()
-            .filter(|c| matches!(c.suit.index, 'H' | 'D'))
-            .count();
-        let black = seen
-            .iter()
-            .filter(|c| matches!(c.suit.index, 'S' | 'C'))
-            .count();
-        red.max(black)
+            .map(|&suit| self.count_suit(suit, rules))
+            .max()
+            .unwrap_or(0)
     }
 
     /// The best poker hand this pile forms, under vanilla Balatro rules.
@@ -1175,6 +1205,111 @@ mod funky__types__buffoon_pile_tests {
             .map(|&scores| if scores { 'T' } else { 'F' })
             .collect();
         assert_eq!(mask, expected, "{input} as {hand_type:?}");
+    }
+
+    /// A pile from card indexes; `+W` makes that card a Wild card (Lovers).
+    fn wild_pile(input: &str) -> BuffoonPile {
+        input
+            .split_whitespace()
+            .map(|token| match token.strip_suffix("+W") {
+                Some(index) => BuffoonCard::from_str(index)
+                    .unwrap()
+                    .enhance(crate::decks::tarot::card::LOVERS),
+                None => BuffoonCard::from_str(token).unwrap(),
+            })
+            .collect()
+    }
+
+    fn mask_string(pile: &BuffoonPile, rules: HandRules) -> String {
+        let hand_type = pile.determine_hand_type_with(rules);
+        pile.scoring_mask_with(hand_type, rules)
+            .iter()
+            .map(|&scores| if scores { 'T' } else { 'F' })
+            .collect()
+    }
+
+    const SMEARED: HandRules = HandRules {
+        straight_distance: 1,
+        straight_connectors: 4,
+        flush_len: 5,
+        smeared: true,
+    };
+
+    #[test]
+    fn flush__four_hearts_and_a_wild_is_a_flush() {
+        let pile = wild_pile("AH KH 9H 4H 2S+W");
+        assert_eq!(pile.count_largest_same_suit(), 5);
+        assert_eq!(pile.determine_hand_type(), HandType::Flush);
+    }
+
+    #[test]
+    fn flush__four_fingers_three_and_a_wild() {
+        let pile = wild_pile("AH KH 9H 2S+W 5C");
+        assert_eq!(pile.determine_hand_type_with(FOUR_FINGERS), HandType::Flush);
+        assert_eq!(pile.determine_hand_type(), HandType::HighCard);
+    }
+
+    #[test]
+    fn flush__smeared_wild_joins_either_colour() {
+        let red = wild_pile("AH KD 9H 4D 2S+W");
+        let black = wild_pile("AS KC 9S 4C 2H+W");
+        assert_eq!(red.determine_hand_type_with(SMEARED), HandType::Flush);
+        assert_eq!(black.determine_hand_type_with(SMEARED), HandType::Flush);
+        assert_eq!(red.determine_hand_type(), HandType::HighCard);
+    }
+
+    #[test]
+    fn flush__five_wilds_is_a_flush() {
+        let pile = wild_pile("AS+W KD+W 9H+W 4C+W 2S+W");
+        assert_eq!(pile.determine_hand_type(), HandType::Flush);
+        assert_eq!(mask_string(&pile, HandRules::default()), "TTTTT");
+    }
+
+    #[test]
+    fn flush__wild_pair_of_kings_is_flush_five() {
+        let pile = wild_pile("KH KH KH KH KS+W");
+        assert_eq!(pile.determine_hand_type(), HandType::FlushFive);
+    }
+
+    /// A Stone card is still no suit, Wild cards or not.
+    #[test]
+    fn flush__stone_still_counts_for_nothing() {
+        let mut pile = wild_pile("AH KH 9H 4H");
+        pile.push(STONE_CARD);
+        assert_eq!(pile.count_largest_same_suit(), 4);
+        assert_eq!(pile.determine_hand_type(), HandType::HighCard);
+    }
+
+    #[test]
+    fn flush__no_flush_without_enough() {
+        let pile = wild_pile("AH KH 9S 4C 2S+W");
+        assert_eq!(pile.count_largest_same_suit(), 3);
+        assert_eq!(pile.determine_hand_type(), HandType::HighCard);
+    }
+
+    #[test]
+    fn flush_mask__wild_card_scores_in_the_flush() {
+        let pile = wild_pile("AH KH 9H 4H 2S+W");
+        assert_eq!(mask_string(&pile, HandRules::default()), "TTTTT");
+    }
+
+    /// Hearts (`AH` + three Wild cards) and Spades (three Wild cards + `QS`)
+    /// both reach four. The first natural card is a Heart, so the flush is
+    /// Hearts and the `QS` is a kicker.
+    #[test]
+    fn flush_mask__first_suit_in_card_order_wins() {
+        let pile = wild_pile("AH 5S+W 7S+W 9D+W QS");
+        assert_eq!(pile.determine_hand_type_with(FOUR_FINGERS), HandType::Flush);
+        assert_eq!(mask_string(&pile, FOUR_FINGERS), "TTTTF");
+
+        let pile = wild_pile("QS 5S+W 7S+W 9D+W AH");
+        assert_eq!(mask_string(&pile, FOUR_FINGERS), "TTTTF");
+    }
+
+    #[test]
+    fn flush_mask__off_suit_card_does_not_score() {
+        let pile = wild_pile("AH KH 9H 2S+W 5C");
+        assert_eq!(mask_string(&pile, FOUR_FINGERS), "TTTTF");
     }
 
     /// A Stone card is in no hand, so the pile never marks it; the board adds

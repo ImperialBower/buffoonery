@@ -1,0 +1,8 @@
+ #  Source                   Detail  Effect             Chips  Mult  Score
+ 1  Pair (level 1)                   +10 Chips +2 Mult     10     2     20
+ 2  A♠ · played 1                    +11 Chips             21     2     42
+ 5  A♦ · played 2                    +11 Chips             32     2     64
+ 8  K♠ · played 3                    +50 Chips             82     2    164
+13  Wrathful Joker · slot 1          +3 Mult               82     5    410
+15  Blackboard · slot 2              ×3 Mult               82    15   1230
+Pair  82 × 15 = 1230

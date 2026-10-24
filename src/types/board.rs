@@ -78,14 +78,18 @@ pub struct BuffoonBoard {
     /// Chips × mult accumulated across every hand played this round — what a
     /// blind is beaten with. Reset at blind select and round end.
     pub round_score: f64,
-    /// The score this round must reach to be won, or `0` for an untargeted
+    /// The score this round must reach to be won, or `0.0` for an untargeted
     /// round that simply runs until its hands are spent.
+    ///
+    /// An `f64`, the same type as [`round_score`](Self::round_score), so the
+    /// compare needs no cast and a late-ante target past `u32::MAX` fits on
+    /// wasm32 too.
     ///
     /// Set by the caller. Balatro derives it from the ante and the blind (Small
     /// ×1, Big ×1.5, Boss ×2 of an ante base), and **ante progression is not
     /// modelled here** — so the mechanism lives on the board while the table
     /// does not. Inventing the table would be a number this engine cannot check.
-    pub blind_target: usize,
+    pub blind_target: f64,
     pub consumables: BuffoonPile,
     pub jokers: BuffoonPile,
     pub poker_hands: PokerHands,
@@ -253,7 +257,7 @@ impl BuffoonBoard {
             played: BuffoonPile::default(),
             discarded: BuffoonPile::default(),
             round_score: 0.0,
-            blind_target: 0,
+            blind_target: 0.0,
             consumables: BuffoonPile::new_with_capacity(Self::DEFAULT_CONSUMABLE_SLOTS),
             jokers: BuffoonPile::new_with_capacity(Self::DEFAULT_JOKER_SLOTS),
             joker_slots: Self::DEFAULT_JOKER_SLOTS,
@@ -962,9 +966,8 @@ impl BuffoonBoard {
     /// Whether the round's target has been reached. Always false for an
     /// untargeted round.
     #[must_use]
-    #[allow(clippy::cast_precision_loss)]
     pub fn round_is_won(&self) -> bool {
-        self.blind_target > 0 && self.round_score >= self.blind_target as f64
+        self.blind_target > 0.0 && self.round_score >= self.blind_target
     }
 
     /// Take the cards at `indices` out of [`in_hand`](Self::in_hand), keeping
@@ -4377,6 +4380,125 @@ mod funky__types__board__buffoon_board_tests {
         assert_eq!(board.score(), Score::new(81, 40.5));
     }
 
+    /// Makes the card at `position` a Wild card (The Lovers).
+    fn wild_at(pile: &mut BuffoonPile, position: usize) {
+        let wild = pile
+            .get(position)
+            .copied()
+            .unwrap()
+            .enhance(tarot_card::LOVERS);
+        pile.remove(position);
+        pile.insert(position, wild);
+    }
+
+    #[test]
+    fn suit_joker__wild_pays_every_suit_joker() {
+        // A lone 2: High Card 5/1 + its 2 chips = 7/1. Wild, it is every suit,
+        // so each of the four suit jokers pays +3: 1 + 12 = 13.
+        let mut board = board_playing("2S");
+        wild_at(&mut board.played, 0);
+        board.push_joker(card::GREEDY_JOKER);
+        board.push_joker(card::LUSTY_JOKER);
+        board.push_joker(card::WRATHFUL_JOKER);
+        board.push_joker(card::GLUTTONOUS_JOKER);
+        assert_eq!(board.score(), Score::new(7, 13.0));
+    }
+
+    #[test]
+    fn suit_joker__stone_pays_none() {
+        // Pair of Aces 10/2 + 11 + 11, and the Stone card's 50 -> 82. Only the
+        // Ace of Spades pays Wrathful: the Stone card (a Spade underneath) has
+        // no suit. 2 + 3 = 5.
+        let mut board = board_playing("AS AD");
+        board.played.push(basic::STONE_CARD);
+        board.push_joker(card::WRATHFUL_JOKER);
+        assert_eq!(board.score(), Score::new(82, 5.0));
+    }
+
+    #[test]
+    fn suit_joker__smeared_pays_the_other_colour() {
+        // High Card 5/1 + the Ace's 11 = 16/1. Greedy pays Diamonds; under
+        // Smeared a Heart is a Diamond, so +3.
+        let mut board = board_playing("AH");
+        board.push_joker(card::GREEDY_JOKER);
+        assert_eq!(board.score(), Score::new(16, 1.0), "no Smeared, no Diamond");
+
+        board.push_joker(card::SMEARED_JOKER);
+        assert_eq!(board.score(), Score::new(16, 4.0));
+    }
+
+    #[test]
+    fn blackboard__held_wild_counts() {
+        let mut board = board_playing("2S 5D 8C TS KH"); // 15/1, as above
+        board.push_joker(card::BLACKBOARD);
+        board.in_hand = bcards!("KS QH");
+        assert_eq!(board.score(), Score::new(15, 1.0), "a plain Heart fails");
+
+        wild_at(&mut board.in_hand, 1);
+        assert_eq!(
+            board.score(),
+            Score::new(15, 3.0),
+            "a Wild Heart is a Spade too"
+        );
+    }
+
+    #[test]
+    fn blackboard__held_stone_fails() {
+        // A Stone card is a Spade underneath, but it has no suit.
+        let mut board = board_playing("2S 5D 8C TS KH");
+        board.push_joker(card::BLACKBOARD);
+        board.in_hand = BuffoonPile::from(vec![basic::KING_SPADES, basic::STONE_CARD]);
+        assert_eq!(board.score(), Score::new(15, 1.0));
+    }
+
+    #[test]
+    fn blackboard__smeared_held_heart_fails() {
+        // Smeared merges Hearts with Diamonds and Spades with Clubs. A Heart
+        // is still not black.
+        let mut board = board_playing("2S 5D 8C TS KH");
+        board.push_joker(card::BLACKBOARD);
+        board.push_joker(card::SMEARED_JOKER);
+        board.in_hand = bcards!("KS QH");
+        assert_eq!(board.score(), Score::new(15, 1.0));
+
+        board.in_hand = bcards!("KS QC");
+        assert_eq!(board.score(), Score::new(15, 3.0));
+    }
+
+    #[test]
+    fn blackboard__empty_hand_still_fires() {
+        let mut board = board_playing("2S 5D 8C TS KH");
+        board.push_joker(card::BLACKBOARD);
+        board.push_joker(card::SMEARED_JOKER);
+        board.in_hand = BuffoonPile::default();
+        assert_eq!(board.score(), Score::new(15, 3.0));
+    }
+
+    #[test]
+    fn ancient__wild_counts() {
+        // As above, three Hearts are ×1.5³. The Ten of Spades, Wild, is a
+        // fourth Heart: 8 × 1.5⁴ = 40.5. Still a Straight, still 81 chips.
+        let mut board = board_playing("AH KH QH JD TS");
+        board.push_joker(card::JOKER);
+        board.push_joker(card::ANCIENT_JOKER);
+        board.ancient_suit = Some('H');
+        wild_at(&mut board.played, 4);
+        assert_eq!(board.score(), Score::new(81, 40.5));
+    }
+
+    #[test]
+    fn ancient__stone_does_not() {
+        // High Card 5/1 + the Ace's 11, and the Stone card's 50 -> 66. Joker
+        // +4 -> mult 5. The ancient suit is Spades; the Stone card is a Spade
+        // underneath, but has no suit, so Ancient Joker stays ×1.
+        let mut board = board_playing("AH KH QH JD");
+        board.played.push(basic::STONE_CARD);
+        board.push_joker(card::JOKER);
+        board.push_joker(card::ANCIENT_JOKER);
+        board.ancient_suit = Some('S');
+        assert_eq!(board.score(), Score::new(66, 5.0));
+    }
+
     #[test]
     fn on_round_end_with_rng__the_ancient_suit_never_repeats_back_to_back() {
         // "suit changes at end of round" — the new suit is drawn from the three
@@ -4623,7 +4745,7 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn round_loop__is_won_when_the_target_is_reached() {
         let mut board = board_for_a_round();
-        board.blind_target = 1;
+        board.blind_target = 1.0;
         board.deal_to_hand_size();
         assert!(!board.round_is_won());
         assert!(!board.round_is_over());
@@ -4637,7 +4759,7 @@ mod funky__types__board__buffoon_board_tests {
     #[test]
     fn round_loop__an_untargeted_round_runs_until_its_hands_are_spent() {
         let mut board = board_for_a_round();
-        assert_eq!(board.blind_target, 0);
+        assert_eq!(board.blind_target, 0.0);
         board.deal_to_hand_size();
 
         board.play_hand(&[0]);
@@ -4712,7 +4834,7 @@ mod funky__types__board__buffoon_board_tests {
         // was walked into with.
         let mut board = board_for_a_round();
         board.blind = Blind::Small;
-        board.blind_target = 1; // any score clears it
+        board.blind_target = 1.0; // any score clears it
         board.money = 10;
         board.push_joker(card::GOLDEN_JOKER); // a flat $4 every round
 
@@ -4749,7 +4871,7 @@ mod funky__types__board__buffoon_board_tests {
         // round, won or lost.
         let mut board = board_for_a_round();
         board.blind = Blind::Small;
-        board.blind_target = usize::MAX; // unreachable
+        board.blind_target = f64::MAX; // unreachable
         board.money = 10;
         board.push_joker(card::GOLDEN_JOKER);
 
@@ -4765,6 +4887,20 @@ mod funky__types__board__buffoon_board_tests {
         assert_eq!(board.money, 14, "$10 + Golden Joker's $4, and nothing else");
     }
 
+    /// A late-ante target is past `u32::MAX` (4.29 × 10⁹), which a `usize`
+    /// cannot hold on wasm32. The target is the same type as the score.
+    #[test]
+    fn round_is_won__a_target_past_u32() {
+        let mut board = board_for_a_round();
+        board.blind_target = 5_000_000_000.0;
+
+        board.round_score = 4_999_999_999.0;
+        assert!(!board.round_is_won());
+
+        board.round_score = 6_000_000_000.0;
+        assert!(board.round_is_won());
+    }
+
     #[test]
     fn round_loop__the_economy_cycles_from_cash_out_into_a_buy() {
         // EPIC-01b's headline: the economy closes. A won round cashes out, the
@@ -4772,7 +4908,7 @@ mod funky__types__board__buffoon_board_tests {
         // then spend, in one loop.
         let mut board = board_for_a_round();
         board.blind = Blind::Small;
-        board.blind_target = 1;
+        board.blind_target = 1.0;
         board.money = 0; // start broke — everything spent is earned this round
 
         board.on_blind_selected();
@@ -5060,7 +5196,7 @@ mod funky__types__board__buffoon_board_tests {
     /// that gate is half of what these tests exist to pin.
     fn board_that_won_a_round(hands_left: usize) -> BuffoonBoard {
         let mut board = board_for_a_round();
-        board.blind_target = 1;
+        board.blind_target = 1.0;
         board.round_score = 1.0;
         board.hands_played = board.draws.hands_to_play - hands_left;
         assert!(board.round_is_won(), "the fixture must be a won round");
@@ -5311,7 +5447,7 @@ mod funky__types__board__buffoon_board_tests {
         // fires on a board that never opens it — a full round is byte-identical
         // to before the shop existed.
         let mut board = board_for_a_round();
-        board.blind_target = 1;
+        board.blind_target = 1.0;
         board.push_joker(card::GOLDEN_JOKER);
         board.on_blind_selected();
         board.deal_to_hand_size();
@@ -6811,7 +6947,7 @@ mod funky__types__board__buffoon_board_tests {
 
         // And a targeted round that fell short pays nothing either.
         let mut lost = board_for_a_round();
-        lost.blind_target = 100;
+        lost.blind_target = 100.0;
         lost.round_score = 99.0;
         lost.money = 23;
         lost.on_round_end();

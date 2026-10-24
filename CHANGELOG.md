@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`BuffoonCard::is_suit(suit, rules)`** (EPIC-10): the one suit rule. A
+  Stone card is no suit, a Wild card is every suit, else the printed suit;
+  under Smeared Joker, red matches red and black matches black. Also
+  `BuffoonCard::is_wild` and `BuffoonCard::calculate_plus_mult_with`. New
+  golden fixtures `21_wild_flush` and `22_stone_and_wild_suits`.
 - **Board line** (EPIC-09). A whole board on one line:
   `KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25 / FLUSH=2 money=20` (played,
   held, jokers, settings). Engine: `FromStr for BoardSpec`,
@@ -122,6 +127,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: `BuffoonBoard::blind_target` is `f64`** (EPIC-10; was
+  `usize`), the type of `round_score`. `0.0` is an untargeted round. A
+  target past 4.29 × 10⁹ now fits on wasm32.
+- `BuffoonPile::count_largest_same_suit` and `count_largest_same_suit_with`
+  count a Wild card in every suit's group (EPIC-10).
 - **The page writes a two-decimal ×mult exactly** (EPIC-08). A typed ×1.25
   is now `MultTimes2Dot(125)`; it was rounded to `MultTimes1Dot(13)`, ×1.3. A
   whole or one-decimal ×mult writes what it did before, and old links read
@@ -151,6 +161,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Wild cards are every suit** (EPIC-10). Four Hearts and a Wild card are a
+  Flush, and the Wild card scores in it (`AH KH 9H 4H 2S+WILD` was a High
+  Card). A Wild card pays every suit joker, counts for Ancient Joker, and
+  passes Blackboard when held.
+- **A Stone card has no suit** (EPIC-10). It no longer pays a suit joker or
+  Ancient Joker, and a held Stone card fails Blackboard
+  (`AS AD KS+STONE / / WRATHFULJOKER` was 656, is 410).
+- **Smeared Joker reaches the suit jokers and Blackboard** (EPIC-10), as it
+  already did flushes and Ancient Joker: Greedy Joker pays for a Heart.
 - **Kickers no longer score** (EPIC-05 risk 7). As in Balatro, only the
   played cards that make the hand score: the highest card of a High Card,
   the matched ranks of a Pair to Four of a Kind, the run of a Straight, the

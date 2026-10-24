@@ -32,7 +32,7 @@ fn act_1_round_loop() {
 
     let deck = Deck::basic_buffoon_pile().shuffled_with_seed(42);
     let mut board = BuffoonBoard::new(Draws::new(4, 3), deck);
-    board.blind_target = 1; // any scoring hand beats the blind
+    board.blind_target = 1.0; // any scoring hand beats the blind
 
     board.on_blind_selected();
     let dealt = board.deal_to_hand_size();

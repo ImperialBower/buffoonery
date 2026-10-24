@@ -39,6 +39,11 @@ pins the Four of a Kind base (60 × 7), and `19_stone_makes_no_pair.yaml` pins
 that a Stone card pairs with nothing (both fixed 2026-10-20).
 `20_shorthand_jokers.yaml` writes its jokers as tokens and pins ×3.25 as exact
 hundredths (1,170; tenths would give 1,188).
+`21_wild_flush.yaml` pins that a Wild card is every suit: four Hearts and a
+Wild card are a Flush, and the Wild card pays Lusty and Greedy (2,272).
+`22_stone_and_wild_suits.yaml` pins that a Stone card is no suit (it pays no
+Wrathful) and that a held Wild card passes Blackboard (1,230). Both fixed
+2026-10-24 by EPIC-10.
 
 ## Set size
 
