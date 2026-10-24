@@ -1,8 +1,8 @@
 ---
 type: reference
 title: EPIC-10 — Every suit at once (Wild, Stone, Smeared)
-description: "Planned (written 2026-10-24): one `BuffoonCard::is_suit` rule (Stone is no suit, Wild is every suit, Smeared merges colours) used by flushes, the suit jokers, Blackboard and Ancient Joker; `blind_target` becomes `f64`."
-tags: [epic, defect, suit, wild, scoring, planned]
+description: "Built 2026-10-24 on `epic10-suits` (all six phases): one `BuffoonCard::is_suit` rule (Stone is no suit, Wild is every suit, Smeared merges colours) used by flushes, the suit jokers, Blackboard and Ancient Joker; `blind_target` becomes `f64`."
+tags: [epic, defect, suit, wild, scoring, built]
 timestamp: '2026-10-24T00:00:00Z'
 resource: docs/EPIC-10_Suit_Correctness.md
 ---
@@ -29,3 +29,8 @@ suit by hand.
 * **The 20 existing golden traces must not change**; fixtures 21 and 22 pin
   the fixes.
 * **`blind_target: f64`**, the type of `round_score`.
+
+# Status
+
+All six phases built on `epic10-suits` (2026-10-24). See the
+[suit rule decision](/decisions/suit-rule.md).

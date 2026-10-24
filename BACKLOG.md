@@ -21,10 +21,10 @@ Sources scanned: `docs/EPIC-*.md`, `CHANGELOG.md` (Unreleased), source comments
   — closed 2026-10-24. Open: a page link that carries the line, a "copy line" button.
   ([docs/EPIC-09_Board_Line.md](docs/EPIC-09_Board_Line.md))
 - [ ] **EPIC-10 — every suit at once (Wild, Stone, Smeared; `blind_target` as `f64`)** —
-  planned 2026-10-24. ([docs/EPIC-10_Suit_Correctness.md](docs/EPIC-10_Suit_Correctness.md))
+  built 2026-10-24 on `epic10-suits`; merge pending. ([docs/EPIC-10_Suit_Correctness.md](docs/EPIC-10_Suit_Correctness.md))
 - [ ] **Release `buffoonery` 0.1.0** — crates.io has 0.0.1; `CHANGELOG.md`
-  Unreleased holds 27 entries, including breaking changes (fractional `Score`,
-  `ScoreOp` JSON). ([CHANGELOG.md](CHANGELOG.md))
+  Unreleased holds 45 entries, including breaking changes (fractional `Score`,
+  `ScoreOp` JSON, `blind_target` as `f64`). ([CHANGELOG.md](CHANGELOG.md))
 - [ ] **EPIC-05 open questions, deferred** — risk 10 (typed WIT records
   instead of JSON strings), risk 11 (YAML is a second contract; renames need a
   version bump). ([EPIC-05 Open questions](docs/EPIC-05_Joker_Calculator.md))
@@ -33,11 +33,12 @@ Sources scanned: `docs/EPIC-*.md`, `CHANGELOG.md` (Unreleased), source comments
 
 Known and tracked before:
 
-- [ ] **`blind_target` is `usize`** — overflows past 4.29 × 10⁹ on wasm32
+- [x] **`blind_target` is `usize`** — fixed 2026-10-24 by EPIC-10 (now `f64`). Overflowed past 4.29 × 10⁹ on wasm32
   (32-bit `usize`), while `Score` is already wide. (`src/types/board.rs:88`;
   EPIC-05 S1 follow-up, `docs/EPIC-05_Joker_Calculator.md:198`)
-- [ ] **Wild cards do not count toward a flush** — `MPip::Wild` exists and
-  `MPip::is_wild` is never called; flush sizing ignores it.
+- [x] **Wild cards do not count toward a flush** — fixed 2026-10-24 by EPIC-10
+  (`BuffoonCard::is_suit`). `MPip::Wild` existed and
+  `MPip::is_wild` was never called; flush sizing ignored it.
   (`src/types/mpip.rs:425`, `src/types/buffoon_pile.rs` `count_largest_same_suit_with`)
 - [ ] **8 Blank jokers** — DNA, To Do List, Mail-In Rebate, Trading Card,
   Reserved Parking, Lucky Cat, Matador, Diet Cola; each with its blocker in

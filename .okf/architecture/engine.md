@@ -18,7 +18,9 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
 
 * **`BuffoonCard`** (`src/types/buffoon_card.rs`) — cardpack `Pip`s for suit
   and rank, plus `card_type: BCardType`, `enhancement: MPip`, `edition`,
-  `resell_value`, `debuffed`.
+  `resell_value`, `debuffed`. `is_suit(suit, rules)` is the one suit rule:
+  Stone is no suit, Wild is every suit, Smeared merges red and black; see the
+  [decision](/decisions/suit-rule.md).
 * **`MPip`** (`src/types/mpip.rs`) — a 143-variant enum that makes card
   effects **data, not code**; interpreted at scoring time. `MultTimes1Dot`
   holds tenths and `MultTimes2Dot` hundredths (EPIC-08).

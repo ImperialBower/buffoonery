@@ -8,7 +8,7 @@ Oct 24, 2026 · @Christoph · *Written against `main` at `fdac48e`. Numbered in 
 - **Why:** today a Wild card is only its printed suit (`MPip::is_wild` is never called), so `AH KH 9H 4H 2S+WILD` is not a Flush. A Stone card's hidden suit pays Wrathful Joker and passes Blackboard. Smeared Joker widens a flush but not Greedy Joker. The calculator gives wrong numbers for all of these.
 - **Shape:** `BuffoonCard::is_suit(suit, rules)` in the engine, named after Balatro's `Card:is_suit`. Flush sizing and the flush's scoring cards count Wild cards; the three suit-reading joker effects call `is_suit`. `blind_target: usize` becomes `f64`.
 - **Proves it:** golden fixtures 21 (a Wild flush) and 22 (Stone and Wild against suit jokers) score to hand-checked totals; the 20 existing traces do not change.
-- **Status:** In progress on `epic10-suits`. Phases 0–4 are built: `is_suit`, flushes, suit jokers, `blind_target`, and golden fixtures 21 and 22.
+- **Status:** Built on `epic10-suits` (2026-10-24): all six phases. Merge to `main` pending.
 
 ---
 
@@ -61,7 +61,7 @@ As of 2026-10-24, `main` at `fdac48e`. Nothing is built.
 | Phase 2 — the suit jokers, Blackboard and Ancient Joker call `is_suit` | **Complete** |
 | Phase 3 — `blind_target` is `f64` | **Complete** |
 | Phase 4 — golden fixtures 21 and 22 | **Complete** |
-| Phase 5 — docs, OKF, CHANGELOG | Planned |
+| Phase 5 — docs, OKF, CHANGELOG | **Complete** |
 
 ---
 
@@ -197,8 +197,8 @@ pub fn count_largest_same_suit_with(&self, rules: HandRules) -> usize {
 
 ### Phase 5 — Docs and the gate
 
-- [ ] **12.** `.okf/decisions/suit-rule.md` (`type: decision`): the rule, why one helper, why `f64`. `.okf/architecture/engine.md`: the suit rule. `.okf/log.md`, `.okf/index.md`.
-- [ ] **13.** `CHANGELOG.md` Unreleased: Fixed (Wild flushes, Wild and Stone against suit jokers, Blackboard and Ancient; Smeared reaches the suit jokers and Blackboard), Changed (breaking: `blind_target` is `f64`; `count_largest_same_suit` counts Wild cards). `BACKLOG.md`: tick the two bugs. `make ayce` green.
+- [x] **12.** `.okf/decisions/suit-rule.md` (`type: decision`): the rule, why one helper, why `f64`. `.okf/architecture/engine.md`: the suit rule. `.okf/log.md`, `.okf/index.md`.
+- [x] **13.** `CHANGELOG.md` Unreleased: Fixed (Wild flushes, Wild and Stone against suit jokers, Blackboard and Ancient; Smeared reaches the suit jokers and Blackboard), Changed (breaking: `blind_target` is `f64`; `count_largest_same_suit` counts Wild cards). `BACKLOG.md`: tick the two bugs. `make ayce` green.
 
 ---
 
@@ -283,3 +283,4 @@ Written as each phase lands. Design vs actual:
 5. **`HandRules` docs** (Phase 2). The struct and its `smeared` field said Smeared works "for flushes"; they now say every suit check.
 6. **`examples/funky_tour.rs` set `blind_target = 1`** (Phase 3). The EPIC listed only `src/types/board.rs`; the example is now `1.0` and prints the same output (`target 1`). The new test also checks a round score just short of 5 × 10⁹ does not win. `docs/TECHNICAL_DEBT.md` and the [fractional score decision](../.okf/decisions/fractional-score.md) no longer say `usize`. 1 test; 708 lib tests. No trace or snapshot changed: `BoardSpec` has no target.
 7. **The fixtures and their totals** (Phase 4). `21_wild_flush` is 71 × 32 = 2,272 (Droll +10, Lusty +15 for five Hearts, Greedy +3 for the Wild card); before EPIC-10 it was a High Card, 16 × 4 = 64. `22_stone_and_wild_suits` is 82 × 15 = 1,230 (Wrathful +3, Blackboard ×3); before, 82 × 8 = 656. Both totals were checked by hand in the YAML comments before `BLESS=1`. The jokers are tokens (`DROLLJOKER`, …), as fixture 20's are. The page needed no change: the parity walk opened both boards (33 browser tests, was 31). `fixtures/golden/README.md` names both. The first `BLESS=1` run reported one failure: `every_fixture_round_trips_through_its_line` ran before the new trace was written. A second run, without `BLESS`, passed.
+8. **Docs** (Phase 5). New [suit rule decision](../.okf/decisions/suit-rule.md). `CHANGELOG.md` Unreleased: Added (`is_suit`, `is_wild`, `calculate_plus_mult_with`, fixtures 21 and 22), Changed (breaking `blind_target: f64`; `count_largest_same_suit` counts Wild cards), Fixed (Wild, Stone, Smeared). `BACKLOG.md`: both bugs ticked; the release row's entry count was stale (27) and is now 45. The README needed no change: it does not describe suits or `blind_target`.
