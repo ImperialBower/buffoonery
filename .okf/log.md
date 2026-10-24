@@ -1,6 +1,7 @@
 # Update Log
 
 ## 2026-10-24
+* **EPIC-09 Phase 6: docs; the EPIC is built.** README: a "Board line" section (sections, card words, settings, a Rust example) and `--board` / `line` under "Command line". CHANGELOG Unreleased: Added (board line) and Changed (`empty token`, component 510 KiB). New [board line decision](decisions/board-line.md); [joker shorthand decision](decisions/joker-shorthand.md), [engine](architecture/engine.md), [EPIC-09 pointer](references/epic-09-board-line.md), [index](index.md) and `BACKLOG.md` updated.
 * **EPIC-09 Phase 5: the page opens a board line.** No page code: the paste box and `#board=` links go through the component's `parse`, which reads a line since Phase 3. Two Playwright tests read `fixtures/cli/lines.txt`: a pasted line opens fixture 20's cells, and all 20 lines open from a link. 31 browser tests.
 
 ## 2026-10-23

@@ -8,7 +8,7 @@ Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in 
 - **Why:** a board is a YAML file today. EPIC-08 gave jokers a token, but a hand still needs a file. A chat message, a bug report, a shell one-liner or a test table wants the whole board in one line.
 - **Shape:** `BoardSpec` learns `FromStr` and a canonical `line()`, in a new engine module with no dependencies. Cards get tokens of their own (`KS+STEEL`, `AH+GLASS+POLY`). The jokers section is EPIC-08's token line, unchanged. The component's sniff learns a third form, so the CLI, the page's paste box and `#board=` links accept a line with no WIT change.
 - **Proves it:** every golden fixture round-trips through its line and scores to the same trace; `fixtures/cli/lines.txt` pins the 20 lines; `buffoonery score --board "…"` prints the same JSON as the YAML file.
-- **Status:** In progress on branch `epic09-board-line`: Phases 0–5 done.
+- **Status:** Built 2026-10-24 on branch `epic09-board-line`: all seven phases. Closes when merged to `main` with CI green.
 
 ---
 
@@ -50,7 +50,7 @@ As of 2026-10-23, branch `epic09-board-line`. `make ayce` green after each finis
 | Phase 3 — the component's sniff reads a line; every golden fixture round-trips | **Complete**: 6 component tests, 1 golden test; all 20 fixtures have a line; component 510 KiB |
 | Phase 4 — CLI: `--board LINE` and the `line` command; `fixtures/cli/lines.txt` | **Complete**: 7 unit tests, 2 golden tests, 3 process tests; `lines.txt` holds 20 lines |
 | Phase 5 — the page: a pasted line opens (Playwright) | **Complete**: 2 Playwright tests, no page code; all 20 lines open in a link |
-| Phase 6 — docs, OKF, CHANGELOG | Planned |
+| Phase 6 — docs, OKF, CHANGELOG | **Complete** |
 
 ---
 
@@ -345,9 +345,9 @@ pub enum Command {
 
 ### Phase 6 — Docs and the gate
 
-- [ ] **16.** `README.md`: a "Board line" section after "Joker shorthand" (`README.md:99`): the grammar, the eight card words, the settings, three examples. `--board` and `line` in "Command line" (`:60`).
-- [ ] **17.** `.okf/decisions/board-line.md` (`type: decision`): `/` by place, `key=value` settings, why not `$`, why the sniff and not a WIT function, why `line()` refuses lossy writes. Update `.okf/decisions/joker-shorthand.md` (`LineError.section`). Append to `.okf/log.md`; add to `.okf/index.md`.
-- [ ] **18.** `CHANGELOG.md` Unreleased: engine (`board_line`, `parse_card`, `CardSpec::shorthand`, `BoardSpec: FromStr`, `BoardSpec::line`, `LineError.section`, new `ShorthandError` variants), component (`read_spec` reads a line), CLI (`--board`, `line`). `BACKLOG.md` row. `make ayce` green.
+- [x] **16.** `README.md`: a "Board line" section after "Joker shorthand" (`README.md:99`): the grammar, the eight card words, the settings, three examples. `--board` and `line` in "Command line" (`:60`).
+- [x] **17.** `.okf/decisions/board-line.md` (`type: decision`): `/` by place, `key=value` settings, why not `$`, why the sniff and not a WIT function, why `line()` refuses lossy writes. Update `.okf/decisions/joker-shorthand.md` (`LineError.section`). Append to `.okf/log.md`; add to `.okf/index.md`.
+- [x] **18.** `CHANGELOG.md` Unreleased: engine (`board_line`, `parse_card`, `CardSpec::shorthand`, `BoardSpec: FromStr`, `BoardSpec::line`, `LineError.section`, new `ShorthandError` variants), component (`read_spec` reads a line), CLI (`--board`, `line`). `BACKLOG.md` row. `make ayce` green.
 
 ---
 

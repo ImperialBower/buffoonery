@@ -37,7 +37,7 @@ sudo. The devcontainer runs it for you.
 ## WebAssembly component
 
 [`component/`](component/README.md) wraps the engine in a WIT interface:
-score a board written as JSON or YAML, get the step-by-step trace back as
+score a board written as JSON, YAML or a board line, get the step-by-step trace back as
 JSON. The optimized component is 510 KiB (184 KiB gzipped); the budget is
 600 KiB.
 
@@ -74,13 +74,16 @@ buffoonery parse board.yaml              # the board as JSON
 buffoonery catalog --find jolly          # the jokers, by ident or name
 buffoonery jokers "BARON+FOIL LUCKYCATx3.25"   # explain a line of joker tokens
 buffoonery score board.yaml --jokers "BARON+FOIL"   # score with these jokers instead
+buffoonery score --board "AS AH / / JOLLYJOKER"    # score a board line, no file
+buffoonery line board.yaml               # the board as one line
 buffoonery version                       # the engine version
 ```
 
-`--jokers` works on `score`, `link` and `parse`. It replaces the board's
-jokers; the hand still comes from the file.
+`--jokers` and `--board` work on `score`, `link` and `parse`. `--jokers`
+replaces the board's jokers; `--board` gives the whole board instead of a
+file.
 
-A board file is YAML or JSON; `-` or no file reads stdin, so a board copied
+A board file is YAML, JSON or a board line; `-` or no file reads stdin, so a board copied
 from the page scores with `pbpaste | buffoonery score`. Exit codes: 0 done,
 1 the board is not valid (the message names the field), 2 bad usage or a
 missing file.
@@ -124,6 +127,44 @@ assert_eq!(shorthand_line(&jokers).unwrap(), "BARON+FOIL LUCKYCATx3.25 JOKER+OFF
 ```
 
 A board is always written back in the map form; a token is input only.
+
+## Board line
+
+A whole board fits on one line ([EPIC-09](docs/EPIC-09_Board_Line.md)).
+Four sections, split by `/`, by place: played cards, held cards, jokers,
+settings. A section may be empty; trailing sections may be left out.
+
+```text
+KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25 JOKER+OFF
+AH+BONUS JH+MULT 9H 6H 3H / / DROLLJOKER CRAFTYJOKER / FLUSH=2
+AS AD AH / 3C 9D / BANNER BULL / money=20 discards=2 blind=WATER
+```
+
+| Section | Words | Example |
+| --- | --- | --- |
+| played, held | a card index, then `+` an enhancement and/or edition | `KS`, `KS+STEEL`, `AH+GLASS+POLY` |
+| jokers | joker tokens, as above | `BARON+FOIL` |
+| settings | `HAND=level`, `money=N` (may be negative), `hands=N`, `discards=N`, `blind=…` | `FLUSH=2 money=-5` |
+
+The eight enhancements are `BONUS MULT WILD GLASS STEEL STONE GOLD LUCKY`,
+each the value its tarot gives. A hand is its name without spaces
+(`TWOPAIR`); a blind is `SMALL`, `BIG`, `NEEDLE`, `WATER` or `MANACLE` (`THE`
+optional). Case is ignored; `_` is ignored in names. The grammar has no `$`
+or `:`, so a line needs one pair of quotes in a shell.
+
+A line works wherever a board is read: a file, stdin, `--board`, the page's
+"Paste a board" box and a `#board=` link. `buffoonery line` writes any board
+as its line; [`fixtures/cli/lines.txt`](fixtures/cli/lines.txt) holds all 20
+golden boards. A board with an effect the line cannot spell (a `Custom`
+joker, a `!Chips 50` card) has no line, and `line` says which part.
+
+```rust
+use buffoonery::prelude::*;
+
+let spec: BoardSpec = "KS KH 2C / KD KC / BARON+FOIL / FLUSH=2".parse().unwrap();
+assert_eq!(spec.held.len(), 2);
+assert_eq!(spec.line().unwrap(), "KS KH 2C / KD KC / BARON+FOIL / FLUSH=2");
+```
 
 ## What's in the box
 

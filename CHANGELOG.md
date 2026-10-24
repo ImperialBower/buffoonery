@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Board line** (EPIC-09). A whole board on one line:
+  `KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25 / FLUSH=2 money=20` (played,
+  held, jokers, settings). Engine: `FromStr for BoardSpec`,
+  `BoardSpec::line`, `BoardLineError`; card tokens `parse_card`,
+  `FromStr for CardSpec`, `CardSpec::shorthand` (`KS+STEEL`,
+  `AH+GLASS+POLY`); all in the prelude. `LineError` gains `section`, and
+  `ShorthandError` gains `UnknownCard`, `UnknownSetting` and `UnknownBlind`.
+  The component's `read_spec`, and so `score`, `parse`, the page's paste box
+  and `#board=` links, read a board line (one line with no `:`). CLI:
+  `--board LINE` on `score`, `link` and `parse`, and `buffoonery line`. New
+  snapshot `fixtures/cli/lines.txt` with every golden board's line.
 - **Joker shorthand** (EPIC-08). One token per joker: `BARON+FOIL`,
   `LUCKYCATx3.25`, `JOKER+50c+OFF` (ident, then edition, override and
   `+OFF` for debuffed). Engine: `parse_joker`, `parse_jokers`,
@@ -116,8 +127,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whole or one-decimal ×mult writes what it did before, and old links read
   as before. The page also opens a `MultTimes2Dot` joker as a ×mult override.
 
+- `ShorthandError::Empty` reads `empty token` (was `empty joker token`;
+  EPIC-09, as cards share the error).
 - The WIT component's size budget is 600 KiB after `jco opt` (was 500 KiB;
-  it is 494 KiB). `component/README.md` records where the size goes: YAML
+  it was 494 KiB, and is 510 KiB with the board line). `component/README.md` records where the size goes: YAML
   parsing is the largest part.
 - **Scoring lives in `src/types/board/scoring.rs`** (EPIC-05 Story S2), moved
   out of `board.rs` word for word. No public API or behavior change.

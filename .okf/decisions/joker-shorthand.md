@@ -54,4 +54,8 @@ writes the map. The CLI has `buffoonery jokers LINE` and `--jokers LINE`.
 
 * The page reads `MultTimes2Dot` and writes the fewest decimals a typed
   ×mult needs; a two-decimal ×mult is no longer rounded to tenths.
-* A whole-board one-liner and joker *sets* are follow-ons.
+* The whole-board one-liner came next, in EPIC-09: see the
+  [board line decision](/decisions/board-line.md). It reuses this grammar
+  for its jokers section; `LineError` gained a `section` field so its
+  messages say `played[1]`, `held[0]` or `settings[2]` as well as
+  `jokers[2]`. Joker *sets* are still a follow-on.

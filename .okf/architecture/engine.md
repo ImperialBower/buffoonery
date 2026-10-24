@@ -25,6 +25,11 @@ Balatro **score solver** and to allow **custom decks and jokers**. Every
 * **Joker shorthand** (`src/types/joker_shorthand.rs`) — one token per
   `JokerSpec` (`BARON+FOIL`, `LUCKYCATx3.25`), read and written with no new
   dependency; see the [decision](/decisions/joker-shorthand.md).
+* **Board line** (`src/types/board_line.rs`) — a whole `BoardSpec` on one
+  line (`KS KH / KD / BARON+FOIL / FLUSH=2`), with card tokens
+  (`KS+STEEL`); `FromStr for BoardSpec` and `BoardSpec::line`. The
+  component's `read_spec` sniffs it; see the
+  [decision](/decisions/board-line.md).
 * **`BuffoonPile`** — implements cardpack's `Ranged`, so combinatorics and
   hand detection reuse cardpack's engine.
 * **Scoring** (`src/types/board/scoring.rs`, split out of `board.rs`) — `BuffoonBoard::score()` /
