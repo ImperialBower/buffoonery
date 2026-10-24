@@ -18,10 +18,13 @@ struct Cli {
 enum Commands {
     /// Print the engine version.
     Version,
-    /// Read a board (YAML or JSON) and print it as JSON.
+    /// Read a board (YAML, JSON or a board line) and print it as JSON.
     Parse {
         /// The board file; `-` or none reads stdin.
         file: Option<PathBuf>,
+        /// The board itself instead of a file, e.g. "KS KH / KD / BARON+FOIL / FLUSH=2".
+        #[arg(long, value_name = "LINE", conflicts_with = "file")]
+        board: Option<String>,
         /// Replace the board's jokers with this line, e.g. "BARON+FOIL LUCKYCATx3.25".
         #[arg(long, value_name = "LINE")]
         jokers: Option<String>,
@@ -34,6 +37,11 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Read a board (YAML, JSON or a board line) and print its board line.
+    Line {
+        /// The board file; `-` or none reads stdin.
+        file: Option<PathBuf>,
+    },
     /// List the jokers.
     Catalog {
         /// Print the catalog as JSON, as the page reads it.
@@ -43,10 +51,13 @@ enum Commands {
         #[arg(long)]
         find: Option<String>,
     },
-    /// Score a board (YAML or JSON) and print its trace.
+    /// Score a board (YAML, JSON or a board line) and print its trace.
     Score {
         /// The board file; `-` or none reads stdin.
         file: Option<PathBuf>,
+        /// The board itself instead of a file, e.g. "KS KH / KD / BARON+FOIL / FLUSH=2".
+        #[arg(long, value_name = "LINE", conflicts_with = "file")]
+        board: Option<String>,
         /// Print the trace as JSON, exactly as the component returns it.
         #[arg(long)]
         json: bool,
@@ -67,6 +78,9 @@ enum Commands {
     Link {
         /// The board file; `-` or none reads stdin.
         file: Option<PathBuf>,
+        /// The board itself instead of a file, e.g. "KS KH / KD / BARON+FOIL / FLUSH=2".
+        #[arg(long, value_name = "LINE", conflicts_with = "file")]
+        board: Option<String>,
         /// The seed the page scores with.
         #[arg(long)]
         seed: Option<u64>,
@@ -89,25 +103,37 @@ fn input(file: Option<PathBuf>) -> Input {
     }
 }
 
+/// The board's source: `--board` when given (clap refuses it with a file),
+/// else the file or stdin.
+fn board_input(file: Option<PathBuf>, board: Option<String>) -> Input {
+    board.map_or_else(|| input(file), Input::Line)
+}
+
 impl From<Commands> for Command {
     fn from(command: Commands) -> Self {
         match command {
             Commands::Version => Self::Version,
-            Commands::Parse { file, jokers } => Self::Parse {
-                file: input(file),
+            Commands::Parse {
+                file,
+                board,
+                jokers,
+            } => Self::Parse {
+                file: board_input(file, board),
                 jokers,
             },
+            Commands::Line { file } => Self::Line { file: input(file) },
             Commands::Jokers { line, json } => Self::Jokers { line, json },
             Commands::Catalog { json, find } => Self::Catalog { json, find },
             Commands::Score {
                 file,
+                board,
                 json,
                 all,
                 seed,
                 effects,
                 jokers,
             } => Self::Score {
-                file: input(file),
+                file: board_input(file, board),
                 json,
                 all,
                 seed,
@@ -116,12 +142,13 @@ impl From<Commands> for Command {
             },
             Commands::Link {
                 file,
+                board,
                 seed,
                 effects,
                 jokers,
                 base,
             } => Self::Link {
-                file: input(file),
+                file: board_input(file, board),
                 seed,
                 effects: effects.map(|path| input(Some(path))),
                 jokers,

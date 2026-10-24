@@ -8,7 +8,7 @@ Oct 23, 2026 · @Christoph · *Written against `main` at `679c03d`. Numbered in 
 - **Why:** a board is a YAML file today. EPIC-08 gave jokers a token, but a hand still needs a file. A chat message, a bug report, a shell one-liner or a test table wants the whole board in one line.
 - **Shape:** `BoardSpec` learns `FromStr` and a canonical `line()`, in a new engine module with no dependencies. Cards get tokens of their own (`KS+STEEL`, `AH+GLASS+POLY`). The jokers section is EPIC-08's token line, unchanged. The component's sniff learns a third form, so the CLI, the page's paste box and `#board=` links accept a line with no WIT change.
 - **Proves it:** every golden fixture round-trips through its line and scores to the same trace; `fixtures/cli/lines.txt` pins the 20 lines; `buffoonery score --board "…"` prints the same JSON as the YAML file.
-- **Status:** In progress on branch `epic09-board-line`: Phases 0–3 done.
+- **Status:** In progress on branch `epic09-board-line`: Phases 0–4 done.
 
 ---
 
@@ -48,7 +48,7 @@ As of 2026-10-23, branch `epic09-board-line`. `make ayce` green after each finis
 | Phase 1 — card tokens: `parse_card`, `CardSpec::shorthand` | **Complete**: 17 unit tests, 4 doc tests |
 | Phase 2 — settings words and the board line: `BoardSpec: FromStr`, `BoardSpec::line` | **Complete**: 21 unit tests, 3 doc tests; 682 lib tests |
 | Phase 3 — the component's sniff reads a line; every golden fixture round-trips | **Complete**: 6 component tests, 1 golden test; all 20 fixtures have a line; component 510 KiB |
-| Phase 4 — CLI: `--board LINE` and the `line` command; `fixtures/cli/lines.txt` | Planned |
+| Phase 4 — CLI: `--board LINE` and the `line` command; `fixtures/cli/lines.txt` | **Complete**: 7 unit tests, 2 golden tests, 3 process tests; `lines.txt` holds 20 lines |
 | Phase 5 — the page: a pasted line opens (Playwright) | Planned |
 | Phase 6 — docs, OKF, CHANGELOG | Planned |
 
@@ -334,10 +334,10 @@ pub enum Command {
 
 ### Phase 4 — CLI
 
-- [ ] **11.** `Input::Line` and `--board LINE` on `score`, `link`, `parse` (`cli/src/lib.rs:19`, `:61`, `cli/src/main.rs`); `clap` `conflicts_with` the file. Tests `score_board_flag_equals_file` (fixture 20 by flag and by file give the same JSON), `score_board_flag_with_jokers_flag_replaces`, `link_board_flag_is_in_the_hash`, `score_bad_board_flag_is_board_error` (exit 1, `played[1]: "KX": unknown card`).
-- [ ] **12.** `Command::Line { file }`. Tests `run_line_prints_the_canonical_line`, `run_line_no_line_is_board_error`.
-- [ ] **13.** `fixtures/cli/lines.txt`: one row per golden fixture, `name: line`, written by `BLESS=1 cargo test -p buffoonery-cli --test golden`. This is both a pin and a page of 20 worked examples.
-- [ ] **14.** `cli/tests/process.rs`: one run with `score --board`, one with `line`, one with `--board` and a file (exit 2).
+- [x] **11.** `Input::Line` and `--board LINE` on `score`, `link`, `parse` (`cli/src/lib.rs:19`, `:61`, `cli/src/main.rs`); `clap` `conflicts_with` the file. Tests `score_board_flag_equals_file` (fixture 20 by flag and by file give the same JSON), `score_board_flag_with_jokers_flag_replaces`, `link_board_flag_is_in_the_hash`, `score_bad_board_flag_is_board_error` (exit 1, `played[1]: "KX": unknown card`).
+- [x] **12.** `Command::Line { file }`. Tests `run_line_prints_the_canonical_line`, `run_line_no_line_is_board_error`.
+- [x] **13.** `fixtures/cli/lines.txt`: one row per golden fixture, `name: line`, written by `BLESS=1 cargo test -p buffoonery-cli --test golden`. This is both a pin and a page of 20 worked examples.
+- [x] **14.** `cli/tests/process.rs`: one run with `score --board`, one with `line`, one with `--board` and a file (exit 2).
 
 ### Phase 5 — The page
 
@@ -455,3 +455,6 @@ Written as each phase lands. Design vs actual:
 10. **The sniff also refuses `\r`,** not only `\n`, so a Windows line ending inside the text keeps it on the YAML path. Trailing line endings are trimmed first, so a file holding one line and a newline reads as a line.
 11. **The golden round trip passed on its first run.** It tests Phase 2's code over the 20 fixtures, so it could not fail first; it guards any later fixture. Its allow-list `NO_LINE` is empty.
 12. **The component grew from about 492 KiB to 510 KiB** (`buffoonery_component.opt.wasm`), under the 600 KiB budget. The board line pulls `board_line` and the joker catalog lookup into the adapter.
+13. **`Input::Line` holds any board text** (Phase 4). `--board` passes its text to the same `read_spec`, so `--board '{"played": ["AS"]}'` works too; a line is just the form that fits. `line` reads any form as well: `buffoonery line -` turns a YAML or JSON board into its line.
+14. **`lines.txt` is exempt from `every_snapshot_has_a_fixture`** (`cli/tests/golden.rs`), which expects one `.txt` per fixture. One line in that test says why.
+15. **Extra tests:** `run_line_reads_any_form` (a line, and JSON, in; the canonical line out) and `score_board_flag_equals_golden` (all 20 fixtures scored from `--board` with their line give their trace). The process test for `--board` with a file is `board_flag_and_a_file_exits_2`.

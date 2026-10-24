@@ -28,6 +28,8 @@ pub enum Command {
     },
     /// Explain a joker line: one row per token, or the jokers as JSON.
     Jokers { line: String, json: bool },
+    /// Read a board in any form, print its canonical board line (EPIC-09).
+    Line { file: Input },
     /// List the jokers: a table, or the component's JSON.
     Catalog { json: bool, find: Option<String> },
     /// Score a board: the trace as a table, or the component's JSON.
@@ -56,11 +58,15 @@ pub enum Command {
     },
 }
 
-/// Where a board comes from: a file, or stdin (`-` or no file).
+/// Where a board comes from: a file, stdin (`-` or no file), or the board
+/// itself from `--board`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Input {
     Stdin,
     Path(PathBuf),
+    /// The text of `--board LINE` (EPIC-09). Any form the adapter reads
+    /// works; a board line is the one that fits on a command line.
+    Line(String),
 }
 
 /// Why a command failed. Each kind has its own exit code.
@@ -110,6 +116,7 @@ pub fn run(command: &Command, stdin: &mut dyn Read, out: &mut dyn Write) -> Resu
         }
         Command::Catalog { json, find } => catalog(*json, find.as_deref()),
         Command::Jokers { line, json } => jokers(line, *json)?,
+        Command::Line { file } => board_line(&read_input(file, stdin)?)?,
         Command::Score {
             file,
             json,
@@ -228,6 +235,14 @@ fn override_text(enhancement: MPip) -> String {
     op.to_string()
 }
 
+/// A board in any form the adapter reads, written as its canonical line.
+fn board_line(text: &str) -> Result<String, CliError> {
+    buffoonery_component::read_spec(text)
+        .map_err(|e| CliError::Board(e.to_string()))?
+        .line()
+        .map_err(|e| CliError::Board(e.to_string()))
+}
+
 /// The trace as the component's JSON: `score`, or `score_with` when there is
 /// a seed or a custom effect.
 fn score(
@@ -273,6 +288,7 @@ fn read_input(input: &Input, stdin: &mut dyn Read) -> Result<String, CliError> {
         }
         Input::Path(path) => std::fs::read_to_string(path)
             .map_err(|e| CliError::Io(format!("{}: {e}", path.display()))),
+        Input::Line(text) => Ok(text.clone()),
     }
 }
 
@@ -815,6 +831,103 @@ mod tests {
         assert_eq!(
             output(&command, "played: [AS]\njokers: [{ident: JOLLY_JOKER}]").unwrap(),
             "{\"played\":[\"AS\"],\"jokers\":[{\"ident\":\"JOKER\",\"debuffed\":true}]}\n"
+        );
+    }
+
+    // ---- EPIC-09: --board and line ------------------------------------------
+
+    const LINE_20: &str = "KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25 JOKER+OFF";
+
+    fn board(line: &str) -> Input {
+        Input::Line(line.to_string())
+    }
+
+    #[test]
+    fn score_board_flag_equals_file() {
+        let by_flag = output(&score(board(LINE_20), true), "").unwrap();
+        let by_file = output(&score(fixture("20_shorthand_jokers.yaml"), true), "").unwrap();
+        assert_eq!(by_flag, by_file);
+    }
+
+    #[test]
+    fn score_board_flag_with_jokers_flag_replaces() {
+        let command = Command::Score {
+            file: board("AS AH / / JOLLYJOKER"),
+            json: false,
+            all: false,
+            seed: None,
+            effects: None,
+            jokers: Some(String::new()),
+        };
+        let text = output(&command, "").unwrap();
+        assert!(text.ends_with("Pair  32 × 2 = 64\n"), "{text}");
+    }
+
+    #[test]
+    fn link_board_flag_is_in_the_hash() {
+        let command = Command::Link {
+            file: board("AS / / BARON+FOIL"),
+            seed: None,
+            effects: None,
+            jokers: None,
+            base: "http://x/".to_string(),
+        };
+        assert_eq!(
+            output(&command, "").unwrap(),
+            format!(
+                "{}\n",
+                link::board_link(
+                    "http://x/",
+                    r#"{"played":["AS"],"jokers":[{"ident":"BARON","edition":"Foil"}]}"#,
+                    None,
+                    None
+                )
+            )
+        );
+    }
+
+    #[test]
+    fn score_bad_board_flag_is_board_error() {
+        let error = output(&score(board("AS KX"), true), "").unwrap_err();
+        assert_eq!(
+            error,
+            CliError::Board(r#"parse: played[1]: "KX": unknown card"#.to_string())
+        );
+        assert_eq!(error.exit_code(), 1);
+    }
+
+    #[test]
+    fn run_line_prints_the_canonical_line() {
+        let command = Command::Line {
+            file: fixture("20_shorthand_jokers.yaml"),
+        };
+        assert_eq!(output(&command, "").unwrap(), format!("{LINE_20}\n"));
+    }
+
+    #[test]
+    fn run_line_reads_any_form() {
+        let command = Command::Line { file: Input::Stdin };
+        assert_eq!(
+            output(&command, "ks kh / / baron+foil").unwrap(),
+            "KS KH / / BARON+FOIL\n"
+        );
+        assert_eq!(
+            output(&command, r#"{"played": ["AS"], "money": 4}"#).unwrap(),
+            "AS / / / money=4\n"
+        );
+    }
+
+    #[test]
+    fn run_line_no_line_is_board_error() {
+        let command = Command::Line { file: Input::Stdin };
+        let error = output(
+            &command,
+            "held:\n  - card: KH\n    enhancement: !Chips 50\n",
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            CliError::Board("held[0]: KH: Chips(50) has no shorthand".to_string())
         );
     }
 }

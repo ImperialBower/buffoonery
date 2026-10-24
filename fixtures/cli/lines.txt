@@ -1,0 +1,20 @@
+01_high_card: AS
+02_pair_additive_jokers: AS AH / / JOLLYJOKER SLYJOKER
+03_flush_enhanced_cards: AH+BONUS JH+MULT 9H 6H 3H / / DROLLJOKER CRAFTYJOKER / FLUSH=2
+04_steel_held: KS KD / KH+STEEL QC+STEEL 4D
+05_glass_card: 7S+GLASS 7H
+06_editions: QS+FOIL QD / / JOKER+HOLO GREEDYJOKER+POLY
+07_mime_retrigger_held: 8S 8C / KH+STEEL KC+STEEL / MIME
+08_hack_retrigger_played: 2S 3H 4D 5C 6S / / HACK CRAZYJOKER
+09_stacked_retriggers: KS KH KD / / HANGINGCHAD SOCKANDBUSKIN
+10_failed_conditions: QD / / JOLLYJOKER THEDUO MYSTICSUMMIT
+11_inert_jokers: TS+LUCKY TH / / DNA MISPRINT
+12_xmult_order: JS JH / / JOKER THEDUO
+13_board_readers: AS AD AH / 3C 9D / BANNER BULL ABSTRACTJOKER GROSMICHEL RAISEDFIST / money=20 discards=2
+14_levels_and_negative: 5S 5D / / JOLLYJOKER+NEG / PAIR=3
+15_kickers: 4D KS KD 2C 9H / / GREEDYJOKER HANGINGCHAD
+16_ace_low_straight: AS 2D 3C 4H 5S / / CRAZYJOKER
+17_four_fingers_bonus_jokers: 2H 5H 8H TH KS / / FOURFINGERS CRAFTYJOKER DROLLJOKER
+18_four_of_a_kind: KS KH KD KC 2S
+19_stone_makes_no_pair: QS QD AD AS+STONE
+20_shorthand_jokers: KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25 JOKER+OFF

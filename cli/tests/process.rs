@@ -112,3 +112,29 @@ fn score_jokers_flag_scores_the_line() {
     assert_eq!(out.status.code(), Some(0));
     assert!(text(&out.stdout).ends_with("Pair  80 × 14.63 = 1170\n"));
 }
+
+const LINE_20: &str = "KS KH 2C / KD KC / BARON+FOIL LUCKYCATx3.25 JOKER+OFF";
+
+#[test]
+fn score_board_flag_scores_the_line() {
+    let out = buffoonery(&["score", "--board", LINE_20], "");
+    assert_eq!(out.status.code(), Some(0));
+    assert!(text(&out.stdout).ends_with("Pair  80 × 14.63 = 1170\n"));
+}
+
+#[test]
+fn line_prints_the_board_line() {
+    let out = buffoonery(
+        &["line", "-"],
+        "played: [KS, KH, 2C]\nheld: [KD, KC]\njokers: [BARON+FOIL, LUCKYCATx3.25, JOKER+OFF]",
+    );
+    assert_eq!(out.status.code(), Some(0));
+    assert_eq!(text(&out.stdout), format!("{LINE_20}\n"));
+}
+
+#[test]
+fn board_flag_and_a_file_exits_2() {
+    let out = buffoonery(&["score", "board.yaml", "--board", "AS"], "");
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(text(&out.stdout), "");
+}
