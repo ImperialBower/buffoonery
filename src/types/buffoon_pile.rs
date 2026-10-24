@@ -18,8 +18,8 @@ pub struct BuffoonPile(Vec<BuffoonCard>);
 /// The [`Default`] is vanilla Balatro (a gap-free five-card straight, a
 /// five-card flush, each suit its own); a board loosens it from its active
 /// jokers (Four Fingers → four-card straights & flushes; Shortcut → one-gap
-/// straights; Smeared → Hearts≡Diamonds and Spades≡Clubs for flushes) and
-/// threads it through the `*_with` detection methods.
+/// straights; Smeared → Hearts≡Diamonds and Spades≡Clubs for every suit
+/// check) and threads it through the `*_with` methods.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HandRules {
     /// Max rank gap allowed between adjacent straight cards (1 = gap-free;
@@ -30,7 +30,8 @@ pub struct HandRules {
     /// Cards of one suit a flush needs (5; Four Fingers = 4).
     pub flush_len: usize,
     /// Smeared Joker: Hearts and Diamonds count as one suit, Spades and Clubs as
-    /// one suit, when sizing a flush.
+    /// one suit, in every suit check (see [`BuffoonCard::is_suit`]): flushes,
+    /// the suit jokers, Blackboard and Ancient Joker.
     pub smeared: bool,
 }
 
@@ -140,9 +141,10 @@ impl BuffoonPile {
             MPip::MultPlusOnTrips(m) => self.funky_num(m, Self::has_trips),
             // Per-card, rank/suit-conditional (e.g. Fibonacci, Even Steven,
             // the suit jokers): sum each played card's own contribution.
-            MPip::MultPlusOnSuit(_, _) | MPip::MultPlusOn5Ranks(_, _) => {
-                self.iter().map(|c| c.calculate_plus_mult(enhancer)).sum()
-            }
+            MPip::MultPlusOnSuit(_, _) | MPip::MultPlusOn5Ranks(_, _) => self
+                .iter()
+                .map(|c| c.calculate_plus_mult_with(enhancer, rules))
+                .sum(),
             MPip::MultPlusOnUpToXCards(m, x) if self.has_x_or_fewer_cards(x) => m,
             _ => 0,
         }

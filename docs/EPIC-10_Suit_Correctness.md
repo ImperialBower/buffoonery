@@ -8,7 +8,7 @@ Oct 24, 2026 · @Christoph · *Written against `main` at `fdac48e`. Numbered in 
 - **Why:** today a Wild card is only its printed suit (`MPip::is_wild` is never called), so `AH KH 9H 4H 2S+WILD` is not a Flush. A Stone card's hidden suit pays Wrathful Joker and passes Blackboard. Smeared Joker widens a flush but not Greedy Joker. The calculator gives wrong numbers for all of these.
 - **Shape:** `BuffoonCard::is_suit(suit, rules)` in the engine, named after Balatro's `Card:is_suit`. Flush sizing and the flush's scoring cards count Wild cards; the three suit-reading joker effects call `is_suit`. `blind_target: usize` becomes `f64`.
 - **Proves it:** golden fixtures 21 (a Wild flush) and 22 (Stone and Wild against suit jokers) score to hand-checked totals; the 20 existing traces do not change.
-- **Status:** In progress on `epic10-suits`. Phases 0 (`is_suit`) and 1 (flushes) are built.
+- **Status:** In progress on `epic10-suits`. Phases 0 (`is_suit`), 1 (flushes) and 2 (suit jokers) are built.
 
 ---
 
@@ -58,7 +58,7 @@ As of 2026-10-24, `main` at `fdac48e`. Nothing is built.
 | --- | --- |
 | Phase 0 — `BuffoonCard::is_suit` | **Complete** |
 | Phase 1 — flushes count Wild cards (sizing and scoring cards) | **Complete** |
-| Phase 2 — the suit jokers, Blackboard and Ancient Joker call `is_suit` | Planned |
+| Phase 2 — the suit jokers, Blackboard and Ancient Joker call `is_suit` | **Complete** |
 | Phase 3 — `blind_target` is `f64` | Planned |
 | Phase 4 — golden fixtures 21 and 22 | Planned |
 | Phase 5 — docs, OKF, CHANGELOG | Planned |
@@ -180,10 +180,10 @@ pub fn count_largest_same_suit_with(&self, rules: HandRules) -> usize {
 
 ### Phase 2 — Suit jokers
 
-- [ ] **4.** `calculate_plus_mult_with` on the card; the pile passes `rules` (`src/types/buffoon_card.rs:160`, `src/types/buffoon_pile.rs:132`). Tests `suit_joker__wild_pays_every_suit_joker` (a scored `2S+WILD` pays Greedy, Lusty, Wrathful and Gluttonous), `suit_joker__stone_pays_none` (a scored Stone card no longer pays Wrathful), `suit_joker__smeared_pays_the_other_colour` (Greedy pays a Heart under Smeared).
-- [ ] **5.** Blackboard by `is_suit` (`src/types/board/scoring.rs:702`). Tests `blackboard__held_wild_counts`, `blackboard__held_stone_fails`, `blackboard__smeared_held_heart_fails` (Smeared merges Hearts with Diamonds, not with Spades), `blackboard__empty_hand_still_fires`.
-- [ ] **6.** Ancient Joker by `is_suit`; delete `suit_matches` (`:573`). Tests `ancient__wild_counts`, `ancient__stone_does_not`. The existing Ancient Joker tests pass unchanged.
-- [ ] **7.** The 20 golden traces unchanged.
+- [x] **4.** `calculate_plus_mult_with` on the card; the pile passes `rules` (`src/types/buffoon_card.rs:160`, `src/types/buffoon_pile.rs:132`). Tests `suit_joker__wild_pays_every_suit_joker` (a scored `2S+WILD` pays Greedy, Lusty, Wrathful and Gluttonous), `suit_joker__stone_pays_none` (a scored Stone card no longer pays Wrathful), `suit_joker__smeared_pays_the_other_colour` (Greedy pays a Heart under Smeared).
+- [x] **5.** Blackboard by `is_suit` (`src/types/board/scoring.rs:702`). Tests `blackboard__held_wild_counts`, `blackboard__held_stone_fails`, `blackboard__smeared_held_heart_fails` (Smeared merges Hearts with Diamonds, not with Spades), `blackboard__empty_hand_still_fires`.
+- [x] **6.** Ancient Joker by `is_suit`; delete `suit_matches` (`:573`). Tests `ancient__wild_counts`, `ancient__stone_does_not`. The existing Ancient Joker tests pass unchanged.
+- [x] **7.** The 20 golden traces unchanged.
 
 ### Phase 3 — `blind_target`
 
@@ -279,3 +279,5 @@ Written as each phase lands. Design vs actual:
 1. **A private `colour` helper** (Phase 0). `is_suit` merges suits under Smeared through `colour(suit)` in `src/types/buffoon_card.rs`: `'R'` for Hearts and Diamonds, `'B'` for Spades and Clubs, `None` for any other suit character. So a tarot or joker card, whose "suit" is not one of the four, never matches under Smeared. `is_wild` is `const`; `is_suit` is not, because `Option::is_some_and` is not `const`. 6 unit tests, 2 doc tests; 688 lib tests.
 2. **The flush suit: natural cards decide first** (Phase 1). `flush_mask` tries the printed suits of the natural (not Stone, not Wild) cards in card order, then the suits of a private `flush_suits(rules)` (`S H D C`, or `S H` for black and red under Smeared). The first suit whose group reaches `flush_len` is the flush. So a Wild card's printed suit never picks the flush: `QS 5S+W 7S+W 9D+W AH` under Four Fingers is Spades because `QS` comes first, and `AH 5S+W 7S+W 9D+W QS` is Hearts. This answers Open question 1 with card order, as recommended. The Open question's own example (`AH 2S 3S 4D 9S`) is a Straight Flush under Four Fingers, so the test uses ranks with no straight.
 3. **`count_largest_same_suit` no longer calls cardpack** (Phase 1). It is `count_largest_same_suit_with(HandRules::default())`, and both count with a private `count_suit`. `is_suit` drops Stone cards, so neither needs `detectable()`. It had no caller outside `has_flush_with`. 10 unit tests (one, `flush__stone_still_counts_for_nothing`, passed before the change: it guards the Stone rule), 2 doc tests; 698 lib tests. The 20 golden traces did not change. `score --board "AH KH 9H 4H 2S+WILD"` is now `Flush 71 × 4 = 284`.
+4. **The Phase 2 tests are board tests** (Phase 2). They live in `src/types/board.rs`, next to the Blackboard and Ancient Joker tests, so they run the whole path: `builtin_joker_op` → `BuffoonPile::calculate_plus_with` → `BuffoonCard::calculate_plus_mult_with`. A test helper `wild_at` puts The Lovers on one card. Two tests passed before the change and are guards: `blackboard__smeared_held_heart_fails` and `blackboard__empty_hand_still_fires`. The seven that failed gave the EPIC's wrong numbers (82 × 8, 7 × 4, 15 × 3 for a held Stone card, …). 9 tests, 1 doc test; 707 lib tests. The 20 golden traces did not change. `score --board` gives `AS AD KS+STONE / / WRATHFULJOKER` → `Pair 82 × 5 = 410` and `AS AD / QH+WILD JS / BLACKBOARD` → `Pair 32 × 6 = 192`.
+5. **`HandRules` docs** (Phase 2). The struct and its `smeared` field said Smeared works "for flushes"; they now say every suit check.

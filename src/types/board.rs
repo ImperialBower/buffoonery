@@ -4377,6 +4377,125 @@ mod funky__types__board__buffoon_board_tests {
         assert_eq!(board.score(), Score::new(81, 40.5));
     }
 
+    /// Makes the card at `position` a Wild card (The Lovers).
+    fn wild_at(pile: &mut BuffoonPile, position: usize) {
+        let wild = pile
+            .get(position)
+            .copied()
+            .unwrap()
+            .enhance(tarot_card::LOVERS);
+        pile.remove(position);
+        pile.insert(position, wild);
+    }
+
+    #[test]
+    fn suit_joker__wild_pays_every_suit_joker() {
+        // A lone 2: High Card 5/1 + its 2 chips = 7/1. Wild, it is every suit,
+        // so each of the four suit jokers pays +3: 1 + 12 = 13.
+        let mut board = board_playing("2S");
+        wild_at(&mut board.played, 0);
+        board.push_joker(card::GREEDY_JOKER);
+        board.push_joker(card::LUSTY_JOKER);
+        board.push_joker(card::WRATHFUL_JOKER);
+        board.push_joker(card::GLUTTONOUS_JOKER);
+        assert_eq!(board.score(), Score::new(7, 13.0));
+    }
+
+    #[test]
+    fn suit_joker__stone_pays_none() {
+        // Pair of Aces 10/2 + 11 + 11, and the Stone card's 50 -> 82. Only the
+        // Ace of Spades pays Wrathful: the Stone card (a Spade underneath) has
+        // no suit. 2 + 3 = 5.
+        let mut board = board_playing("AS AD");
+        board.played.push(basic::STONE_CARD);
+        board.push_joker(card::WRATHFUL_JOKER);
+        assert_eq!(board.score(), Score::new(82, 5.0));
+    }
+
+    #[test]
+    fn suit_joker__smeared_pays_the_other_colour() {
+        // High Card 5/1 + the Ace's 11 = 16/1. Greedy pays Diamonds; under
+        // Smeared a Heart is a Diamond, so +3.
+        let mut board = board_playing("AH");
+        board.push_joker(card::GREEDY_JOKER);
+        assert_eq!(board.score(), Score::new(16, 1.0), "no Smeared, no Diamond");
+
+        board.push_joker(card::SMEARED_JOKER);
+        assert_eq!(board.score(), Score::new(16, 4.0));
+    }
+
+    #[test]
+    fn blackboard__held_wild_counts() {
+        let mut board = board_playing("2S 5D 8C TS KH"); // 15/1, as above
+        board.push_joker(card::BLACKBOARD);
+        board.in_hand = bcards!("KS QH");
+        assert_eq!(board.score(), Score::new(15, 1.0), "a plain Heart fails");
+
+        wild_at(&mut board.in_hand, 1);
+        assert_eq!(
+            board.score(),
+            Score::new(15, 3.0),
+            "a Wild Heart is a Spade too"
+        );
+    }
+
+    #[test]
+    fn blackboard__held_stone_fails() {
+        // A Stone card is a Spade underneath, but it has no suit.
+        let mut board = board_playing("2S 5D 8C TS KH");
+        board.push_joker(card::BLACKBOARD);
+        board.in_hand = BuffoonPile::from(vec![basic::KING_SPADES, basic::STONE_CARD]);
+        assert_eq!(board.score(), Score::new(15, 1.0));
+    }
+
+    #[test]
+    fn blackboard__smeared_held_heart_fails() {
+        // Smeared merges Hearts with Diamonds and Spades with Clubs. A Heart
+        // is still not black.
+        let mut board = board_playing("2S 5D 8C TS KH");
+        board.push_joker(card::BLACKBOARD);
+        board.push_joker(card::SMEARED_JOKER);
+        board.in_hand = bcards!("KS QH");
+        assert_eq!(board.score(), Score::new(15, 1.0));
+
+        board.in_hand = bcards!("KS QC");
+        assert_eq!(board.score(), Score::new(15, 3.0));
+    }
+
+    #[test]
+    fn blackboard__empty_hand_still_fires() {
+        let mut board = board_playing("2S 5D 8C TS KH");
+        board.push_joker(card::BLACKBOARD);
+        board.push_joker(card::SMEARED_JOKER);
+        board.in_hand = BuffoonPile::default();
+        assert_eq!(board.score(), Score::new(15, 3.0));
+    }
+
+    #[test]
+    fn ancient__wild_counts() {
+        // As above, three Hearts are ×1.5³. The Ten of Spades, Wild, is a
+        // fourth Heart: 8 × 1.5⁴ = 40.5. Still a Straight, still 81 chips.
+        let mut board = board_playing("AH KH QH JD TS");
+        board.push_joker(card::JOKER);
+        board.push_joker(card::ANCIENT_JOKER);
+        board.ancient_suit = Some('H');
+        wild_at(&mut board.played, 4);
+        assert_eq!(board.score(), Score::new(81, 40.5));
+    }
+
+    #[test]
+    fn ancient__stone_does_not() {
+        // High Card 5/1 + the Ace's 11, and the Stone card's 50 -> 66. Joker
+        // +4 -> mult 5. The ancient suit is Spades; the Stone card is a Spade
+        // underneath, but has no suit, so Ancient Joker stays ×1.
+        let mut board = board_playing("AH KH QH JD");
+        board.played.push(basic::STONE_CARD);
+        board.push_joker(card::JOKER);
+        board.push_joker(card::ANCIENT_JOKER);
+        board.ancient_suit = Some('S');
+        assert_eq!(board.score(), Score::new(66, 5.0));
+    }
+
     #[test]
     fn on_round_end_with_rng__the_ancient_suit_never_repeats_back_to_back() {
         // "suit changes at end of round" — the new suit is drawn from the three

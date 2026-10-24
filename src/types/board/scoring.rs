@@ -565,22 +565,6 @@ impl BuffoonBoard {
         rules
     }
 
-    /// Whether a card of suit `card_suit` counts as the `target` suit.
-    ///
-    /// Exact, except under **Smeared Joker**, which makes Hearts ≡ Diamonds and
-    /// Spades ≡ Clubs — the same merge it already applies to flush sizing, so
-    /// Smeared widens what Ancient Joker pays for exactly as it widens a flush.
-    fn suit_matches(card_suit: char, target: char, rules: HandRules) -> bool {
-        if card_suit == target {
-            return true;
-        }
-        rules.smeared
-            && matches!(
-                (card_suit, target),
-                ('H', 'D') | ('D', 'H') | ('S', 'C') | ('C', 'S')
-            )
-    }
-
     /// Whether `card` counts as a face card for the face-reading jokers. Kings,
     /// Queens and Jacks always do; **Pareidolia** makes *every* card a face.
     pub(super) fn is_face_card(&self, card: &BuffoonCard) -> bool {
@@ -703,9 +687,11 @@ impl BuffoonBoard {
                 if self
                     .in_hand
                     .iter()
-                    .all(|card| suits.contains(&card.suit.index)) =>
+                    .all(|card| suits.iter().any(|&suit| card.is_suit(suit, rules))) =>
             {
-                // Blackboard: vacuously true (×n) when the hand is empty.
+                // Blackboard: vacuously true (×n) when the hand is empty. A
+                // held Wild card passes; a held Stone card has no suit and
+                // fails.
                 n as f64
             }
             // Card Sharp: ×n if this hand type has already been played this
@@ -732,7 +718,7 @@ impl BuffoonBoard {
                 let matches = self.ancient_suit.map_or(0, |suit| {
                     self.scored_cards()
                         .iter()
-                        .filter(|card| Self::suit_matches(card.suit.index, suit, rules))
+                        .filter(|card| card.is_suit(suit, rules))
                         .count()
                 });
                 let per = tenths as f64 / 10.0;

@@ -159,9 +159,33 @@ impl BuffoonCard {
 
     #[must_use]
     pub fn calculate_plus_mult(&self, enhancer: &Self) -> usize {
+        self.calculate_plus_mult_with(enhancer, HandRules::default())
+    }
+
+    /// The `+mult` this card earns from `enhancer`'s effect under `rules`.
+    ///
+    /// A suit joker (`MPip::MultPlusOnSuit`) pays when the card
+    /// [`is_suit`](Self::is_suit) its suit: a Wild card pays every suit joker,
+    /// a Stone card pays none, and under Smeared Joker a Heart pays the
+    /// Diamond joker.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use buffoonery::decks::joker::card::GREEDY_JOKER;
+    /// use buffoonery::prelude::{BuffoonCard, HandRules};
+    /// use std::str::FromStr;
+    ///
+    /// let heart = BuffoonCard::from_str("AH").unwrap();
+    /// let smeared = HandRules { smeared: true, ..HandRules::default() };
+    /// assert_eq!(heart.calculate_plus_mult_with(&GREEDY_JOKER, HandRules::default()), 0);
+    /// assert_eq!(heart.calculate_plus_mult_with(&GREEDY_JOKER, smeared), 3);
+    /// ```
+    #[must_use]
+    pub fn calculate_plus_mult_with(&self, enhancer: &Self, rules: HandRules) -> usize {
         match enhancer.enhancement {
             MPip::MultPlus(value) => value,
-            MPip::MultPlusOnSuit(value, suit) if self.suit.index == suit => value,
+            MPip::MultPlusOnSuit(value, suit) if self.is_suit(suit, rules) => value,
             MPip::MultPlusOn5Ranks(value, ranks) if ranks.contains(&self.rank.index) => value,
             _ => 0,
         }
