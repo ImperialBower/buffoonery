@@ -8,7 +8,7 @@ Oct 24, 2026 · @Christoph · *Written against `main` at `fdac48e`. Numbered in 
 - **Why:** today a Wild card is only its printed suit (`MPip::is_wild` is never called), so `AH KH 9H 4H 2S+WILD` is not a Flush. A Stone card's hidden suit pays Wrathful Joker and passes Blackboard. Smeared Joker widens a flush but not Greedy Joker. The calculator gives wrong numbers for all of these.
 - **Shape:** `BuffoonCard::is_suit(suit, rules)` in the engine, named after Balatro's `Card:is_suit`. Flush sizing and the flush's scoring cards count Wild cards; the three suit-reading joker effects call `is_suit`. `blind_target: usize` becomes `f64`.
 - **Proves it:** golden fixtures 21 (a Wild flush) and 22 (Stone and Wild against suit jokers) score to hand-checked totals; the 20 existing traces do not change.
-- **Status:** In progress on `epic10-suits`. Phase 0 (`is_suit`) is built.
+- **Status:** In progress on `epic10-suits`. Phases 0 (`is_suit`) and 1 (flushes) are built.
 
 ---
 
@@ -57,7 +57,7 @@ As of 2026-10-24, `main` at `fdac48e`. Nothing is built.
 | Component | Status |
 | --- | --- |
 | Phase 0 — `BuffoonCard::is_suit` | **Complete** |
-| Phase 1 — flushes count Wild cards (sizing and scoring cards) | Planned |
+| Phase 1 — flushes count Wild cards (sizing and scoring cards) | **Complete** |
 | Phase 2 — the suit jokers, Blackboard and Ancient Joker call `is_suit` | Planned |
 | Phase 3 — `blind_target` is `f64` | Planned |
 | Phase 4 — golden fixtures 21 and 22 | Planned |
@@ -174,9 +174,9 @@ pub fn count_largest_same_suit_with(&self, rules: HandRules) -> usize {
 
 ### Phase 1 — Flushes
 
-- [ ] **1.** `count_largest_same_suit_with` and `count_largest_same_suit` count by `is_suit` (`src/types/buffoon_pile.rs:356`, `:367`). Tests `flush__four_hearts_and_a_wild_is_a_flush` (`AH KH 9H 4H 2S+WILD`), `flush__four_fingers_three_and_a_wild`, `flush__smeared_wild_joins_either_colour`, `flush__five_wilds_is_a_flush`, `flush__wild_pair_of_kings_is_flush_five` (four `KH` and a `KS+WILD` is Flush Five), `flush__stone_still_counts_for_nothing`, `flush__no_flush_without_enough` (`AH KH 9S 4C 2S+WILD` is not).
-- [ ] **2.** `flush_mask` by `is_suit` (`:289`). Tests `flush_mask__wild_card_scores_in_the_flush` (the `2S+WILD` is a scoring card), `flush_mask__first_suit_in_card_order_wins`, `flush_mask__off_suit_card_does_not_score` (Four Fingers: `AH KH 9H 2S+WILD 5C`, the `5C` does not score).
-- [ ] **3.** The 20 golden traces unchanged: `cargo test --test golden` green with no `BLESS`.
+- [x] **1.** `count_largest_same_suit_with` and `count_largest_same_suit` count by `is_suit` (`src/types/buffoon_pile.rs:356`, `:367`). Tests `flush__four_hearts_and_a_wild_is_a_flush` (`AH KH 9H 4H 2S+WILD`), `flush__four_fingers_three_and_a_wild`, `flush__smeared_wild_joins_either_colour`, `flush__five_wilds_is_a_flush`, `flush__wild_pair_of_kings_is_flush_five` (four `KH` and a `KS+WILD` is Flush Five), `flush__stone_still_counts_for_nothing`, `flush__no_flush_without_enough` (`AH KH 9S 4C 2S+WILD` is not).
+- [x] **2.** `flush_mask` by `is_suit` (`:289`). Tests `flush_mask__wild_card_scores_in_the_flush` (the `2S+WILD` is a scoring card), `flush_mask__first_suit_in_card_order_wins`, `flush_mask__off_suit_card_does_not_score` (Four Fingers: `AH KH 9H 2S+WILD 5C`, the `5C` does not score).
+- [x] **3.** The 20 golden traces unchanged: `cargo test --test golden` green with no `BLESS`.
 
 ### Phase 2 — Suit jokers
 
@@ -277,3 +277,5 @@ Exit criteria:
 Written as each phase lands. Design vs actual:
 
 1. **A private `colour` helper** (Phase 0). `is_suit` merges suits under Smeared through `colour(suit)` in `src/types/buffoon_card.rs`: `'R'` for Hearts and Diamonds, `'B'` for Spades and Clubs, `None` for any other suit character. So a tarot or joker card, whose "suit" is not one of the four, never matches under Smeared. `is_wild` is `const`; `is_suit` is not, because `Option::is_some_and` is not `const`. 6 unit tests, 2 doc tests; 688 lib tests.
+2. **The flush suit: natural cards decide first** (Phase 1). `flush_mask` tries the printed suits of the natural (not Stone, not Wild) cards in card order, then the suits of a private `flush_suits(rules)` (`S H D C`, or `S H` for black and red under Smeared). The first suit whose group reaches `flush_len` is the flush. So a Wild card's printed suit never picks the flush: `QS 5S+W 7S+W 9D+W AH` under Four Fingers is Spades because `QS` comes first, and `AH 5S+W 7S+W 9D+W QS` is Hearts. This answers Open question 1 with card order, as recommended. The Open question's own example (`AH 2S 3S 4D 9S`) is a Straight Flush under Four Fingers, so the test uses ranks with no straight.
+3. **`count_largest_same_suit` no longer calls cardpack** (Phase 1). It is `count_largest_same_suit_with(HandRules::default())`, and both count with a private `count_suit`. `is_suit` drops Stone cards, so neither needs `detectable()`. It had no caller outside `has_flush_with`. 10 unit tests (one, `flush__stone_still_counts_for_nothing`, passed before the change: it guards the Stone rule), 2 doc tests; 698 lib tests. The 20 golden traces did not change. `score --board "AH KH 9H 4H 2S+WILD"` is now `Flush 71 × 4 = 284`.
