@@ -17,5 +17,6 @@ okf_version: '0.1'
 * [EPIC-05 — Joker Calculator](references/epic-05-joker-calculator.md) - complete, closed 2026-10-20 (`docs/EPIC-05_Joker_Calculator.md`); pointer only.
 * [EPIC-07 — Web and command line](references/epic-07-web-and-command-line.md) - complete, closed 2026-10-22; the CLI and the live page (`docs/EPIC-07_Web_And_Command_Line.md`); pointer only.
 * [EPIC-08 — Joker shorthand](references/epic-08-joker-shorthand.md) - complete, closed 2026-10-22: `BARON+FOIL`, `LUCKYCATx3.25` tokens (`docs/EPIC-08_Joker_Shorthand.md`); pointer only.
+* [EPIC-10 — Every suit at once](references/epic-10-suit-correctness.md) - planned 2026-10-24: Wild, Stone and Smeared through one `is_suit` rule; `blind_target` as `f64` (`docs/EPIC-10_Suit_Correctness.md`); pointer only.
 * [EPIC-09 — A whole board on one line](references/epic-09-board-line.md) - complete, closed 2026-10-24: `KS KH 2C / KD KC / BARON+FOIL / FLUSH=2` (`docs/EPIC-09_Board_Line.md`); pointer only.
 * [The engine](architecture/engine.md) - what buffoonery models, where it lives, and where it came from.
