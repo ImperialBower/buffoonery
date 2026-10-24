@@ -1,0 +1,17 @@
+# EPIC-10: a Stone card is no suit; a Wild card is every suit.
+# Pair 10/2 + 11 + 11, and the Stone card's 50 = 82 chips. Wrathful pays +3
+# for the AS only: the Stone card is a Spade underneath, but has no suit.
+# Blackboard: the held Wild QH counts as a Spade, and JS is one, so x3.
+# Mult (2 + 3) x 3 = 15. 82 x 15 = 1,230.
+# Before EPIC-10: the Stone card paid Wrathful (mult 8) and the QH failed
+# Blackboard, 82 x 8 = 656.
+played:
+  - AS
+  - AD
+  - card: KS
+    enhancement: !Stone 50
+held:
+  - card: QH
+    enhancement: !Wild Suit
+  - JS
+jokers: [WRATHFULJOKER, BLACKBOARD]

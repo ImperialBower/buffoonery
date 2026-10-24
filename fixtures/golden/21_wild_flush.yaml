@@ -1,0 +1,14 @@
+# EPIC-10: a Wild card is every suit. Four Hearts and a Wild Two of Spades
+# make a Flush, and the Wild card scores in it.
+# Flush 35/4 + 11 + 10 + 9 + 4 + 2 = 71 chips. Droll +10 (a Flush), Lusty
+# +3 for each of five Hearts (the Wild card too) = +15, Greedy +3 for the
+# Wild card as a Diamond. Mult 4 + 10 + 15 + 3 = 32. 71 x 32 = 2,272.
+# Before EPIC-10: a High Card, only the AH scored, 16 x 4 = 64.
+played:
+  - AH
+  - KH
+  - 9H
+  - 4H
+  - card: 2S
+    enhancement: !Wild Suit
+jokers: [DROLLJOKER, LUSTYJOKER, GREEDYJOKER]
