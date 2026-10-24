@@ -8,7 +8,7 @@ Oct 24, 2026 · @Christoph · *Written against `main` at `fdac48e`. Numbered in 
 - **Why:** today a Wild card is only its printed suit (`MPip::is_wild` is never called), so `AH KH 9H 4H 2S+WILD` is not a Flush. A Stone card's hidden suit pays Wrathful Joker and passes Blackboard. Smeared Joker widens a flush but not Greedy Joker. The calculator gives wrong numbers for all of these.
 - **Shape:** `BuffoonCard::is_suit(suit, rules)` in the engine, named after Balatro's `Card:is_suit`. Flush sizing and the flush's scoring cards count Wild cards; the three suit-reading joker effects call `is_suit`. `blind_target: usize` becomes `f64`.
 - **Proves it:** golden fixtures 21 (a Wild flush) and 22 (Stone and Wild against suit jokers) score to hand-checked totals; the 20 existing traces do not change.
-- **Status:** Planned. No code yet.
+- **Status:** In progress on `epic10-suits`. Phase 0 (`is_suit`) is built.
 
 ---
 
@@ -56,7 +56,7 @@ As of 2026-10-24, `main` at `fdac48e`. Nothing is built.
 
 | Component | Status |
 | --- | --- |
-| Phase 0 — `BuffoonCard::is_suit` | Planned |
+| Phase 0 — `BuffoonCard::is_suit` | **Complete** |
 | Phase 1 — flushes count Wild cards (sizing and scoring cards) | Planned |
 | Phase 2 — the suit jokers, Blackboard and Ancient Joker call `is_suit` | Planned |
 | Phase 3 — `blind_target` is `f64` | Planned |
@@ -169,8 +169,8 @@ pub fn count_largest_same_suit_with(&self, rules: HandRules) -> usize {
 
 ### Phase 0 — `is_suit`
 
-- [ ] **0a.** `BuffoonCard::is_wild` and `BuffoonCard::is_suit` (`src/types/buffoon_card.rs:195`), with doc tests. Tests `is_suit__printed_suit`, `is_suit__wild_is_every_suit`, `is_suit__stone_is_no_suit` (a Stone card printed Spades is not a Spade), `is_suit__smeared_merges_colours`, `is_suit__smeared_wild_is_still_every_suit`, `is_wild__only_suit_wild` (`Wild(PipType::Rank)` is not).
-- [ ] **0b.** `cargo test --workspace` and clippy green. No caller yet, so no trace moves.
+- [x] **0a.** `BuffoonCard::is_wild` and `BuffoonCard::is_suit` (`src/types/buffoon_card.rs:195`), with doc tests. Tests `is_suit__printed_suit`, `is_suit__wild_is_every_suit`, `is_suit__stone_is_no_suit` (a Stone card printed Spades is not a Spade), `is_suit__smeared_merges_colours`, `is_suit__smeared_wild_is_still_every_suit`, `is_wild__only_suit_wild` (`Wild(PipType::Rank)` is not).
+- [x] **0b.** `cargo test --workspace` and clippy green. No caller yet, so no trace moves.
 
 ### Phase 1 — Flushes
 
@@ -271,3 +271,9 @@ Exit criteria:
 3. The 20 existing golden traces are byte-for-byte unchanged; fixtures 21 and 22 match their hand-checked totals everywhere.
 4. `blind_target` holds 5 × 10⁹ on any target.
 5. `make ayce` is green.
+
+## Implementation notes
+
+Written as each phase lands. Design vs actual:
+
+1. **A private `colour` helper** (Phase 0). `is_suit` merges suits under Smeared through `colour(suit)` in `src/types/buffoon_card.rs`: `'R'` for Hearts and Diamonds, `'B'` for Spades and Clubs, `None` for any other suit character. So a tarot or joker card, whose "suit" is not one of the four, never matches under Smeared. `is_wild` is `const`; `is_suit` is not, because `Option::is_some_and` is not `const`. 6 unit tests, 2 doc tests; 688 lib tests.

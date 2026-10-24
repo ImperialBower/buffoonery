@@ -1,5 +1,6 @@
 use crate::decks::{basic, tarot};
 use crate::prelude::Score;
+use crate::types::buffoon_pile::HandRules;
 use crate::types::edition::Edition;
 use crate::types::mpip::MPip;
 use cardpack::prelude::{BasicCard, CardError, FrenchSuit, Pip, PipType};
@@ -194,6 +195,75 @@ impl BuffoonCard {
     #[must_use]
     pub const fn is_stone(&self) -> bool {
         matches!(self.enhancement, MPip::Stone(_))
+    }
+
+    /// Whether this is a **Wild card**: the Lovers enhancement,
+    /// `MPip::Wild(PipType::Suit)`, which counts as every suit.
+    ///
+    /// Only a suit wildcard counts. `MPip::is_wild` is wider: it matches every
+    /// `Wild(_)`, a rank wildcard too.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use buffoonery::decks::tarot::card::LOVERS;
+    /// use buffoonery::prelude::BuffoonCard;
+    /// use std::str::FromStr;
+    ///
+    /// let card = BuffoonCard::from_str("TC").unwrap();
+    /// assert!(!card.is_wild());
+    /// assert!(card.enhance(LOVERS).is_wild());
+    /// ```
+    #[must_use]
+    pub const fn is_wild(&self) -> bool {
+        matches!(self.enhancement, MPip::Wild(PipType::Suit))
+    }
+
+    /// Whether this card counts as `suit` (`'S'`, `'H'`, `'D'` or `'C'`)
+    /// under `rules`, as Balatro's `Card:is_suit` decides.
+    ///
+    /// The checks run in this order:
+    ///
+    /// 1. A Stone card is no suit. Its printed suit is masked (see
+    ///    [`is_stone`](Self::is_stone)).
+    /// 2. A Wild card is every suit (see [`is_wild`](Self::is_wild)).
+    /// 3. The printed suit matches.
+    /// 4. Under Smeared Joker (`rules.smeared`), Hearts and Diamonds are one
+    ///    suit, and Spades and Clubs are one suit.
+    ///
+    /// Every suit check in scoring calls this, so a rule fixed here is fixed
+    /// for flushes, the suit jokers, Blackboard and Ancient Joker at once.
+    ///
+    /// Playing cards are never debuffed yet. When the suit-debuff bosses come:
+    /// a debuffed Wild card is its printed suit in a flush check, and no suit
+    /// elsewhere.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use buffoonery::decks::tarot::card::LOVERS;
+    /// use buffoonery::prelude::{BuffoonCard, HandRules};
+    /// use std::str::FromStr;
+    ///
+    /// let rules = HandRules::default();
+    /// let heart = BuffoonCard::from_str("AH").unwrap();
+    /// assert!(heart.is_suit('H', rules));
+    /// assert!(!heart.is_suit('D', rules));
+    ///
+    /// let smeared = HandRules { smeared: true, ..rules };
+    /// assert!(heart.is_suit('D', smeared));
+    ///
+    /// assert!(heart.enhance(LOVERS).is_suit('S', rules));
+    /// ```
+    #[must_use]
+    pub fn is_suit(&self, suit: char, rules: HandRules) -> bool {
+        if self.is_stone() {
+            return false;
+        }
+        if self.is_wild() || self.suit.index == suit {
+            return true;
+        }
+        rules.smeared && colour(self.suit.index).is_some_and(|own| colour(suit) == Some(own))
     }
 
     /// The chips this card contributes when scored.
@@ -391,6 +461,17 @@ impl PartialOrd for BuffoonCard {
     }
 }
 
+/// The colour Smeared Joker merges a suit into: `Some('R')` for Hearts and
+/// Diamonds, `Some('B')` for Spades and Clubs, `None` for anything else (a
+/// tarot or joker "suit"), so two unknown suits never match.
+const fn colour(suit: char) -> Option<char> {
+    match suit {
+        'H' | 'D' => Some('R'),
+        'S' | 'C' => Some('B'),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod funky__types__buffoon_card_tests {
@@ -466,6 +547,80 @@ mod funky__types__buffoon_card_tests {
 
         assert_eq!(ks.get_chips(), 36);
         assert_eq!(DEATH.get_chips(), 10);
+    }
+
+    const SUITS: [char; 4] = ['S', 'H', 'D', 'C'];
+
+    fn smeared() -> HandRules {
+        HandRules {
+            smeared: true,
+            ..HandRules::default()
+        }
+    }
+
+    #[test]
+    fn is_suit__printed_suit() {
+        let rules = HandRules::default();
+
+        assert!(bcard!(AH).is_suit('H', rules));
+        assert!(!bcard!(AH).is_suit('D', rules));
+        assert!(!bcard!(AH).is_suit('S', rules));
+        assert!(!bcard!(AH).is_suit('C', rules));
+        assert!(bcard!(KS).is_suit('S', rules));
+        assert!(!bcard!(KS).is_suit('C', rules));
+    }
+
+    #[test]
+    fn is_suit__wild_is_every_suit() {
+        let wild = TEN_CLUBS.enhance(LOVERS);
+
+        for suit in SUITS {
+            assert!(wild.is_suit(suit, HandRules::default()), "{suit}");
+        }
+    }
+
+    #[test]
+    fn is_suit__stone_is_no_suit() {
+        // Printed a Spade, but a Stone card has no suit to read.
+        let stone = bcard!(AS).enhance(TOWER);
+
+        for suit in SUITS {
+            assert!(!stone.is_suit(suit, HandRules::default()), "{suit}");
+            assert!(!stone.is_suit(suit, smeared()), "smeared {suit}");
+        }
+    }
+
+    #[test]
+    fn is_suit__smeared_merges_colours() {
+        assert!(bcard!(AH).is_suit('H', smeared()));
+        assert!(bcard!(AH).is_suit('D', smeared()));
+        assert!(!bcard!(AH).is_suit('S', smeared()));
+        assert!(!bcard!(AH).is_suit('C', smeared()));
+        assert!(bcard!(KC).is_suit('S', smeared()));
+        assert!(bcard!(KC).is_suit('C', smeared()));
+        assert!(!bcard!(KC).is_suit('H', smeared()));
+    }
+
+    #[test]
+    fn is_suit__smeared_wild_is_still_every_suit() {
+        let wild = bcard!(2S).enhance(LOVERS);
+
+        for suit in SUITS {
+            assert!(wild.is_suit(suit, smeared()), "{suit}");
+        }
+    }
+
+    #[test]
+    fn is_wild__only_suit_wild() {
+        assert!(TEN_CLUBS.enhance(LOVERS).is_wild());
+        assert!(!TEN_CLUBS.is_wild());
+        assert!(!TEN_CLUBS.enhance(TOWER).is_wild());
+
+        let rank_wild = BuffoonCard {
+            enhancement: MPip::Wild(PipType::Rank),
+            ..TEN_CLUBS
+        };
+        assert!(!rank_wild.is_wild());
     }
 
     #[test]
